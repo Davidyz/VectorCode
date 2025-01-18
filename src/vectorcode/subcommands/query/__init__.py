@@ -110,7 +110,6 @@ def query(configs: Config) -> int:
         aggregated_results = FlagEmbeddingReranker(
             configs, query_chunks, configs.reranker
         ).rerank(results)
-
     for path in aggregated_results:
         try:
             with open(path) as fin:
