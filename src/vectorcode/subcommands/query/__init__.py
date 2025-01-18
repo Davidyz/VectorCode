@@ -1,11 +1,7 @@
 import json
 import os
-from collections import defaultdict
-from enum import Enum
-from typing import Callable, DefaultDict
 
-import numpy
-from chromadb.api.types import IncludeEnum, QueryResult
+from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
 
 from vectorcode.chunking import StringChunker
@@ -17,34 +13,7 @@ from vectorcode.common import (
     verify_ef,
 )
 
-
-class TopKStrategy(Enum):
-    # TODO: make this configurable
-    a_mean: Callable[..., float] = lambda x: float(numpy.mean(x))
-    g_mean: Callable[..., float] = lambda x: float(numpy.exp(numpy.log(x).mean()))
-    min: Callable[..., float] = lambda x: min(x)
-
-
-def top_k_results(results: QueryResult, configs: Config) -> list[str]:
-    assert results["metadatas"] is not None
-    assert results["distances"] is not None
-    documents: DefaultDict[str, list[float]] = defaultdict(list)
-    for query_chunk_idx in range(len(results["ids"])):
-        chunk_metas = results["metadatas"][query_chunk_idx]
-        chunk_distances = results["distances"][query_chunk_idx]
-        paths = [str(meta["path"]) for meta in chunk_metas]
-        assert len(paths) == len(chunk_distances)
-        for distance, path in zip(chunk_distances, paths):
-            documents[path].append(distance)
-
-    doc_to_dist_arr = {}
-    for key in documents.keys():
-        doc_to_dist_arr[key] = numpy.array(documents[key])
-    doc_list = sorted(
-        doc_to_dist_arr.keys(),
-        key=lambda x: TopKStrategy.min(doc_to_dist_arr[x]),
-    )
-    return doc_list[: configs.n_result]
+from .reranker import ArithmeticMeanReranker
 
 
 def query(configs: Config) -> int:
@@ -95,7 +64,7 @@ def query(configs: Config) -> int:
         return 0
 
     structured_result = []
-    aggregated_results = top_k_results(results, configs)
+    aggregated_results = ArithmeticMeanReranker(configs).rerank(results)
     for path in aggregated_results:
         with open(path) as fin:
             document = fin.read()
