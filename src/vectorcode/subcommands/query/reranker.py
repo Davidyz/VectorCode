@@ -4,7 +4,6 @@ from typing import Any, DefaultDict
 
 import numpy
 from chromadb.api.types import QueryResult
-from numpy.typing import NDArray
 
 from vectorcode.cli_utils import Config
 
@@ -58,14 +57,16 @@ class FlagEmbeddingReranker(RerankerBase):
     def rerank(self, results: QueryResult) -> list[str]:
         assert results["metadatas"] is not None
         assert results["documents"] is not None
-        documents: dict[str, NDArray] = {}
+        documents: DefaultDict[str, list[float]] = defaultdict(list)
         for query_chunk_idx in range(len(self.query_chunks)):
             chunk_metas = results["metadatas"][query_chunk_idx]
             chunk_docs = results["documents"][query_chunk_idx]
-            documents[chunk_metas["path"]] = self.model.compute_score(
+            similarities = self.model.compute_score(
                 [[self.query_chunks[query_chunk_idx], doc] for doc in chunk_docs],
                 normalize=True,
             )
+            for i, meta in enumerate(chunk_metas):
+                documents[meta["path"]].append(similarities[i])
         return sorted(
             list(documents.keys()), key=lambda x: float(numpy.mean(documents[x]))
         )[: self.n_result]
