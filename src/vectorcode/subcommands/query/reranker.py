@@ -4,6 +4,7 @@ from typing import Any, DefaultDict
 
 import numpy
 from chromadb.api.types import QueryResult
+from numpy.typing import NDArray
 
 from vectorcode.cli_utils import Config
 
@@ -46,22 +47,25 @@ class FlagEmbeddingReranker(RerankerBase):
         self, configs: Config, chunks: list[str], model_name_or_path: str, **kwargs: Any
     ):
         super().__init__(configs)
-        from FlagEmbedding import FlagAutoModel
+        from FlagEmbedding import FlagAutoReranker
 
         self.original_chunks = chunks
-        self.model = FlagAutoModel.from_finetuned(
+        self.model = FlagAutoReranker.from_finetuned(
             model_name_or_path=model_name_or_path, **kwargs
         )
-        self.query_embeddings = self.model.encode(self.original_chunks)
+        self.query_chunks = chunks
 
     def rerank(self, results: QueryResult) -> list[str]:
         assert results["metadatas"] is not None
-        assert results["distances"] is not None
-        paths = set()
-        for metas in results["metadatas"]:
-            for meta in metas:
-                paths.add(meta.get("path"))
-        for query_chunk_idx in range(len(results["ids"])):
-            # TODO: implement a vectorised way to compute the similarities in batch.
-            # ref: https://github.com/FlagOpen/FlagEmbedding?tab=readme-ov-file#quick-start
-            pass
+        assert results["documents"] is not None
+        documents: dict[str, NDArray] = {}
+        for query_chunk_idx in range(len(self.query_chunks)):
+            chunk_metas = results["metadatas"][query_chunk_idx]
+            chunk_docs = results["documents"][query_chunk_idx]
+            documents[chunk_metas["path"]] = self.model.compute_score(
+                [[self.query_chunks[query_chunk_idx], doc] for doc in chunk_docs],
+                normalize=True,
+            )
+        return sorted(
+            list(documents.keys()), key=lambda x: float(numpy.mean(documents[x]))
+        )[: self.n_result]

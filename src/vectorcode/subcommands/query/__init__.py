@@ -56,7 +56,11 @@ def query(configs: Config) -> int:
         results = collection.query(
             query_texts=query_chunks,
             n_results=num_query,
-            include=[IncludeEnum.metadatas, IncludeEnum.distances],
+            include=[
+                IncludeEnum.metadatas,
+                IncludeEnum.distances,
+                IncludeEnum.documents,
+            ],
             where=filtered_files,
         )
     except IndexError:
@@ -64,6 +68,9 @@ def query(configs: Config) -> int:
         return 0
 
     structured_result = []
+    # FlagEmbeddingReranker(
+    #     configs, query_chunks, "BAAI/bge-reranker-v2-m3", use_fp16=True
+    # ).rerank(results)
     aggregated_results = ArithmeticMeanReranker(configs).rerank(results)
     for path in aggregated_results:
         with open(path) as fin:
