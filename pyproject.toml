@@ -13,13 +13,26 @@ dependencies = [
 ]
 requires-python = ">=3.11,<3.13"
 readme = "README.md"
-license = { text = "MIT" }
+
+[[project.authors]]
+name = "Davidyz"
+email = "hzjlyz@gmail.com"
+
+[project.license]
+text = "MIT"
 
 [project.optional-dependencies]
 intel = ['optimum[openvino]']
+dev = [
+    "ipython>=8.31.0",
+    "ruff>=0.9.1",
+    "viztracer>=1.0.0",
+    "pre-commit>=4.0.1",
+    "pytest>=8.3.4",
+]
 
 [project.scripts]
-vectorcode = 'vectorcode.main:main'
+vectorcode = "vectorcode.main:main"
 
 [build-system]
 requires = ["pdm-backend"]
@@ -31,12 +44,3 @@ distribution = true
 [tool.pdm.version]
 source = "file"
 path = "./src/vectorcode/__init__.py"
-
-[dependency-groups]
-dev = [
-    "ipython>=8.31.0",
-    "ruff>=0.9.1",
-    "viztracer>=1.0.0",
-    "pre-commit>=4.0.1",
-    "pytest>=8.3.4",
-]
