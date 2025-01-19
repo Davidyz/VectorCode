@@ -1,3 +1,4 @@
+import heapq
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Any, DefaultDict
@@ -17,7 +18,7 @@ class RerankerBase:
         raise NotImplementedError
 
 
-class ArithmeticMeanReranker(RerankerBase):
+class NaiveReranker(RerankerBase):
     def __init__(self, configs: Config, **kwargs: Any):
         super().__init__(configs)
 
@@ -34,11 +35,9 @@ class ArithmeticMeanReranker(RerankerBase):
             for distance, path in zip(chunk_distances, paths):
                 documents[path].append(distance)
 
-        docs = sorted(
-            [key for key in documents.keys()],
-            key=lambda x: float(numpy.mean(documents[x])),
+        return heapq.nsmallest(
+            self.n_result, documents.keys(), lambda x: float(numpy.mean(documents[x]))
         )
-        return docs[: self.n_result]
 
 
 class FlagEmbeddingReranker(RerankerBase):
@@ -67,6 +66,8 @@ class FlagEmbeddingReranker(RerankerBase):
             )
             for i, meta in enumerate(chunk_metas):
                 documents[meta["path"]].append(similarities[i])
-        return sorted(
-            list(documents.keys()), key=lambda x: float(numpy.mean(documents[x]))
-        )[: self.n_result]
+        return heapq.nlargest(
+            self.n_result,
+            documents.keys(),
+            key=lambda x: float(numpy.mean(documents[x])),
+        )

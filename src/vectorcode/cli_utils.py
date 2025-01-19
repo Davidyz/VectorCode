@@ -48,6 +48,7 @@ class Config:
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
     query_exclude: list[PathLike] = field(default_factory=list)
+    reranker: Optional[str] = None
 
     @classmethod
     def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -79,6 +80,7 @@ class Config:
                 "chunk_size": config_dict.get("chunk_size", -1),
                 "overlap_ratio": config_dict.get("overlap_ratio", 0.2),
                 "query_multiplier": config_dict.get("query_multiplier", -1),
+                "reranker": config_dict.get("reranker", None),
             }
         )
 
