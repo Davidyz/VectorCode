@@ -1,3 +1,4 @@
+import logging
 import os
 
 from vectorcode import __version__
@@ -22,6 +23,11 @@ def main():
             final_configs = cli_args
     else:
         final_configs = load_config_file().merge_from(cli_args)
+
+    if final_configs.pipe:
+        # NOTE: NNCF (intel GPU acceleration for sentence transformer) keeps showing logs.
+        # This disables logs below ERROR so that it doesn't hurt the `pipe` output.
+        logging.disable(logging.ERROR)
 
     return_val = 0
     match final_configs.action:
