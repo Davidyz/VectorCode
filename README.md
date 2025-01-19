@@ -368,8 +368,10 @@ To use the per-buffer async cache, you need to use the following API:
     `setup`;
   - `query_cb` (optional): `fun(bufnr: integer):string`, a function that will
     be used to construct the query message. You can use this function to
-    customise the message sent to the `vectorcode` CLI. This defaults to the
-    whole buffer (for now);
+    customise the message sent to the `vectorcode` CLI. There are sample 
+    implemetations in `./lua/vectorcode/utils.lua`. This defaults to
+    `require('vectorcode.utils').surrounding_lines_cb(-1)`, which fetches the
+    whole buffer;
   - `events` (optional): `string[]`, an array of `autocmd` events on which 
     the queries will be initialised. This defaults to 
     `{ "BufWritePost", "InsertEnter", "BufReadPost" }`;

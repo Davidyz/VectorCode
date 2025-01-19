@@ -97,7 +97,7 @@ end
 
 ---@param bufnr integer?
 ---@param opts VectorCodeConfig?
----@param query_cb (fun(buf_number: integer): string)?
+---@param query_cb VectorCodeQueryCallback?
 ---@param events string[]?
 ---@param debounce integer?
 function M.register_buffer(bufnr, opts, query_cb, events, debounce)
@@ -122,10 +122,7 @@ function M.register_buffer(bufnr, opts, query_cb, events, debounce)
     return
   end
   events = events or { "BufWritePost", "InsertEnter", "BufReadPost" }
-  query_cb = query_cb
-    or function(buf_number)
-      return table.concat(vim.api.nvim_buf_get_lines(buf_number, 0, -1, false), "\n")
-    end
+  query_cb = query_cb or require("vectorcode.utils").surrounding_lines_cb(-1)
   opts = vim.tbl_deep_extend("keep", opts or {}, vc_config.get_user_config())
   vim.schedule(function()
     ---@type VectorCodeCache
