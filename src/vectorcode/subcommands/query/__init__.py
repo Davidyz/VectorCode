@@ -1,6 +1,7 @@
 import json
 import os
 
+import sys
 from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
 
@@ -78,9 +79,15 @@ def query(configs: Config) -> int:
         ).rerank(results)
 
     for path in aggregated_results:
-        with open(path) as fin:
-            document = fin.read()
-        structured_result.append({"path": path, "document": document})
+        try:
+            with open(path) as fin:
+                document = fin.read()
+            structured_result.append({"path": path, "document": document})
+        except FileNotFoundError:
+            print(
+                f"{path} is no longer a valid file! Please re-run vectorcode vectorise to refresh the database.",
+                file=sys.stderr,
+            )
 
     if configs.pipe:
         print(json.dumps(structured_result))
