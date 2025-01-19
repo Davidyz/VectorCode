@@ -171,7 +171,8 @@ The following are the available options for the JSON configuration file:
   documents. A larger value of `query_multplier`
   guarantees the return of `n` documents, but with the risk of including too
   many less-relevant chunks that may affect the document selection. Default: 
-  `-1` (any negative value means selecting documents based on all indexed chunks).
+  `-1` (any negative value means selecting documents based on all indexed chunks);
+- `reranker`: `str`, experimental reranking support using [`FlagEmbedding`](https://github.com/FlagOpen/FlagEmbedding).
 
 For the convenience of deployment, environment variables in the
 configuration values will be automatically expanded so that you can override
