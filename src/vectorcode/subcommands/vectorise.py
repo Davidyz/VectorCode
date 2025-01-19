@@ -40,6 +40,7 @@ def vectorise(configs: Config) -> int:
         gitignore_spec = None
 
     stats = {"add": 0, "update": 0, "removed": 0}
+    collection_lock = Lock()
     stats_lock = Lock()
 
     def chunked_add(file_path):
@@ -52,22 +53,30 @@ def vectorise(configs: Config) -> int:
             return
 
         full_path_str = str(expand_path(str(file_path), True))
-        stats_lock.acquire()
-        if len(collection.get(where={"path": full_path_str})["ids"]):
-            collection.delete(where={"path": full_path_str})
-            stats["update"] += 1
+        with collection_lock:
+            num_existing_chunks = len(
+                collection.get(
+                    where={"path": full_path_str}, include=[IncludeEnum.metadatas]
+                )["ids"]
+            )
+        if num_existing_chunks:
+            with collection_lock:
+                collection.delete(where={"path": full_path_str})
+            with stats_lock:
+                stats["update"] += 1
         else:
-            stats["add"] += 1
-        stats_lock.release()
+            with stats_lock:
+                stats["add"] += 1
         with open(full_path_str) as fin:
             for chunk in FileChunker(configs.chunk_size, configs.overlap_ratio).chunk(
                 fin
             ):
-                collection.add(
-                    ids=[get_uuid()],
-                    documents=[chunk],
-                    metadatas=[{"path": full_path_str}],
-                )
+                with collection_lock:
+                    collection.add(
+                        ids=[get_uuid()],
+                        documents=[chunk],
+                        metadatas=[{"path": full_path_str}],
+                    )
 
     with tqdm.tqdm(
         total=len(files), desc="Vectorising files...", disable=configs.pipe
@@ -76,7 +85,7 @@ def vectorise(configs: Config) -> int:
             with futures.ThreadPoolExecutor(
                 max_workers=max((os.cpu_count() or 1) - 1, 1)
             ) as executor:
-                jobs = {executor.submit(chunked_add, file): file for file in files}
+                jobs = (executor.submit(chunked_add, file) for file in files)
                 for future in futures.as_completed(jobs):
                     bar.update(1)
         except KeyboardInterrupt:
