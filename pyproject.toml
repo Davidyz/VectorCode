@@ -13,6 +13,9 @@ email = "hzjlyz@gmail.com"
 [project.license]
 text = "MIT"
 
+[project.optional-dependencies]
+intel = ['optimum[openvino]']
+
 [project.scripts]
 vectorcode = "vectorcode.main:main"
 
