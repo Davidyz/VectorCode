@@ -33,6 +33,9 @@ class NaiveReranker(RerankerBase):
             paths = [str(meta["path"]) for meta in chunk_metas]
             assert len(paths) == len(chunk_distances)
             for distance, path in zip(chunk_distances, paths):
+                if path is None:
+                    # so that vectorcode doesn't break on old collections.
+                    continue
                 documents[path].append(distance)
 
         return heapq.nsmallest(
@@ -65,6 +68,9 @@ class FlagEmbeddingReranker(RerankerBase):
                 normalize=True,
             )
             for i, meta in enumerate(chunk_metas):
+                if meta["path"] is None:
+                    # so that vectorcode doesn't break on old collections.
+                    continue
                 documents[meta["path"]].append(similarities[i])
         return heapq.nlargest(
             self.n_result,
