@@ -107,7 +107,7 @@ The JSON configuration file may hold the following values:
 - `reranker`: string, experimental reranking support using 
   [`FlagEmbedding`](https://github.com/FlagOpen/FlagEmbedding) (_This is still
   experimental and slows down the query even if it works. Use at your own risk,
-  and open an issue if things go wrong)_;
+  and open an issue if things go wrong. Requires <Python3.13)_;
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
   for Chromadb client settings so that you can configure 
   [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth).
