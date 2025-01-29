@@ -60,7 +60,7 @@ For VectorCode to work with a LLM plugin, you need to somehow integrate the
 query results into the prompt.
 
 Here's how VectorCode may be used with 
-[minuet-au.nvim](https://github.com/milanglacier/minuet-ai.nvim):
+[minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim):
 ```lua
 {
   "milanglacier/minuet-ai.nvim",
@@ -72,14 +72,17 @@ Here's how VectorCode may be used with
     require("minuet").setup({
       add_single_line_entry = true,
       n_completions = 1,
-      after_cursor_filter_length = 0,
+      -- I recommend you start with a small context window firstly, and gradually
+      -- increase it based on your local computing power.
+      context_window = 4096,
+      after_cursor_filter_length = 30,
       notify = "debug",
       provider = "openai_fim_compatible",
       provider_options = {
         openai_fim_compatible = {
           api_key = "TERM",
           name = "Ollama",
-          stream = false,
+          stream = true,
           end_point = "http://127.0.0.1:11434/v1/completions",
           model = "qwen2.5-coder:7b-base-q4_1",
           template = {
@@ -95,7 +98,7 @@ Here's how VectorCode may be used with
                 .. suff
                 .. "<|fim_middle|>"
             end,
-            suffix = nil,
+            suffix = false,
           },
         },
       },
