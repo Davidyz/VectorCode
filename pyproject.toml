@@ -4,8 +4,8 @@ dynamic = ["version"]
 description = "A tool to vectorise repositories for RAG."
 authors = [{ name = "Davidyz", email = "hzjlyz@gmail.com" }]
 dependencies = [
-    "chromadb<=0.6.3",
     "sentence-transformers",
+    "chromadb>=1.0.0b0",
     "pathspec",
     "tabulate",
     "shtab",
