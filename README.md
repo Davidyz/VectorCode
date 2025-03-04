@@ -26,8 +26,8 @@ neovim plugin because that's what I used to write this tool.
 <!-- mtoc-end -->
 
 ## Why VectorCode?
-LLMs usually have very limited understanding about close-source and/or infamous 
-projects, as well as cutting edge developments that have not made it into the
+LLMs usually have very limited understanding about close-source projects, projects
+that are not well-known, and cutting edge developments that have not made it into
 releases. Their capabilities on these projects are quite limited. Take my little
 toy sudoku-solving project as an example: When I wrote the first few lines and
 want the LLM to fill in the list of solvers that I implemented in
@@ -46,7 +46,7 @@ and chat plugin available on VSCode and JetBrain products.
 
 > [!NOTE]
 > The documentation on the `main` branch reflects the code on the latest commit
-> (apologies if I forget to update the docs, but this will be what I aim at). To
+> (apologies if I forget to update the docs, but this will be what I aim for). To
 > check for the documentation for the version you're using, you can [check out
 > the corresponding tags](https://github.com/Davidyz/VectorCode/tags).
 
