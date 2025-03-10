@@ -1,9 +1,16 @@
 local check_cli_wrap = require("vectorcode.config").check_cli_wrap
 
 ---@class VectorCode.CopilotChatOpts
+---@field prompt_header string?
+---@field prompt_footer string?
+---@field skip_empty boolean?
+---@field format_file (fun(file:VectorCode.Result):string)?
 
----@param opts {prompt_header:string?, prompt_footer:string?, skip_empty:boolean?, format_file:fun(file:VectorCode.Result):string?}?
----@return function Function that can be used in CopilotChat's contextual prompt
+---Follow https://github.com/CopilotC-Nvim/CopilotChat.nvim/blob/5ea7845ef77164192a0d0ca2c6bd3aad85b202a1/lua/CopilotChat/context.lua#L10
+---@alias CopilotChat.context.embed {content:string, filename:string, filetype:string}
+
+---@param opts VectorCode.CopilotChatOpts?
+---@return fun():CopilotChat.context.embed[] Function that can be used in CopilotChat's contextual prompt
 local make_context_provider = check_cli_wrap(function(opts)
   opts = vim.tbl_deep_extend("force", {
     prompt_header = "The following are relevant files from the repository. Use them as extra context for helping with code completion and understanding:",
@@ -28,7 +35,6 @@ local make_context_provider = check_cli_wrap(function(opts)
   }, opts or {})
 
   return function()
-    ---@return {content:string, filename:string, filetype:string}[]|{} Context data for CopilotChat or empty table
     local log = require("plenary.log")
     local copilot_utils = require("CopilotChat.utils")
     local vectorcode_cacher = require("vectorcode.config").get_cacher_backend()
@@ -103,7 +109,5 @@ end)
 -- Update the integrations/init.lua file to include copilotchat
 return {
   ---Creates a context provider for CopilotChat
-  ---@param opts {prompt_header:string?, prompt_footer:string?, skip_empty:boolean?, format_file:fun(file:VectorCode.Result):string?}? Options for customizing the context provider
-  ---@return function Function that can be used in CopilotChat's contextual prompt
   make_context_provider = make_context_provider,
 }
