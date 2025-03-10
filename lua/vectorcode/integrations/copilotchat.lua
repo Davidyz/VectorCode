@@ -32,6 +32,11 @@ local make_context_provider = check_cli_wrap(function(opts)
     local log = require("plenary.log")
     local copilot_utils = require("CopilotChat.utils")
     local vectorcode_cacher = require("vectorcode.config").get_cacher_backend()
+    -- Validate that CopilotChat is available
+    if not pcall(require, "CopilotChat") then
+      log.error("CopilotChat is not available. Please make sure it's installed.")
+      return {}
+    end
 
     -- Get all valid listed buffers
     local listed_buffers = vim.tbl_filter(function(b)
@@ -98,7 +103,7 @@ end)
 -- Update the integrations/init.lua file to include copilotchat
 return {
   ---Creates a context provider for CopilotChat
-  ---@param opts? {prompt_header:string?, prompt_footer:string?, skip_empty:boolean?, format_file:fun(file:VectorCode.Result):string?}
+  ---@param opts {prompt_header:string?, prompt_footer:string?, skip_empty:boolean?, format_file:fun(file:VectorCode.Result):string?}? Options for customizing the context provider
   ---@return function Function that can be used in CopilotChat's contextual prompt
   make_context_provider = make_context_provider,
 }
