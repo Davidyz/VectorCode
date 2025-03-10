@@ -2,8 +2,8 @@ local check_cli_wrap = require("vectorcode.config").check_cli_wrap
 
 ---@class VectorCode.CopilotChatOpts
 
----@param opts? {prompt_header:string?, prompt_footer:string?, skip_empty:boolean?, format_file:fun(file:VectorCode.Result):string?}
----@return function
+---@param opts {prompt_header:string?, prompt_footer:string?, skip_empty:boolean?, format_file:fun(file:VectorCode.Result):string?}?
+---@return function Function that can be used in CopilotChat's contextual prompt
 local make_context_provider = check_cli_wrap(function(opts)
   opts = vim.tbl_deep_extend("force", {
     prompt_header = "The following are relevant files from the repository. Use them as extra context for helping with code completion and understanding:",
@@ -61,6 +61,7 @@ local make_context_provider = check_cli_wrap(function(opts)
 
     -- Use cached result if checksum matches
     if buffers_checksum == cache.checksum and cache.content ~= "" then
+      log.debug("CopilotChat VectorCode context from cache hit (buffers_checksum)")
       return {
         {
           content = cache.content,
