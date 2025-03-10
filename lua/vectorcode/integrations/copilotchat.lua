@@ -33,43 +33,12 @@ local make_context_provider = check_cli_wrap(function(opts)
     local copilot_utils = require("CopilotChat.utils")
     local vectorcode_cacher = require("vectorcode.config").get_cacher_backend()
 
-    -- Initialize cache in the closure
-    if not rawget(_G, "__vectorcode_copilotchat_cache") then
-      _G.__vectorcode_copilotchat_cache = {
-        content = "",
-        checksum = "",
-      }
-    end
-    local cache = _G.__vectorcode_copilotchat_cache
-
     -- Get all valid listed buffers
     local listed_buffers = vim.tbl_filter(function(b)
       return copilot_utils.buf_valid(b)
         and vim.fn.buflisted(b) == 1
         and #vim.fn.win_findbuf(b) > 0
     end, vim.api.nvim_list_bufs())
-
-    -- Calculate a simple checksum based on buffer paths and modification times
-    local buffers_checksum = ""
-    for _, bufnr in ipairs(listed_buffers) do
-      if vectorcode_cacher.buf_is_registered(bufnr) then
-        local buf_path = vim.api.nvim_buf_get_name(bufnr)
-        local modified = vim.fn.getbufvar(bufnr, "&modified")
-        buffers_checksum = buffers_checksum .. buf_path .. tostring(modified)
-      end
-    end
-
-    -- Use cached result if checksum matches
-    if buffers_checksum == cache.checksum and cache.content ~= "" then
-      log.debug("CopilotChat VectorCode context from cache hit (buffers_checksum)")
-      return {
-        {
-          content = cache.content,
-          filename = "vectorcode_context",
-          filetype = "markdown",
-        },
-      }
-    end
 
     local all_content = ""
     local total_files = 0
