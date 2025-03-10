@@ -3,6 +3,8 @@ local M = {}
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 
+local job_runner = require("vectorcode.jobrunner.lsp")
+
 if vim.fn.executable("vectorcode-server") ~= 1 then
   vim.notify(
     "vectorcode-server is not found. Please make sure you installed `vectorcode[lsp]`.",
@@ -120,12 +122,7 @@ local function kill_jobs(bufnr)
     return
   end
   for request_id, time in pairs(CACHE[bufnr].jobs) do
-    if
-      client.requests[request_id] ~= nil
-      and client.requests[request_id].type == "pending"
-    then
-      client.cancel_request(request_id)
-    end
+    job_runner.stop_job(request_id)
   end
   cleanup_lsp_requests()
 end
@@ -177,29 +174,11 @@ local function async_runner(query_message, buf_nr)
       kill_jobs(buf_nr)
     end
     CACHE[buf_nr].job_count = CACHE[buf_nr].job_count + 1
-    local ok, request_id = client.request(
-      vim.lsp.protocol.Methods.workspace_executeCommand,
-      { command = "vectorcode", arguments = args },
-      function(err, result, _, _)
-        CACHE[buf_nr].job_count = CACHE[buf_nr].job_count - 1
-        if err ~= nil then
-          vim.notify(
-            ("VectorCode LSP cacher failed with the following error:\n%s"):format(
-              err.message
-            ),
-            vim.log.levels.ERROR,
-            notify_opts
-          )
-        end
-        if result ~= nil and #result > 0 then
-          CACHE[buf_nr].retrieval = result
-        end
-        cleanup_lsp_requests()
-      end,
-      buf_nr
-    )
+    local request_id = job_runner.run_async(args, function(result, err)
+      CACHE[buf_nr].retrieval = result or CACHE[buf_nr].retrieval or {}
+    end, buf_nr)
 
-    if ok and request_id ~= nil then
+    if request_id ~= nil then
       CACHE[buf_nr].jobs[request_id] = vim.uv.clock_gettime("realtime").sec
     end
     vim.schedule(function()
