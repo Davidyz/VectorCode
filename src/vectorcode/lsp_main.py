@@ -22,7 +22,7 @@ from vectorcode.cli_utils import (
     load_config_file,
     parse_cli_args,
 )
-from vectorcode.common import get_client, get_collection, try_server
+from vectorcode.common import get_client, get_collection, get_collections, try_server
 from vectorcode.subcommands.query import get_query_result_files
 
 cached_project_configs: dict[str, Config] = {}
@@ -97,8 +97,9 @@ async def lsp_start() -> int:
         ].merge_from(parsed_args)
         final_configs.pipe = True
         progress_token = str(uuid.uuid4())
+        client = await get_client(final_configs)
         collection = await get_collection(
-            client=await get_client(final_configs),
+            client=client,
             configs=final_configs,
             make_if_missing=final_configs.action in {CliAction.vectorise},
         )
@@ -127,6 +128,23 @@ async def lsp_start() -> int:
                     ),
                 )
                 return final_results
+            case CliAction.ls:
+                ls.progress.begin(
+                    progress_token,
+                    types.WorkDoneProgressBegin(
+                        "VectorCode",
+                        message="Looking for other projects indexed by VectorCode",
+                    ),
+                )
+                projects: list[str] = []
+                async for col in get_collections(client):
+                    projects.append(col.metadata["path"])
+
+                ls.progress.end(
+                    progress_token,
+                    types.WorkDoneProgressEnd(message="List retrieved."),
+                )
+                return projects
             case _:
                 print(
                     f"Unsupported vectorcode subcommand: {str(final_configs.action)}",

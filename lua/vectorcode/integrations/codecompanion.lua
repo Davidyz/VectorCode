@@ -59,21 +59,41 @@ local make_tool = check_cli_wrap(function(opts)
           type(cb) == "function",
           "Please upgrade CodeCompanion.nvim to at least 13.5.0"
         )
-        local args = { "query", "--pipe", "-n", tostring(action.count) }
-        if type(action.query) == "string" then
-          action.query = { action.query }
-        end
-        vim.list_extend(args, action.query)
-        job_runner.run_async(args, function(result, error)
-          if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
-            cb({ status = "success", data = result })
-          else
-            cb({
-              status = "error",
-              data = table.concat(vim.iter(error):flatten(math.huge):totable(), "\n"),
-            })
+        assert(vim.list_contains({ "ls", "query" }, action.command))
+        if action.command == "query" then
+          local args = { "query", "--pipe", "-n", tostring(action.options.count) }
+          if type(action.options.query) == "string" then
+            action.options.query = { action.options.query }
           end
-        end, agent.chat.bufnr)
+          vim.list_extend(args, action.options.query)
+          if
+            action.options.project_root ~= nil
+            and vim.uv.fs_stat(action.options.project_root).type == "directory"
+          then
+            vim.list_extend(args, { "--project_root", action.options.project_root })
+          end
+          job_runner.run_async(args, function(result, error)
+            if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
+              cb({ status = "success", data = result })
+            else
+              cb({
+                status = "error",
+                data = table.concat(vim.iter(error):flatten(math.huge):totable(), "\n"),
+              })
+            end
+          end, agent.chat.bufnr)
+        elseif action.command == "ls" then
+          job_runner.run_async({ "ls", "--pipe" }, function(result, error)
+            if vim.islist(result) and #result > 0 then
+              cb({ status = "success", data = result })
+            else
+              cb({
+                status = "error",
+                data = table.concat(vim.iter(error):flatten(math.huge):totable(), "\n"),
+              })
+            end
+          end, agent.chat.bufnr)
+        end
       end,
     },
     schema = {
@@ -81,8 +101,11 @@ local make_tool = check_cli_wrap(function(opts)
         tool = {
           _attr = { name = "vectorcode" },
           action = {
-            query = { "keyword1", "keyword2" },
-            count = 5,
+            command = "query",
+            options = {
+              query = { "keyword1", "keyword2" },
+              count = 5,
+            },
           },
         },
       },
@@ -90,8 +113,32 @@ local make_tool = check_cli_wrap(function(opts)
         tool = {
           _attr = { name = "vectorcode" },
           action = {
-            query = { "keyword1" },
-            count = 2,
+            command = "query",
+            options = {
+              query = { "keyword1" },
+              count = 2,
+            },
+          },
+        },
+      },
+      {
+        tool = {
+          _attr = { name = "vectorcode" },
+          action = {
+            command = "query",
+            options = {
+              query = { "keyword1" },
+              count = 3,
+              project_root = "path/to/other/project",
+            },
+          },
+        },
+      },
+      {
+        tool = {
+          _attr = { name = "vectorcode" },
+          action = {
+            command = "ls",
           },
         },
       },
@@ -122,6 +169,8 @@ local make_tool = check_cli_wrap(function(opts)
   - If the returned paths are relative, they are relative to the root of the project directory
   - Do not suggest edits to retrieved files that are outside of the current working directory, unless the user instructed otherwise
   - If a query failed to retrieve desired results, a new attempt should use different keywords that are orthogonal to the previous ones but with similar meanings
+  - When asked about information in other project, use the `ls` command to see if there's any other indexed project that might help
+  - DO NOT MAKE UP A PATH. ONLY USE PROJECT ROOTS RETURNED BY THE LS COMMAND OR PROVIDED BY THE USER
   %s
   %s
 
@@ -138,6 +187,14 @@ b) **Query for 2 documents using one keyword: `keyword1`**:
 ```xml
 %s
 ```
+c) **Query for 3 documents using one keyword: `keyword1` in a different project located at `path/to/other/project` (relative to current working directory)**:
+```xml
+%s
+```
+d) **Get all indexed project**
+```xml
+%s
+```
 
 Remember:
 - Minimize explanations unless prompted. Focus on generating correct XML.]],
@@ -146,18 +203,21 @@ Remember:
           opts.default_num
         ),
         xml2lua.toXml({ tools = { schema[1] } }),
-        xml2lua.toXml({ tools = { schema[2] } })
+        xml2lua.toXml({ tools = { schema[2] } }),
+        xml2lua.toXml({ tools = { schema[3] } }),
+        xml2lua.toXml({ tools = { schema[4] } })
       )
     end,
     output = {
       success = function(agent, cmd, stdout)
         stdout = stdout[1]
-        for i, file in pairs(stdout) do
-          if opts.max_num < 0 or i <= opts.max_num then
-            agent.chat:add_message({
-              role = "user",
-              content = string.format(
-                [[Here is a file the VectorCode tool retrieved:
+        if cmd.command == "query" then
+          for i, file in pairs(stdout) do
+            if opts.max_num < 0 or i <= opts.max_num then
+              agent.chat:add_message({
+                role = "user",
+                content = string.format(
+                  [[Here is a file the VectorCode tool retrieved:
 <path>
 %s
 </path>
@@ -165,9 +225,17 @@ Remember:
 %s
 </content>
 ]],
-                file.path,
-                file.document
-              ),
+                  file.path,
+                  file.document
+                ),
+              }, { visible = false })
+            end
+          end
+        elseif cmd.command == "ls" then
+          for _, path in pairs(stdout) do
+            agent.chat:add_message({
+              role = "user",
+              content = string.format("<collection>%s</collection>", path),
             }, { visible = false })
           end
         end

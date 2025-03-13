@@ -72,7 +72,7 @@ and chat plugin available on VSCode and JetBrain products.
   **Implemented project-level `.vectorcode/` and `.git` as root anchor**
 - [ ] ability to view and delete files in a collection (atm you can only `drop`
   and `vectorise` again);
-- [ ] joint search (?).
+- [x] joint search (kinda, using codecompanion.nvim).
 
 ## Credit
 
