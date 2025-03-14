@@ -1,10 +1,24 @@
 ---@module "codecompanion"
 
----@alias tool_opts {max_num: integer?, default_num: integer?, include_stderr: boolean?, use_lsp: boolean}
+---@class VectorCode.CodeCompanion.ToolOpts
+---@field max_num integer?
+---@field default_num integer?
+---@field include_stderr boolean?
+---@field use_lsp boolean?
+---@field auto_submit table<string, boolean>?
 
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
 local notify_opts = vc_config.notify_opts
+
+---@param t table|string
+---@return string
+local function flatten_table_to_string(t)
+  if type(t) == "string" then
+    return t
+  end
+  return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
+end
 
 local job_runner = nil
 ---@param use_lsp boolean
@@ -25,7 +39,8 @@ local function initialise_runner(use_lsp)
     end
   end
 end
----@param opts tool_opts?
+
+---@param opts VectorCode.CodeCompanion.ToolOpts?
 ---@return CodeCompanion.Agent.Tool
 local make_tool = check_cli_wrap(function(opts)
   if opts == nil or opts.use_lsp == nil then
@@ -35,11 +50,13 @@ local make_tool = check_cli_wrap(function(opts)
       { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
     )
   end
-  opts = vim.tbl_deep_extend(
-    "force",
-    { max_num = -1, default_num = 10, include_stderr = false, use_lsp = false },
-    opts or {}
-  )
+  opts = vim.tbl_deep_extend("force", {
+    max_num = -1,
+    default_num = 10,
+    include_stderr = false,
+    use_lsp = false,
+    auto_submit = { ls = false, query = false },
+  }, opts or {})
   local capping_message = ""
   if opts.max_num > 0 then
     capping_message = ("  - Request for at most %d documents"):format(opts.max_num)
@@ -66,19 +83,29 @@ local make_tool = check_cli_wrap(function(opts)
             action.options.query = { action.options.query }
           end
           vim.list_extend(args, action.options.query)
-          if
-            action.options.project_root ~= nil
-            and vim.uv.fs_stat(action.options.project_root).type == "directory"
-          then
-            vim.list_extend(args, { "--project_root", action.options.project_root })
+          if action.options.project_root ~= nil then
+            if
+              vim.uv.fs_stat(action.options.project_root) ~= nil
+              and vim.uv.fs_stat(action.options.project_root).type == "directory"
+            then
+              vim.list_extend(args, { "--project_root", action.options.project_root })
+            else
+              agent.chat:add_message(
+                { role = "user", content = "INVALID PROJECT ROOT! USE THE LS COMMAND!" },
+                { visible = false }
+              )
+            end
           end
           job_runner.run_async(args, function(result, error)
             if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
               cb({ status = "success", data = result })
             else
+              if type(error) == "table" then
+                error = flatten_table_to_string(error)
+              end
               cb({
                 status = "error",
-                data = table.concat(vim.iter(error):flatten(math.huge):totable(), "\n"),
+                data = error,
               })
             end
           end, agent.chat.bufnr)
@@ -87,9 +114,12 @@ local make_tool = check_cli_wrap(function(opts)
             if vim.islist(result) and #result > 0 then
               cb({ status = "success", data = result })
             else
+              if type(error) == "table" then
+                error = flatten_table_to_string(error)
+              end
               cb({
                 status = "error",
-                data = table.concat(vim.iter(error):flatten(math.huge):totable(), "\n"),
+                data = error,
               })
             end
           end, agent.chat.bufnr)
@@ -168,9 +198,9 @@ local make_tool = check_cli_wrap(function(opts)
   - If the retrieval results do not contain the needed context, increase the file count so that the result will more likely contain the desired files
   - If the returned paths are relative, they are relative to the root of the project directory
   - Do not suggest edits to retrieved files that are outside of the current working directory, unless the user instructed otherwise
+  - Use the `ls` command to retrieve a list of indexed project and pick one that may be relevant, unless the user explicitly mentioned "this project" (or in other equivalent expressions)
   - If a query failed to retrieve desired results, a new attempt should use different keywords that are orthogonal to the previous ones but with similar meanings
-  - When asked about information in other project, use the `ls` command to see if there's any other indexed project that might help
-  - DO NOT MAKE UP A PATH. ONLY USE PROJECT ROOTS RETURNED BY THE LS COMMAND OR PROVIDED BY THE USER
+  - **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `ls` command or from user input**
   %s
   %s
 
@@ -209,6 +239,22 @@ Remember:
       )
     end,
     output = {
+      ---@param agent CodeCompanion.Agent
+      ---@param cmd table
+      ---@param stderr table|string
+      error = function(agent, cmd, stderr)
+        stderr = flatten_table_to_string(stderr)
+        agent.chat:add_message({
+          role = "user",
+          content = string.format(
+            "VectorCode tool failed with the following error:\n",
+            stderr
+          ),
+        }, { visible = false })
+      end,
+      ---@param agent CodeCompanion.Agent
+      ---@param cmd table
+      ---@param stdout table
       success = function(agent, cmd, stdout)
         stdout = stdout[1]
         if cmd.command == "query" then
@@ -232,12 +278,18 @@ Remember:
             end
           end
         elseif cmd.command == "ls" then
-          for _, path in pairs(stdout) do
+          for _, col in pairs(stdout) do
             agent.chat:add_message({
               role = "user",
-              content = string.format("<collection>%s</collection>", path),
+              content = string.format(
+                "<collection>%s</collection>",
+                col["project-root"]
+              ),
             }, { visible = false })
           end
+        end
+        if opts.auto_submit[cmd.command] then
+          agent.chat:submit()
         end
       end,
     },
