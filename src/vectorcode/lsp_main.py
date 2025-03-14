@@ -22,7 +22,8 @@ from vectorcode.cli_utils import (
     load_config_file,
     parse_cli_args,
 )
-from vectorcode.common import get_client, get_collection, get_collections, try_server
+from vectorcode.common import get_client, get_collection, try_server
+from vectorcode.subcommands.ls import get_collection_list
 from vectorcode.subcommands.query import get_query_result_files
 
 cached_project_configs: dict[str, Config] = {}
@@ -136,9 +137,7 @@ async def lsp_start() -> int:
                         message="Looking for other projects indexed by VectorCode",
                     ),
                 )
-                projects: list[str] = []
-                async for col in get_collections(client):
-                    projects.append(col.metadata["path"])
+                projects: list[str] = await get_collection_list(client)
 
                 ls.progress.end(
                     progress_token,
