@@ -1,113 +1,105 @@
-local check_cli_wrap = require("vectorcode.config").check_cli_wrap
+---@module "CopilotChat"
 
----@class VectorCode.CopilotChatOpts
----@field prompt_header string?
----@field prompt_footer string?
----@field skip_empty boolean?
----@field format_file (fun(file:VectorCode.Result):string)?
+---@class VectorCode.CopilotChat.ContextOpts
+---@field max_num number?
+---@field use_lsp boolean?
 
----Follow https://github.com/CopilotC-Nvim/CopilotChat.nvim/blob/5ea7845ef77164192a0d0ca2c6bd3aad85b202a1/lua/CopilotChat/context.lua#L10
----@alias CopilotChat.context.embed {content:string, filename:string, filetype:string}
+local async = require("plenary.async")
+local vc_config = require("vectorcode.config")
+local notify_opts = vc_config.notify_opts
+local utils = require("CopilotChat.utils")
+local check_cli_wrap = vc_config.check_cli_wrap
+local job_runner = nil
 
----@param opts VectorCode.CopilotChatOpts?
----@return fun():CopilotChat.context.embed[] Function that can be used in CopilotChat's contextual prompt
-local make_context_provider = check_cli_wrap(function(opts)
-  opts = vim.tbl_deep_extend("force", {
-    prompt_header = "The following are relevant files from the repository. Use them as extra context for helping with code completion and understanding:",
-    prompt_footer = "\nExplain and provide a strategy with examples about: \n",
-    skip_empty = true,
-    format_file = function(file)
-      local utils = require("CopilotChat.utils")
-      return string.format(
-        [[
-### File: %s
-```%s
-%s
-```
-
----
-]],
-        file.path,
-        utils.filetype(file.path),
-        file.document
-      )
-    end,
-  }, opts or {})
-
-  return function()
-    local log = require("plenary.log")
-    local copilot_utils = require("CopilotChat.utils")
-    local vectorcode_cacher = require("vectorcode.config").get_cacher_backend()
-    -- Validate that CopilotChat is available
-    if not pcall(require, "CopilotChat") then
-      log.error("CopilotChat is not available. Please make sure it's installed.")
-      return {}
+---@param use_lsp boolean
+local function get_runner(use_lsp)
+  if job_runner == nil then
+    if use_lsp then
+      job_runner = require("vectorcode.jobrunner.lsp")
     end
-
-    -- Get all valid listed buffers
-    local listed_buffers = vim.tbl_filter(function(b)
-      return copilot_utils.buf_valid(b)
-        and vim.fn.buflisted(b) == 1
-        and #vim.fn.win_findbuf(b) > 0
-    end, vim.api.nvim_list_bufs())
-
-    local all_content = ""
-    local total_files = 0
-    local processed_paths = {}
-
-    -- Process each buffer with registered VectorCode cache
-    for _, bufnr in ipairs(listed_buffers) do
-      local buf_path = vim.api.nvim_buf_get_name(bufnr)
-      log.debug("Current buffer name", buf_path)
-
-      -- Skip if already processed paths to avoid duplicates
-      if
-        not processed_paths[buf_path] and vectorcode_cacher.buf_is_registered(bufnr)
-      then
-        processed_paths[buf_path] = true
-        log.debug("Current registered buffer name", buf_path)
-
-        local cache_result =
-          vectorcode_cacher.make_prompt_component(bufnr, opts.format_file)
-
-        log.debug("VectorCode context", cache_result)
-        if cache_result and cache_result.content and cache_result.content ~= "" then
-          all_content = all_content .. "\n" .. cache_result.content
-          total_files = total_files + cache_result.count
-        end
+    if job_runner == nil then
+      job_runner = require("vectorcode.jobrunner.cmd")
+      if use_lsp then
+        vim.schedule_wrap(vim.notify)(
+          "Failed to initialise the LSP runner. Falling back to cmd runner.",
+          vim.log.levels.WARN,
+          notify_opts
+        )
       end
     end
-
-    if total_files > 0 or not opts.skip_empty then
-      local prompt_message = opts.prompt_header .. all_content .. opts.prompt_footer
-      log.debug("VectorCode context result", prompt_message)
-      return {
-        {
-          content = prompt_message,
-          filename = "vectorcode_context",
-          filetype = "markdown",
-        },
-      }
-    end
-
-    log.debug("VectorCode context when no success", opts.prompt_footer)
-    -- If VectorCode is not available or has no results
-    if not opts.skip_empty then
-      return {
-        {
-          content = opts.prompt_footer,
-          filename = "error",
-          filetype = "markdown",
-        },
-      }
-    end
-
-    return {}
   end
+  return job_runner
+end
+
+---@param args string[]
+---@param use_lsp boolean
+---@param bufnr integer
+---@async
+local run_job = async.wrap(function(args, use_lsp, bufnr, callback)
+  local runner = get_runner(use_lsp)
+  assert(runner ~= nil)
+  runner.run_async(args, callback, bufnr)
+end, 4)
+
+---@param opts VectorCode.CopilotChat.ContextOpts?
+---@return CopilotChat.config.context
+local make_context = check_cli_wrap(function(opts)
+  opts = vim.tbl_deep_extend("force", {
+    max_num = 5,
+    use_lsp = vc_config.get_user_config().async_backend == "lsp",
+  }, opts or {})
+
+  return {
+    description = [[This gives you the ability to access the repository to find information that you may need to assist the user. Supports input (query).
+
+- **Use at your discretion** when you feel you don't have enough information about the repository or project.
+- **Don't escape** special characters.
+- If a class, type or function has been imported from another file, this context may be able to find its source. Add the name of the imported symbol to the query.
+- The embeddings are mostly generated from source code, so using keywords that may be present in source code may help with the retrieval.
+- Avoid retrieving one single file because the retrieval mechanism may not be very accurate.
+= If a query failed to retrieve desired results, a new attempt should use different keywords that are orthogonal to the previous ones but with similar meanings
+- Do not use exact query keywords that you have used in a previous context call in the conversation, unless the user instructed otherwise
+]],
+
+    input = function(callback)
+      vim.ui.input({
+        prompt = "Enter query> ",
+      }, callback)
+    end,
+
+    resolve = function(input, source, prompt)
+      if not input or input == "" then
+        input = prompt
+      end
+
+      local args = {
+        "query",
+        "--pipe",
+        "-n",
+        tostring(opts.max_num),
+        '"' .. input .. '"',
+        "--project_root",
+        source.cwd(),
+        "--absolute",
+      }
+
+      local result, err = run_job(args, opts.use_lsp, source.bufnr)
+      if utils.empty(result) and err then
+        error(utils.make_string(err))
+      end
+
+      utils.schedule_main()
+      return vim.tbl_map(function(item)
+        return {
+          content = item.document,
+          filename = item.path,
+          filetype = utils.filetype(item.path),
+        }
+      end, result)
+    end,
+  }
 end)
 
--- Update the integrations/init.lua file to include copilotchat
 return {
-  ---Creates a context provider for CopilotChat
-  make_context_provider = make_context_provider,
+  make_context = make_context,
 }
