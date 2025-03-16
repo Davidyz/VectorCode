@@ -7,7 +7,6 @@
 local async = require("plenary.async")
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
-local utils = require("CopilotChat.utils")
 local check_cli_wrap = vc_config.check_cli_wrap
 local job_runner = nil
 
@@ -49,6 +48,8 @@ local make_context = check_cli_wrap(function(opts)
     use_lsp = vc_config.get_user_config().async_backend == "lsp",
   }, opts or {})
 
+  local utils = require("CopilotChat.utils")
+
   return {
     description = [[This gives you the ability to access the repository to find information that you may need to assist the user. Supports input (query).
 
@@ -80,7 +81,6 @@ local make_context = check_cli_wrap(function(opts)
         '"' .. input .. '"',
         "--project_root",
         source.cwd(),
-        "--absolute",
       }
 
       local result, err = run_job(args, opts.use_lsp, source.bufnr)
