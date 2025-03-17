@@ -42,7 +42,7 @@ end, 4)
 
 ---@param opts VectorCode.CopilotChat.ContextOpts?
 ---@return CopilotChat.config.context
-local make_context = check_cli_wrap(function(opts)
+local make_context_provider = check_cli_wrap(function(opts)
   opts = vim.tbl_deep_extend("force", {
     max_num = 5,
     use_lsp = vc_config.get_user_config().async_backend == "lsp",
@@ -101,5 +101,5 @@ local make_context = check_cli_wrap(function(opts)
 end)
 
 return {
-  make_context = make_context,
+  make_context_provider = make_context_provider,
 }
