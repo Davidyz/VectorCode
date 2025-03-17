@@ -79,9 +79,13 @@ local make_context_provider = check_cli_wrap(function(opts)
         "-n",
         tostring(opts.max_num),
         '"' .. input .. '"',
-        "--project_root",
-        source.cwd(),
       }
+
+      local cwd = source.cwd()
+      local try_root = vim.fs.root(cwd, ".vectorcode") or vim.fs.root(cwd, ".git")
+      if try_root ~= nil then
+        vim.list_extend(args, { "--project_root", try_root })
+      end
 
       local result, err = run_job(args, opts.use_lsp, source.bufnr)
       if utils.empty(result) and err then
