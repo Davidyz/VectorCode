@@ -109,7 +109,7 @@ async def test_config_import_from_missing_keys():
     assert config.chunk_size == -1
     assert config.overlap_ratio == 0.2
     assert config.query_multiplier == -1
-    assert config.reranker is None
+    assert config.reranker == "cross-encoder/ms-marco-MiniLM-L-6-v2"
     assert config.reranker_params == {}
     assert config.db_settings is None
 
