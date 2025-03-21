@@ -68,7 +68,7 @@ class Config:
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
     query_exclude: list[PathLike] = field(default_factory=list)
-    reranker: Optional[str] = None
+    reranker: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     reranker_params: dict[str, Any] = field(default_factory=dict)
     check_item: Optional[str] = None
     use_absolute_path: bool = False
@@ -103,7 +103,9 @@ class Config:
                 "chunk_size": config_dict.get("chunk_size", -1),
                 "overlap_ratio": config_dict.get("overlap_ratio", 0.2),
                 "query_multiplier": config_dict.get("query_multiplier", -1),
-                "reranker": config_dict.get("reranker", None),
+                "reranker": config_dict.get(
+                    "reranker", "cross-encoder/ms-marco-MiniLM-L-6-v2"
+                ),
                 "reranker_params": config_dict.get("reranker_params", {}),
                 "db_settings": config_dict.get("db_settings", None),
                 "hnsw": config_dict.get("hnsw", {}),
