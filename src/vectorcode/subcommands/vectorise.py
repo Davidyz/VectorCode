@@ -129,6 +129,7 @@ def load_files_from_include(project_root: str) -> list[str]:
 
 
 async def vectorise(configs: Config) -> int:
+    assert configs.project_root is not None
     client = await get_client(configs)
     try:
         collection = await get_collection(client, configs, True)
@@ -139,13 +140,23 @@ async def vectorise(configs: Config) -> int:
         return 1
     gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
     files = await expand_globs(
-        configs.files or load_files_from_include(configs.project_root),
+        configs.files or load_files_from_include(str(configs.project_root)),
         recursive=configs.recursive,
     )
-    if os.path.isfile(gitignore_path) and not configs.force:
-        with open(gitignore_path) as fin:
-            gitignore_spec = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
-        files = exclude_paths_by_spec((str(i) for i in files), gitignore_spec)
+    if not configs.force:
+        specs = [
+            gitignore_path,
+        ]
+        exclude_spec_path = os.path.join(
+            configs.project_root, ".vectorcode", "vectorcode.exclude"
+        )
+        if os.path.isfile(exclude_spec_path):
+            specs.append(exclude_spec_path)
+        for spec_path in specs:
+            if os.path.isfile(spec_path):
+                with open(spec_path) as fin:
+                    spec = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
+                files = exclude_paths_by_spec((str(i) for i in files), spec)
 
     stats = {"add": 0, "update": 0, "removed": 0}
     collection_lock = Lock()

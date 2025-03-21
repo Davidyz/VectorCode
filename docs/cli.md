@@ -261,6 +261,11 @@ by the `-f` flag. It also doesn't assume `--recursive`, so if you want to add a
 whole directory to this file, you can use `dir/**`, which matches all content
 of `dir/` recursively.
 
+Similarly, you can also create a `project_root/.vectorcode/vectorcode.exclude`
+file to denote any files that you want to exclude. This is useful when you have
+some files that should be tracked by git, but are not necessary to be indexed by
+VectorCode.
+
 There's also a `update` subcommand, which updates the embedding for all the indexed 
 files and remove the embeddings for files that no longer exist.
 

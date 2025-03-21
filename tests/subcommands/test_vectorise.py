@@ -215,7 +215,10 @@ async def test_vectorise_cancelled():
             return_value=mock_collection,
         ),
         patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
-        patch("os.path.isfile", lambda x: not x.endswith("gitignore")),
+        patch(
+            "os.path.isfile",
+            lambda x: not (x.endswith("gitignore") or x.endswith("vectorcode.exclude")),
+        ),
     ):
         result = await vectorise(configs)
         assert result == 1
@@ -263,7 +266,7 @@ async def test_vectorise_orphaned_files():
     def is_file_side_effect(path):
         if path == "non_existent_file.py":
             return False
-        elif path == os.path.join("/test_project", ".gitignore"):
+        elif path.endswith(".gitignore") or path.endswith("vectorcode.exclude"):
             return False
         else:
             return True
@@ -391,3 +394,52 @@ async def test_vectorise_gitignore():
     ):
         await vectorise(configs)
         mock_exclude_paths.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_vectorise_exclude_file(tmpdir):
+    # Create a temporary .vectorcode directory and vectorcode.exclude file
+    exclude_dir = tmpdir.mkdir(".vectorcode")
+    exclude_file = exclude_dir.join("vectorcode.exclude")
+    exclude_file.write("excluded_file.py\n")
+
+    configs = Config(
+        host="test_host",
+        port=1234,
+        db_path="test_db",
+        embedding_function="SentenceTransformerEmbeddingFunction",
+        embedding_params={},
+        project_root=str(tmpdir),
+        files=["test_file.py", "excluded_file.py"],
+        recursive=False,
+        force=False,
+        pipe=False,
+    )
+    mock_client = AsyncMock()
+    mock_collection = AsyncMock()
+    mock_collection.get.return_value = {"ids": []}
+
+    with (
+        patch("vectorcode.subcommands.vectorise.get_client", return_value=mock_client),
+        patch(
+            "vectorcode.subcommands.vectorise.get_collection",
+            return_value=mock_collection,
+        ),
+        patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
+        patch(
+            "os.path.isfile",
+            side_effect=lambda path: True if path == str(exclude_file) else False,
+        ),
+        patch("builtins.open", return_value=open(str(exclude_file), "r")),
+        patch(
+            "vectorcode.subcommands.vectorise.expand_globs",
+            return_value=["test_file.py", "excluded_file.py"],
+        ),
+        patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
+    ):
+        await vectorise(configs)
+        # Assert that chunked_add is only called for test_file.py, not excluded_file.py
+        call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
+        assert "excluded_file.py" not in call_args
+        assert "test_file.py" in call_args
+        assert mock_chunked_add.call_count == 1
