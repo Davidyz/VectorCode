@@ -15,6 +15,7 @@ dependencies = [
     "tree-sitter",
     "tree-sitter-language-pack",
     "pygments",
+    "transformers>=4.36.0",
 ]
 requires-python = ">=3.11,<3.14"
 readme = "README.md"
@@ -66,7 +67,7 @@ dev = [
 ]
 
 [project.optional-dependencies]
-legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.45.0"]
+legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
 intel = ['optimum[openvino]', 'openvino']
 lsp = ['pygls<2.0.0', 'lsprotocol']
 mcp = ['mcp<2.0.0', 'pydantic']
