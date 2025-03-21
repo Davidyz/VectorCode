@@ -8,6 +8,8 @@ class TestChunking:
     file_chunker = FileChunker()
 
     def test_string_chunker(self):
+        string_chunker = StringChunker(chunk_size=-1, overlap_ratio=0.5)
+        assert list(string_chunker.chunk("hello world")) == ["hello world"]
         string_chunker = StringChunker(chunk_size=5, overlap_ratio=0.5)
         assert list(string_chunker.chunk("hello world")) == [
             "hello",
@@ -36,6 +38,7 @@ class TestChunking:
         file_path = __file__
         ratio = 0.5
         chunk_size = 100
+
         with open(file_path) as fin:
             string_chunker = StringChunker(chunk_size=chunk_size, overlap_ratio=ratio)
             string_chunks = list(string_chunker.chunk(fin.read()))
@@ -51,11 +54,10 @@ class TestChunking:
             assert string_chunk == file_chunk
 
 
-def test_treesitter_chunker():
+def test_treesitter_chunker_python():
     """Test TreeSitterChunker with a sample file using tempfile."""
     chunker = TreeSitterChunker(chunk_size=30)
 
-    # test python
     test_content = r"""
 def foo():
     return "foo"
@@ -72,7 +74,9 @@ def bar():
     assert chunks == ['def foo():\n    return "foo"', 'def bar():\n    return "bar"']
     os.remove(test_file)
 
-    # test lua
+
+def test_treesitter_chunker_lua():
+    chunker = TreeSitterChunker(chunk_size=30)
     test_content = r"""
 function foo()
   return "foo"
@@ -89,6 +93,50 @@ end
 
     chunks = list(chunker.chunk(test_file))
     assert chunks == ['functionfoo()return "foo"end', 'functionbar()return "bar"end']
+
+    os.remove(test_file)
+
+
+def test_treesitter_chunker_ruby():
+    chunker = TreeSitterChunker(chunk_size=30)
+    test_content = r"""
+def greet_user(name)
+  "Hello, #{name.capitalize}!"
+end
+
+def add_numbers(a, b)
+  a + b
+end
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".rb") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(chunker.chunk(test_file))
+    assert len(chunks) > 0
+
+    os.remove(test_file)
+
+
+def test_treesitter_chunker_neg_chunksize():
+    chunker = TreeSitterChunker(chunk_size=-1)
+    test_content = r"""
+def greet_user(name)
+  "Hello, #{name.capitalize}!"
+end
+
+def add_numbers(a, b)
+  a + b
+end
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".rb") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(chunker.chunk(test_file))
+    assert len(chunks) == 1
 
     os.remove(test_file)
 

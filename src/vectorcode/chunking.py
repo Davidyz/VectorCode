@@ -111,6 +111,9 @@ class TreeSitterChunker(ChunkerBase):
         assert os.path.isfile(data)
         with open(data) as fin:
             content = fin.read()
+        if self.__chunk_size < 0:
+            yield content
+            return
         parser = None
         lexer = self.__guess_type(data, content)
         if lexer is not None:
