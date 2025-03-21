@@ -211,8 +211,8 @@ The JSON configuration file may hold the following values:
   `-1` (any negative value means selecting documents based on all indexed chunks);
 - `reranker`: string, a reranking model supported by 
   [`CrossEncoder`](https://sbert.net/docs/package_reference/cross_encoder/index.html). 
-  A list of available models is available on their documentation. The default is
-  not to use a reranker as it increases the time needed for each query;
+  A list of available models is available on their documentation. The default
+  model is `"cross-encoder/ms-marco-MiniLM-L-6-v2"`;
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
   passed to `CrossEncoder` class constructor;
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
