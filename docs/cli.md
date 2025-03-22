@@ -189,8 +189,7 @@ The JSON configuration file may hold the following values:
 - `chunk_size`: integer, the maximum number of characters per chunk. A larger
   value reduces the number of items in the database, and hence accelerates the
   search, but at the cost of potentially truncated data and lost information.
-  Default: `-1` (no chunking), but it's **highly** recommended to set it to a
-  positive integer that works for your model when working with large documents;
+  Default: `2500`. To disable chunking, set it to a negative number;
 - `overlap_ratio`: float between 0 and 1, the ratio of overlapping/shared content 
   between 2 adjacent chunks. A larger ratio improves the coherences of chunks,
   but at the cost of increasing number of entries in the database and hence

@@ -64,7 +64,7 @@ class Config:
     force: bool = False
     db_path: Optional[str] = "~/.local/share/vectorcode/chromadb/"
     db_settings: Optional[dict] = None
-    chunk_size: int = -1
+    chunk_size: int = 2500
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
     query_exclude: list[PathLike] = field(default_factory=list)
@@ -100,7 +100,7 @@ class Config:
                 "host": host,
                 "port": port,
                 "db_path": db_path,
-                "chunk_size": config_dict.get("chunk_size", -1),
+                "chunk_size": config_dict.get("chunk_size", 2500),
                 "overlap_ratio": config_dict.get("overlap_ratio", 0.2),
                 "query_multiplier": config_dict.get("query_multiplier", -1),
                 "reranker": config_dict.get(
