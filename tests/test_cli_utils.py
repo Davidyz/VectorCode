@@ -106,7 +106,7 @@ async def test_config_import_from_missing_keys():
     assert config.host == "localhost"
     assert config.port == 8000
     assert config.db_path == os.path.expanduser("~/.local/share/vectorcode/chromadb/")
-    assert config.chunk_size == -1
+    assert config.chunk_size == 2500
     assert config.overlap_ratio == 0.2
     assert config.query_multiplier == -1
     assert config.reranker == "cross-encoder/ms-marco-MiniLM-L-6-v2"
