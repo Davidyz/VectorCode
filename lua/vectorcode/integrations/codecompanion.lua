@@ -77,6 +77,12 @@ local make_tool = check_cli_wrap(function(opts)
           "Please upgrade CodeCompanion.nvim to at least 13.5.0"
         )
         assert(vim.list_contains({ "ls", "query" }, action.command))
+        if opts.auto_submit[action.command] then
+          vim.schedule(function()
+            vim.api.nvim_input("<Esc>")
+            agent.chat.ui:lock_buf()
+          end)
+        end
         if action.command == "query" then
           local args = { "query", "--pipe", "-n", tostring(action.options.count) }
           if type(action.options.query) == "string" then
@@ -98,6 +104,11 @@ local make_tool = check_cli_wrap(function(opts)
             end
           end
           job_runner.run_async(args, function(result, error)
+            vim.schedule(function()
+              if opts.auto_submit[action.command] then
+                agent.chat.ui:unlock_buf()
+              end
+            end)
             if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
               cb({ status = "success", data = result })
             else
@@ -112,6 +123,11 @@ local make_tool = check_cli_wrap(function(opts)
           end, agent.chat.bufnr)
         elseif action.command == "ls" then
           job_runner.run_async({ "ls", "--pipe" }, function(result, error)
+            vim.schedule(function()
+              if opts.auto_submit[action.command] then
+                agent.chat.ui:unlock_buf()
+              end
+            end)
             if vim.islist(result) and #result > 0 then
               cb({ status = "success", data = result })
             else
@@ -188,6 +204,7 @@ local make_tool = check_cli_wrap(function(opts)
         ("  - If the user did not specify how many documents to retrieve, **start with %d documents**"):format(
           opts.default_num
         ),
+        "  - If you decide to call VectorCode tool, do not output anything else. Once you have the results, provide answers based on the results and let the user decide whether to run the tool again",
       }
       vim.list_extend(
         guidelines,
