@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import uuid
+from typing import Optional
 
 try:
     from lsprotocol import types
@@ -60,36 +61,24 @@ def get_arg_parser():
     return parser
 
 
-async def lsp_start() -> int:
-    global DEFAULT_PROJECT_ROOT
-    args = get_arg_parser().parse_args()
-    if args.version:
-        print(__version__)
-        return 0
-
+async def get_server(default_project_root: Optional[str] = None) -> LanguageServer:
     server: LanguageServer = LanguageServer(
         name="vectorcode-server", version=__version__
     )
-    if args.project_root == "":
-        DEFAULT_PROJECT_ROOT = find_project_root(
-            ".", ".vectorcode"
-        ) or find_project_root(".", ".git")
-    else:
-        DEFAULT_PROJECT_ROOT = os.path.abspath(args.project_root)
 
     @server.command("vectorcode")
     async def execute_command(ls: LanguageServer, *args):
-        global DEFAULT_PROJECT_ROOT
+        nonlocal default_project_root
         start_time = time.time()
         parsed_args = await parse_cli_args(args[0])
         if parsed_args.project_root is None:
-            assert DEFAULT_PROJECT_ROOT is not None, (
+            assert default_project_root is not None, (
                 "Failed to automatically resolve project root!"
             )
 
-            parsed_args.project_root = DEFAULT_PROJECT_ROOT
-        elif DEFAULT_PROJECT_ROOT is None:
-            DEFAULT_PROJECT_ROOT = str(parsed_args.project_root)
+            parsed_args.project_root = default_project_root
+        elif default_project_root is None:
+            default_project_root = str(parsed_args.project_root)
 
         parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
         await make_caches(parsed_args.project_root)
@@ -144,7 +133,7 @@ async def lsp_start() -> int:
                         message="Looking for other projects indexed by VectorCode",
                     ),
                 )
-                projects: list[str] = await get_collection_list(client)
+                projects: list[dict] = await get_collection_list(client)
 
                 ls.progress.end(
                     progress_token,
@@ -157,6 +146,24 @@ async def lsp_start() -> int:
                     file=sys.stderr,
                 )
 
+    return server
+
+
+async def lsp_start() -> int:
+    global DEFAULT_PROJECT_ROOT
+    args = get_arg_parser().parse_args()
+    if args.version:
+        print(__version__)
+        return 0
+
+    if args.project_root == "":
+        DEFAULT_PROJECT_ROOT = find_project_root(
+            ".", ".vectorcode"
+        ) or find_project_root(".", ".git")
+    else:
+        DEFAULT_PROJECT_ROOT = os.path.abspath(args.project_root)
+
+    server = await get_server(DEFAULT_PROJECT_ROOT)
     await asyncio.to_thread(server.start_io)
 
     return 0
