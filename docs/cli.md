@@ -18,6 +18,7 @@
   * [Listing All Collections](#listing-all-collections)
   * [Removing a Collection](#removing-a-collection)
   * [Checking Project Setup](#checking-project-setup)
+  * [Cleaning up](#cleaning-up)
 * [Shell Completion](#shell-completion)
 * [Hardware Acceleration](#hardware-acceleration)
 * [For Developers](#for-developers)
@@ -333,6 +334,11 @@ installed and configured for your project. This currently supports only 1 check:
 
 Running `vectorcode check config` is faster than running `vectorcode query
 some_message` and then getting an empty results.
+
+### Cleaning up
+
+For empty collections and collections for removed projects, you can use the
+`vectorcode clean` command to remove them at once.
 
 ## Shell Completion
 
