@@ -57,7 +57,7 @@ async def get_query_result_files(
         # no results found
         return []
 
-    if configs.reranker is None:
+    if not configs.reranker:
         from .reranker import NaiveReranker
 
         aggregated_results = NaiveReranker(configs).rerank(results)
