@@ -136,13 +136,13 @@ async def mcp_server():
     return mcp
 
 
-async def run_server():
+async def run_server():  # pragma: nocover
     mcp = await mcp_server()
     await mcp.run_stdio_async()
     return 0
 
 
-def main():
+def main():  # pragma: nocover
     return asyncio.run(run_server())
 
 
