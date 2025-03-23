@@ -45,7 +45,7 @@ jobs:
         run: |
           export HF_HOME="$GITHUB_WORKSPACE/hf_cache"
           mkdir -p $HF_HOME
-          rm $HF_HOME/* -rf
+          [ -z "$(ls $HF_HOME)" ] || rm $HF_HOME/* -rf && true
 
       - name: run tests 
         run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
