@@ -6,10 +6,10 @@ import time
 import uuid
 from typing import Optional
 
-try:
+try:  # pragma: nocover
     from lsprotocol import types
     from pygls.server import LanguageServer
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # pragma: nocover
     print(
         "Please install the `vectorcode[lsp]` dependency group to use the LSP feature.",
         file=sys.stderr,
@@ -41,7 +41,7 @@ async def make_caches(project_root: str):
     config = cached_project_configs[project_root]
     config.project_root = project_root
     host, port = config.host, config.port
-    if not await try_server(host, port):
+    if not await try_server(host, port):  # pragma: nocover
         raise ConnectionError(
             "Failed to find an existing ChromaDB server, which is a hard requirement for LSP mode!"
         )
@@ -169,9 +169,9 @@ async def lsp_start() -> int:
     return 0
 
 
-def main():
+def main():  # pragma: nocover
     asyncio.run(lsp_start())
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: nocover
     main()

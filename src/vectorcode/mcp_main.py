@@ -8,16 +8,15 @@ from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.errors import InvalidCollectionException
 
-try:
+try:  # pragma: nocover
     from mcp import ErrorData, McpError
     from mcp.server.fastmcp import FastMCP
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # pragma: nocover
     print(
         "MCP Python SDK not installed. Please install it by installing `vectorcode[mcp]` dependency group.",
         file=sys.stderr,
     )
     sys.exit(1)
-import sys
 
 from vectorcode.cli_utils import (
     Config,
@@ -147,5 +146,5 @@ def main():
     return asyncio.run(run_server())
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: nocover
     main()

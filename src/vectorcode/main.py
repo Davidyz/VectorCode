@@ -102,9 +102,9 @@ async def async_main():
         return return_val
 
 
-def main():
+def main():  # pragma: nocover
     return asyncio.run(async_main())
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: nocover
     sys.exit(main())
