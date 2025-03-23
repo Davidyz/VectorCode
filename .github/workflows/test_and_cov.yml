@@ -42,7 +42,10 @@ jobs:
           pdm install
 
       - name: Set custom HF cache directory
-        run: export HF_HOME="$GITHUB_WORKSPACE/hf_cache"
+        run: |
+          export HF_HOME="$GITHUB_WORKSPACE/hf_cache"
+          mkdir -p $HF_HOME
+          rm $HF_HOME/* -rf
 
       - name: run tests 
         run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
