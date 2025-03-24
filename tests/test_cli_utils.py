@@ -399,6 +399,32 @@ async def test_parse_cli_args_clean():
 
 
 @pytest.mark.asyncio
+async def test_parse_cli_args_check():
+    with patch("sys.argv", ["vectorcode", "check", "config"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.check
+        assert config.check_item == "config"
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_init():
+    with patch("sys.argv", ["vectorcode", "init"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.init
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_chunks():
+    with patch(
+        "sys.argv", ["vectorcode", "chunks", "file.py", "-c", "100", "-o", "0.5"]
+    ):
+        config = await parse_cli_args()
+        assert config.action == CliAction.chunks
+        assert config.overlap_ratio == 0.5
+        assert config.chunk_size == 100
+
+
+@pytest.mark.asyncio
 async def test_config_import_from_hnsw():
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = os.path.join(temp_dir, "test_db")

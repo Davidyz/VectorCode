@@ -44,6 +44,7 @@ class CliAction(Enum):
     update = "update"
     clean = "clean"
     prompts = "prompts"
+    chunks = "chunks"
 
 
 @dataclass
@@ -136,11 +137,11 @@ class Config:
 
 def get_cli_parser():
     shared_parser = argparse.ArgumentParser(add_help=False)
-    chunkinng_parser = argparse.ArgumentParser(add_help=False)
-    chunkinng_parser.add_argument(
+    chunking_parser = argparse.ArgumentParser(add_help=False)
+    chunking_parser.add_argument(
         "--overlap", "-o", type=float, help="Ratio of overlaps between chunks."
     )
-    chunkinng_parser.add_argument(
+    chunking_parser.add_argument(
         "-c",
         "--chunk_size",
         type=int,
@@ -185,7 +186,7 @@ def get_cli_parser():
 
     vectorise_parser = subparsers.add_parser(
         "vectorise",
-        parents=[shared_parser, chunkinng_parser],
+        parents=[shared_parser, chunking_parser],
         help="Vectorise and send documents to chromadb.",
     )
     vectorise_parser.add_argument(
@@ -208,7 +209,7 @@ def get_cli_parser():
 
     query_parser = subparsers.add_parser(
         "query",
-        parents=[shared_parser, chunkinng_parser],
+        parents=[shared_parser, chunking_parser],
         help="Send query to retrieve documents.",
     )
     query_parser.add_argument("query", nargs="+", help="Query keywords.")
@@ -281,6 +282,15 @@ def get_cli_parser():
         parents=[shared_parser],
         help="Print a list of guidelines intended to be used as system prompts for an LLM.",
     )
+
+    chunks_parser = subparsers.add_parser(
+        "chunks",
+        parents=[shared_parser, chunking_parser],
+        help="Print a JSON array containing chunked text.",
+    )
+    chunks_parser.add_argument(
+        "file_paths", nargs="*", help="Paths to files to be chunked."
+    ).complete = shtab.FILE
     return main_parser
 
 
@@ -320,6 +330,10 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             check_item = main_args.check_item
         case "init":
             force = main_args.force
+        case "chunks":
+            files = main_args.file_paths
+            chunk_size = main_args.chunk_size
+            overlap_ratio = main_args.overlap
     return Config(
         no_stderr=main_args.no_stderr,
         action=CliAction(main_args.action),
