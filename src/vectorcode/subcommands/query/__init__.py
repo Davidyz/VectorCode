@@ -5,7 +5,7 @@ import os
 from chromadb import GetResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException, InvalidDimensionException
+from chromadb.errors import InvalidDimensionException, NotFoundError
 
 from vectorcode.chunking import StringChunker
 from vectorcode.cli_utils import Config, QueryInclude, expand_globs, expand_path
@@ -152,7 +152,7 @@ async def query(configs: Config) -> int:
         collection = await get_collection(client, configs, False)
         if not verify_ef(collection, configs):
             return 1
-    except (ValueError, InvalidCollectionException):
+    except (ValueError, NotFoundError):
         logger.error(
             f"There's no existing collection for {configs.project_root}",
         )
