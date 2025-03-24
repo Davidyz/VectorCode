@@ -4,7 +4,6 @@ import os
 import sys
 import time
 import uuid
-from typing import Optional
 
 try:  # pragma: nocover
     from lsprotocol import types
@@ -61,92 +60,88 @@ def get_arg_parser():
     return parser
 
 
-async def get_server(default_project_root: Optional[str] = None) -> LanguageServer:
-    server: LanguageServer = LanguageServer(
-        name="vectorcode-server", version=__version__
-    )
+server: LanguageServer = LanguageServer(name="vectorcode-server", version=__version__)
 
-    @server.command("vectorcode")
-    async def execute_command(ls: LanguageServer, *args):
-        nonlocal default_project_root
-        start_time = time.time()
-        parsed_args = await parse_cli_args(args[0])
-        if parsed_args.project_root is None:
-            assert default_project_root is not None, (
-                "Failed to automatically resolve project root!"
-            )
 
-            parsed_args.project_root = default_project_root
-        elif default_project_root is None:
-            default_project_root = str(parsed_args.project_root)
-
-        parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
-        await make_caches(parsed_args.project_root)
-        final_configs = await cached_project_configs[
-            parsed_args.project_root
-        ].merge_from(parsed_args)
-        final_configs.pipe = True
-        progress_token = str(uuid.uuid4())
-        client = await get_client(final_configs)
-        collection = await get_collection(
-            client=client,
-            configs=final_configs,
-            make_if_missing=final_configs.action in {CliAction.vectorise},
+@server.command("vectorcode")
+async def execute_command(ls: LanguageServer, args: list[str]):
+    global DEFAULT_PROJECT_ROOT
+    start_time = time.time()
+    parsed_args = await parse_cli_args(args)
+    if parsed_args.project_root is None:
+        assert DEFAULT_PROJECT_ROOT is not None, (
+            "Failed to automatically resolve project root!"
         )
-        await ls.progress.create_async(progress_token)
-        match final_configs.action:
-            case CliAction.query:
-                ls.progress.begin(
-                    progress_token,
-                    types.WorkDoneProgressBegin(
-                        "VectorCode",
-                        message="Retrieving from VectorCode",
-                    ),
-                )
-                final_results = []
-                for path in await get_query_result_files(
-                    collection=collection,
-                    configs=final_configs,
-                ):
-                    if os.path.isfile(path):
-                        with open(path) as fin:
-                            output_path = path
-                            if not final_configs.use_absolute_path:
-                                output_path = os.path.relpath(
-                                    path, final_configs.project_root
-                                )
-                            final_results.append(
-                                {"path": output_path, "document": fin.read()}
+
+        parsed_args.project_root = DEFAULT_PROJECT_ROOT
+    elif DEFAULT_PROJECT_ROOT is None:
+        DEFAULT_PROJECT_ROOT = str(parsed_args.project_root)
+
+    parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
+    await make_caches(parsed_args.project_root)
+    final_configs = await cached_project_configs[parsed_args.project_root].merge_from(
+        parsed_args
+    )
+    final_configs.pipe = True
+    progress_token = str(uuid.uuid4())
+    client = await get_client(final_configs)
+    collection = await get_collection(
+        client=client,
+        configs=final_configs,
+        make_if_missing=final_configs.action in {CliAction.vectorise},
+    )
+    await ls.progress.create_async(progress_token)
+    match final_configs.action:
+        case CliAction.query:
+            ls.progress.begin(
+                progress_token,
+                types.WorkDoneProgressBegin(
+                    "VectorCode",
+                    message="Retrieving from VectorCode",
+                ),
+            )
+            final_results = []
+            for path in await get_query_result_files(
+                collection=collection,
+                configs=final_configs,
+            ):
+                if os.path.isfile(path):
+                    with open(path) as fin:
+                        output_path = path
+                        if not final_configs.use_absolute_path:
+                            output_path = os.path.relpath(
+                                path, final_configs.project_root
                             )
-                ls.progress.end(
-                    progress_token,
-                    types.WorkDoneProgressEnd(
-                        message=f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
-                    ),
-                )
-                return final_results
-            case CliAction.ls:
-                ls.progress.begin(
-                    progress_token,
-                    types.WorkDoneProgressBegin(
-                        "VectorCode",
-                        message="Looking for other projects indexed by VectorCode",
-                    ),
-                )
-                projects: list[dict] = await get_collection_list(client)
+                        final_results.append(
+                            {"path": output_path, "document": fin.read()}
+                        )
+            ls.progress.end(
+                progress_token,
+                types.WorkDoneProgressEnd(
+                    message=f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
+                ),
+            )
+            return final_results
+        case CliAction.ls:
+            ls.progress.begin(
+                progress_token,
+                types.WorkDoneProgressBegin(
+                    "VectorCode",
+                    message="Looking for other projects indexed by VectorCode",
+                ),
+            )
+            projects: list[dict] = await get_collection_list(client)
 
-                ls.progress.end(
-                    progress_token,
-                    types.WorkDoneProgressEnd(message="List retrieved."),
-                )
-                return projects
-            case _:
-                print(
-                    f"Unsupported vectorcode subcommand: {str(final_configs.action)}",
-                    file=sys.stderr,
-                )
-
-    return server
+            ls.progress.end(
+                progress_token,
+                types.WorkDoneProgressEnd(message="List retrieved."),
+            )
+            return projects
+        case _:
+            print(
+                f"Unsupported vectorcode subcommand: {str(final_configs.action)}",
+                file=sys.stderr,
+            )
 
 
 async def lsp_start() -> int:
@@ -163,7 +158,6 @@ async def lsp_start() -> int:
     else:
         DEFAULT_PROJECT_ROOT = os.path.abspath(args.project_root)
 
-    server = await get_server(DEFAULT_PROJECT_ROOT)
     await asyncio.to_thread(server.start_io)
 
     return 0
