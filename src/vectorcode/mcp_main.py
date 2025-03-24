@@ -6,7 +6,7 @@ from typing import Optional
 
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.errors import InvalidCollectionException
+from chromadb.errors import NotFoundError
 
 try:  # pragma: nocover
     from mcp import ErrorData, McpError
@@ -116,7 +116,7 @@ async def mcp_server():
         default_client = await get_client(default_config)
         try:
             default_collection = await get_collection(default_client, default_config)
-        except InvalidCollectionException:
+        except NotFoundError:
             default_collection = None
 
     mcp.add_tool(
