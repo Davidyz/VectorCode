@@ -84,7 +84,7 @@ async def test_query_tool_success():
         patch("os.path.relpath", return_value="rel/path.py"),
         patch("vectorcode.cli_utils.load_config_file") as mock_load_config_file,
     ):
-        mock_config = Config(chunk_size=100, overlap_ratio=0.1)
+        mock_config = Config(chunk_size=100, overlap_ratio=0.1, reranker=None)
         mock_load_config_file.return_value = mock_config
         mock_get_project_config.return_value = mock_config
         mock_client = AsyncMock()
