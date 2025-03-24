@@ -46,7 +46,11 @@ pipx install vectorcode
 in your shell. To specify a particular version of Python, use the `--python` 
 flag. For example, `pipx install vectorcode --python python3.11`. For hardware
 accelerated embedding, refer to [the relevant section](#hardware-acceleration).
-
+If you need to install multiple dependency group (for [LSP](#lsp-mode) or
+[MCP](#mcp-server)), you can use the following syntax:
+```bash
+pipx install vectorcode[lsp,mcp]
+```
 > [!NOTE] 
 > The command only install VectorCode and `SentenceTransformer`, the default
 > embedding engine. To use a different embedding function supported by Chromadb,
@@ -311,13 +315,16 @@ normal CLI usage and [`--pipe` mode](#for-developers).
 
 ### Listing All Collections
 
-You can use `vectorcode ls` command to list all collections in your Chromadb.
+You can use `vectorcode ls` command to list all collections in your ChromaDB.
 This is useful if you want to check whether the collection has been created for
 the current project or not. The output will be a table with 4 columns:
 - Project Root: path to the directory where VectorCode vectorised;
 - Collection Size: number of chunks in the database;
 - Number of Files: number of files that have been indexed;
 - Embedding Function: name of embedding function used for this collection.
+
+This can only discover collections that are stored in the same ChromaDB
+instance.
 
 ### Removing a Collection
 
@@ -498,18 +505,14 @@ an open protocol that standardizes how applications provide context to LLMs.
 VectorCode provides an experimental implementation that provides the following 
 features:
 
-- list local collections;
-- query from a given collection.
+- `ls`: list local collections, similar to the `ls` subcommand in the CLI;
+- `query`: query from a given collection, similar to the `query` subcommand in
+  the CLI.
 
-This hasn't been thoroughly tested and interfaces are subjected to changes. To
-try it out, install the `vectorcode[mcp]` dependency group and the MCP server is
-available in the shell as `vectorcode-mcp-server`. To play around with this, 
-make sure:
-
-1. you're using a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode)
-   via `host` and `port`;
-2. you start the MCP server from a VectorCode project root (with the
-   `.vectorcode` directory and some files already vectorised).
+To try it out, install the `vectorcode[mcp]` dependency group and the MCP server 
+is available in the shell as `vectorcode-mcp-server`, and make sure you're using 
+a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode) 
+via the `host` and `port` options. 
 
 ### Writing Prompts
 
