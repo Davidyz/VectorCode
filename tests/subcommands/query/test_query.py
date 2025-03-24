@@ -4,7 +4,7 @@ import pytest
 from chromadb import GetResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException, InvalidDimensionException
+from chromadb.errors import InvalidDimensionException, NotFoundError
 
 from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.subcommands.query import (
@@ -455,10 +455,7 @@ async def test_query_invalid_collection():
         patch("vectorcode.subcommands.query.get_collection") as mock_get_collection,
         patch("sys.stderr"),
     ):
-        # Make get_collection raise InvalidCollectionException
-        mock_get_collection.side_effect = InvalidCollectionException(
-            "Invalid collection"
-        )
+        mock_get_collection.side_effect = NotFoundError("Invalid collection")
 
         # Call the function
         result = await query(config)

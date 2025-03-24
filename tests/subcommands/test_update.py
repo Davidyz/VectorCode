@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException
+from chromadb.errors import NotFoundError
 
 from vectorcode.cli_utils import Config
 from vectorcode.subcommands.update import update
@@ -113,7 +113,7 @@ async def test_update_invalid_collection_exception():
         patch("vectorcode.subcommands.update.get_client", return_value=mock_client),
         patch(
             "vectorcode.subcommands.update.get_collection",
-            side_effect=InvalidCollectionException,
+            side_effect=NotFoundError,
         ),
         patch("sys.stderr"),
     ):
