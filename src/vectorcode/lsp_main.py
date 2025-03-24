@@ -68,6 +68,12 @@ async def execute_command(ls: LanguageServer, args: list[str]):
     global DEFAULT_PROJECT_ROOT
     start_time = time.time()
     parsed_args = await parse_cli_args(args)
+    if parsed_args.action not in {CliAction.query, CliAction.ls}:
+        print(
+            f"Unsupported vectorcode subcommand: {str(parsed_args.action)}",
+            file=sys.stderr,
+        )
+        return
     if parsed_args.project_root is None:
         assert DEFAULT_PROJECT_ROOT is not None, (
             "Failed to automatically resolve project root!"
@@ -137,11 +143,6 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 types.WorkDoneProgressEnd(message="List retrieved."),
             )
             return projects
-        case _:
-            print(
-                f"Unsupported vectorcode subcommand: {str(final_configs.action)}",
-                file=sys.stderr,
-            )
 
 
 async def lsp_start() -> int:

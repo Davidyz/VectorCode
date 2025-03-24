@@ -86,6 +86,7 @@ async def test_execute_command_query(mock_language_server, mock_config):
             "vectorcode.lsp_main.get_query_result_files", new_callable=AsyncMock
         ) as mock_get_query_result_files,
         patch("os.path.isfile", return_value=True),
+        patch("vectorcode.lsp_main.try_server", return_value=True),
         patch("builtins.open", MagicMock()) as mock_open,
         patch("vectorcode.lsp_main.cached_project_configs", {}),
     ):
@@ -135,6 +136,7 @@ async def test_execute_command_ls(mock_language_server, mock_config):
         patch("vectorcode.lsp_main.cached_project_configs", {}),
         patch("vectorcode.common.get_embedding_function") as mock_embedding_function,
         patch("vectorcode.common.get_collection") as mock_get_collection,
+        patch("vectorcode.lsp_main.try_server", return_value=True),
     ):
         from vectorcode.lsp_main import cached_project_configs
 
@@ -177,6 +179,7 @@ async def test_execute_command_unsupported_action(
             "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
         ) as mock_parse_cli_args,
         patch("vectorcode.lsp_main.cached_project_configs", {}),
+        patch("vectorcode.lsp_main.try_server", return_value=True),
     ):
         from vectorcode.lsp_main import cached_project_configs
 
