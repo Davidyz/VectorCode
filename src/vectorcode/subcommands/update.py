@@ -6,7 +6,7 @@ from asyncio import Lock
 
 import tqdm
 from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException
+from chromadb.errors import NotFoundError
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import get_client, get_collection, verify_ef
@@ -22,7 +22,7 @@ async def update(configs: Config) -> int:
     except IndexError:
         print("Failed to get/create the collection. Please check your config.")
         return 1
-    except (ValueError, InvalidCollectionException):
+    except (ValueError, NotFoundError):
         print(
             f"There's no existing collection for {configs.project_root}",
             file=sys.stderr,
