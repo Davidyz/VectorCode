@@ -183,9 +183,7 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
         result = await get_query_result_files(mock_collection, mock_config)
 
         # Check that the chunker was used correctly
-        MockChunker.assert_called_once_with(
-            mock_config.chunk_size, mock_config.overlap_ratio
-        )
+        MockChunker.assert_called_once_with(mock_config)
         mock_chunker_instance.chunk.assert_called_once_with(mock_config.query[0])
 
         # Check query was called with chunked query

@@ -54,11 +54,7 @@ async def chunked_add(
 
     try:
         async with semaphore:
-            chunks = list(
-                TreeSitterChunker(configs.chunk_size, configs.overlap_ratio).chunk(
-                    full_path_str
-                )
-            )
+            chunks = list(TreeSitterChunker(configs).chunk(full_path_str))
             if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
                 # empty file
                 return

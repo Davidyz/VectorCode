@@ -20,7 +20,7 @@ async def get_query_result_files(
 ) -> list[str]:
     query_chunks = []
     if configs.query:
-        chunker = StringChunker(configs.chunk_size, configs.overlap_ratio)
+        chunker = StringChunker(configs)
         for q in configs.query:
             query_chunks.extend(chunker.chunk(q))
 

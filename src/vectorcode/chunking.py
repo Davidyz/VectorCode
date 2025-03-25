@@ -10,10 +10,17 @@ from pygments.util import ClassNotFound
 from tree_sitter import Node
 from tree_sitter_language_pack import get_parser
 
+from vectorcode.cli_utils import Config
+
 
 class ChunkerBase:  # pragma: nocover
-    def __init__(self) -> None:
-        pass
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config is None:
+            config = Config()
+        assert 0 <= config.overlap_ratio < 1, (
+            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
+        )
+        self.config = config
 
     @abstractmethod
     def chunk(self, data) -> Generator[str, None, None]:
@@ -21,45 +28,43 @@ class ChunkerBase:  # pragma: nocover
 
 
 class StringChunker(ChunkerBase):
-    def __init__(self, chunk_size: int = -1, overlap_ratio: float = 0.2) -> None:
-        super().__init__()
-        self.__chunk_size = chunk_size
-        assert 0 <= overlap_ratio < 1, (
-            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
-        )
-        self.__overlap_ratio = overlap_ratio
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config is None:
+            config = Config()
+        super().__init__(config)
 
     def chunk(self, data: str) -> Generator[str, None, None]:
-        if self.__chunk_size < 0:
+        if self.config.chunk_size < 0:
             yield data
         else:
-            step_size = max(1, int(self.__chunk_size * (1 - self.__overlap_ratio)))
+            step_size = max(
+                1, int(self.config.chunk_size * (1 - self.config.overlap_ratio))
+            )
             i = 0
             while i < len(data):
-                yield data[i : i + self.__chunk_size]
-                if i + self.__chunk_size >= len(data):
+                yield data[i : i + self.config.chunk_size]
+                if i + self.config.chunk_size >= len(data):
                     break
                 i += step_size
 
 
 class FileChunker(ChunkerBase):
-    def __init__(self, chunk_size: int = -1, overlap_ratio: float = 0.2) -> None:
-        super().__init__()
-        self.__chunk_size = chunk_size
-        assert 0 <= overlap_ratio < 1, (
-            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
-        )
-        self.__overlap_ratio = overlap_ratio
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config is None:
+            config = Config()
+        super().__init__(config)
 
     def chunk(self, data: TextIOWrapper) -> Generator[str, None, None]:
-        if self.__chunk_size < 0:
+        if self.config.chunk_size < 0:
             yield "".join(data.readlines())
         else:
-            step_size = max(1, int(self.__chunk_size * (1 - self.__overlap_ratio)))
+            step_size = max(
+                1, int(self.config.chunk_size * (1 - self.config.overlap_ratio))
+            )
             # the output of this method should be identical to that of StringChunker.chunk
-            output = data.read(self.__chunk_size)
+            output = data.read(self.config.chunk_size)
             yield output
-            if len(output) < self.__chunk_size:
+            if len(output) < self.config.chunk_size:
                 return
             while True:
                 new_chars = data.read(step_size)
@@ -70,25 +75,21 @@ class FileChunker(ChunkerBase):
 
 
 class TreeSitterChunker(ChunkerBase):
-    def __init__(self, chunk_size: int = -1, overlap_ratio: float = 0.2):
-        super().__init__()
-        assert isinstance(chunk_size, int), "chunk_size parameter must be an integer"
-        assert 0 <= overlap_ratio < 1, (
-            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
-        )
-        self.__chunk_size = chunk_size
-        self.__overlap_ratio = overlap_ratio
+    def __init__(self, config: Optional[Config] = None):
+        if config is None:
+            config = Config()
+        super().__init__(config)
 
     def __chunk_node(self, node: Node, text: str) -> Generator[str, None, None]:
         current_chunk = ""
         for child in node.children:
             child_length = child.end_byte - child.start_byte
-            if child_length > self.__chunk_size:
+            if child_length > self.config.chunk_size:
                 if current_chunk:
                     yield current_chunk
                     current_chunk = ""
                 yield from self.__chunk_node(child, text)
-            elif len(current_chunk) + child_length > self.__chunk_size:
+            elif len(current_chunk) + child_length > self.config.chunk_size:
                 yield current_chunk
                 current_chunk = text[child.start_byte : child.end_byte]
             else:
@@ -111,7 +112,7 @@ class TreeSitterChunker(ChunkerBase):
         assert os.path.isfile(data)
         with open(data) as fin:
             content = fin.read()
-        if self.__chunk_size < 0:
+        if self.config.chunk_size < 0:
             yield content
             return
         parser = None
@@ -128,9 +129,7 @@ class TreeSitterChunker(ChunkerBase):
 
         if parser is None:
             # fall back to naive chunking
-            yield from StringChunker(self.__chunk_size, self.__overlap_ratio).chunk(
-                content
-            )
+            yield from StringChunker(self.config).chunk(content)
         else:
             content_bytes = content.encode()
             tree = parser.parse(content_bytes)

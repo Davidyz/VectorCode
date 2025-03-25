@@ -2,25 +2,26 @@ import os
 import tempfile
 
 from vectorcode.chunking import FileChunker, StringChunker, TreeSitterChunker
+from vectorcode.cli_utils import Config
 
 
 class TestChunking:
     file_chunker = FileChunker()
 
     def test_string_chunker(self):
-        string_chunker = StringChunker(chunk_size=-1, overlap_ratio=0.5)
+        string_chunker = StringChunker(Config(chunk_size=-1, overlap_ratio=0.5))
         assert list(string_chunker.chunk("hello world")) == ["hello world"]
-        string_chunker = StringChunker(chunk_size=5, overlap_ratio=0.5)
+        string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.5))
         assert list(string_chunker.chunk("hello world")) == [
             "hello",
             "llo w",
             "o wor",
             "world",
         ]
-        string_chunker = StringChunker(chunk_size=5, overlap_ratio=0)
+        string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0))
         assert list(string_chunker.chunk("hello world")) == ["hello", " worl", "d"]
 
-        string_chunker = StringChunker(chunk_size=5, overlap_ratio=0.8)
+        string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.8))
         assert list(string_chunker.chunk("hello world")) == [
             "hello",
             "ello ",
@@ -40,11 +41,15 @@ class TestChunking:
         chunk_size = 100
 
         with open(file_path) as fin:
-            string_chunker = StringChunker(chunk_size=chunk_size, overlap_ratio=ratio)
+            string_chunker = StringChunker(
+                Config(chunk_size=chunk_size, overlap_ratio=ratio)
+            )
             string_chunks = list(string_chunker.chunk(fin.read()))
 
         with open(file_path) as fin:
-            file_chunker = FileChunker(chunk_size=chunk_size, overlap_ratio=ratio)
+            file_chunker = FileChunker(
+                Config(chunk_size=chunk_size, overlap_ratio=ratio)
+            )
             file_chunks = list(file_chunker.chunk(fin))
 
         assert len(string_chunks) == len(file_chunks), (
@@ -56,7 +61,7 @@ class TestChunking:
 
 def test_treesitter_chunker_python():
     """Test TreeSitterChunker with a sample file using tempfile."""
-    chunker = TreeSitterChunker(chunk_size=30)
+    chunker = TreeSitterChunker(Config(chunk_size=30))
 
     test_content = r"""
 def foo():
@@ -76,7 +81,7 @@ def bar():
 
 
 def test_treesitter_chunker_lua():
-    chunker = TreeSitterChunker(chunk_size=30)
+    chunker = TreeSitterChunker(Config(chunk_size=30))
     test_content = r"""
 function foo()
   return "foo"
@@ -98,7 +103,7 @@ end
 
 
 def test_treesitter_chunker_ruby():
-    chunker = TreeSitterChunker(chunk_size=30)
+    chunker = TreeSitterChunker(Config(chunk_size=30))
     test_content = r"""
 def greet_user(name)
   "Hello, #{name.capitalize}!"
@@ -120,7 +125,7 @@ end
 
 
 def test_treesitter_chunker_neg_chunksize():
-    chunker = TreeSitterChunker(chunk_size=-1)
+    chunker = TreeSitterChunker(Config(chunk_size=-1))
     test_content = r"""
 def greet_user(name)
   "Hello, #{name.capitalize}!"
@@ -146,9 +151,11 @@ def test_treesitter_chunker_fallback():
     chunk_size = 30
     overlap_ratio = 0.2
     tree_sitter_chunker = TreeSitterChunker(
-        chunk_size=chunk_size, overlap_ratio=overlap_ratio
+        Config(chunk_size=chunk_size, overlap_ratio=overlap_ratio)
     )
-    string_chunker = StringChunker(chunk_size=chunk_size, overlap_ratio=overlap_ratio)
+    string_chunker = StringChunker(
+        Config(chunk_size=chunk_size, overlap_ratio=overlap_ratio)
+    )
 
     test_content = "This is a test string."
 
