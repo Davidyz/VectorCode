@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11, 3.12, 3.13]
-        os: [ubuntu-latest, macos-latest, macos-14]
+        os: [ubuntu-latest, macos-latest, macos-14, windows-latest]
         exclude:
           - os: macos-14
             python-version: 3.13
@@ -34,12 +34,14 @@ jobs:
         run: |
           pdm lock --group dev --group lsp --group mcp
           pdm install
+        shell: bash
 
       - name: install pdm and dependencies for legacy system
         if: matrix.os == 'macos-14'
         run: |
           pdm lock --group dev --group lsp --group mcp --group legacy
           pdm install
+        shell: bash
 
       - name: Set custom HF cache directory
         run: |
@@ -47,6 +49,7 @@ jobs:
           export SENTENCE_TRANSFORMERS_HOME=$HF_HOME
           mkdir -p $HF_HOME
           [ -z "$(ls $HF_HOME)" ] || rm $HF_HOME/* -rf && true
+        shell: bash
 
       - name: run tests 
         run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
@@ -55,7 +58,8 @@ jobs:
         run: |
           pdm run coverage run -m pytest
           pdm run coverage report -m
-          pdm run coverage xml -i
+          pdm run coverage xml -i        
+        shell: bash
 
       - name: upload coverage reports to codecov
         uses: codecov/codecov-action@v5
