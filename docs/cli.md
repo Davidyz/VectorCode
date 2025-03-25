@@ -231,6 +231,19 @@ The JSON configuration file may hold the following values:
     "hnsw:construction_ef": 100
   }
   ```
+- `chunk_filters`: `dict[str, list[str]]`, a dictionary where the keys are
+  [language name](https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages)
+  and values are lists of [Python regex patterns](https://docs.python.org/3/library/re.html) 
+  that will match chunks to be excluded from being vectorised. This only applies
+  to languages supported by treesitter chunker. By default, no filters will be
+  added. Example configuration:
+  ```json5
+  "chunk_filters": {
+    "python": ["^[^a-zA-Z0-9]+$"], // multiple patterns will be merged (unioned)
+    // or you can use wildcard to match any languages that has no dedicated filters:
+    "*": ["^[^a-zA-Z0-9]+$"],
+  }
+  ```
 
 ### Vectorising Your Code
 
