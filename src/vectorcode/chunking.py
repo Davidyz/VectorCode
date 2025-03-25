@@ -14,7 +14,7 @@ from tree_sitter_language_pack import get_parser
 from vectorcode.cli_utils import Config
 
 
-class ChunkerBase:  # pragma: nocover
+class ChunkerBase:
     def __init__(self, config: Optional[Config] = None) -> None:
         if config is None:
             config = Config()

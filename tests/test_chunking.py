@@ -1,7 +1,14 @@
 import os
 import tempfile
 
-from vectorcode.chunking import FileChunker, StringChunker, TreeSitterChunker
+import pytest
+
+from vectorcode.chunking import (
+    ChunkerBase,
+    FileChunker,
+    StringChunker,
+    TreeSitterChunker,
+)
 from vectorcode.cli_utils import Config
 
 
@@ -57,6 +64,20 @@ class TestChunking:
         )
         for string_chunk, file_chunk in zip(string_chunks, file_chunks):
             assert string_chunk == file_chunk
+
+
+def test_no_config():
+    assert StringChunker().config == Config()
+    assert FileChunker().config == Config()
+    assert TreeSitterChunker().config == Config()
+
+
+def test_chunker_base():
+    with pytest.raises(AssertionError):
+        ChunkerBase(Config(overlap_ratio=-1))
+    with pytest.raises(NotImplementedError):
+        ChunkerBase().chunk("hello")
+    assert ChunkerBase().config == Config()
 
 
 def test_treesitter_chunker_python():
