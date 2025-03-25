@@ -1,4 +1,5 @@
 import os
+import re
 from abc import abstractmethod
 from functools import cache
 from io import TextIOWrapper
@@ -105,6 +106,19 @@ class TreeSitterChunker(ChunkerBase):
         except ClassNotFound:
             return None
 
+    @cache
+    def __build_pattern(self, language: str):
+        patterns = []
+        lang_specific_pat = self.config.chunk_filters.get(language)
+        if lang_specific_pat:
+            patterns.extend(lang_specific_pat)
+        else:
+            patterns.extend(self.config.chunk_filters.get("*", []))
+        if len(patterns):
+            patterns = [f"(?:{i})" for i in patterns]
+            return f"(?:{'|'.join(patterns)})"
+        return ""
+
     def chunk(self, data: str) -> Generator[str, None, None]:
         """
         data: path to the file
@@ -116,6 +130,7 @@ class TreeSitterChunker(ChunkerBase):
             yield content
             return
         parser = None
+        language = None
         lexer = self.__guess_type(data, content)
         if lexer is not None:
             lang_names = [lexer.name]
@@ -123,7 +138,9 @@ class TreeSitterChunker(ChunkerBase):
             for name in lang_names:
                 try:
                     parser = get_parser(name.lower())
-                    break
+                    if parser is not None:
+                        language = name.lower()
+                        break
                 except LookupError:  # pragma: nocover
                     pass
 
@@ -131,6 +148,14 @@ class TreeSitterChunker(ChunkerBase):
             # fall back to naive chunking
             yield from StringChunker(self.config).chunk(content)
         else:
+            pattern_str = self.__build_pattern(language=language)
             content_bytes = content.encode()
             tree = parser.parse(content_bytes)
-            yield from self.__chunk_node(tree.root_node, content)
+            chunks_gen = self.__chunk_node(tree.root_node, content)
+            if pattern_str:
+                re_pattern = re.compile(pattern_str)
+                for chunk in chunks_gen:
+                    if re_pattern.match(chunk) is None:
+                        yield chunk
+            else:
+                yield from chunks_gen

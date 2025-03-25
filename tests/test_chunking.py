@@ -80,6 +80,28 @@ def bar():
     os.remove(test_file)
 
 
+def test_treesitter_chunker_filter():
+    chunker = TreeSitterChunker(
+        Config(chunk_size=30, chunk_filters={"python": [".*foo.*"]})
+    )
+
+    test_content = r"""
+def foo():
+    return "foo"
+
+def bar():
+    return "bar"
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".py") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(chunker.chunk(test_file))
+    assert chunks == ['def bar():\n    return "bar"']
+    os.remove(test_file)
+
+
 def test_treesitter_chunker_lua():
     chunker = TreeSitterChunker(Config(chunk_size=30))
     test_content = r"""

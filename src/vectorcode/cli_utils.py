@@ -77,6 +77,7 @@ class Config:
         default_factory=lambda: [QueryInclude.path, QueryInclude.document]
     )
     hnsw: dict[str, str | int] = field(default_factory=dict)
+    chunk_filters: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -110,6 +111,7 @@ class Config:
                 "reranker_params": config_dict.get("reranker_params", {}),
                 "db_settings": config_dict.get("db_settings", None),
                 "hnsw": config_dict.get("hnsw", {}),
+                "chunk_filters": config_dict.get("chunk_filters", {}),
             }
         )
 
