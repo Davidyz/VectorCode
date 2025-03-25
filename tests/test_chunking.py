@@ -164,6 +164,24 @@ def bar():
     assert chunks == ['def bar():\n    return "bar"']
     os.remove(test_file)
 
+    test_content = r"""
+function foo()
+  return "foo"
+end
+
+function bar()
+  return "bar"
+end
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".lua") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(chunker.chunk(test_file))
+    assert chunks == ['functionbar()return "bar"end']
+    os.remove(test_file)
+
 
 def test_treesitter_chunker_lua():
     chunker = TreeSitterChunker(Config(chunk_size=30))
