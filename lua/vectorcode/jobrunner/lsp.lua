@@ -17,46 +17,21 @@ local notify_opts = vc_config.notify_opts
 ---@param ok_to_fail boolean
 local function get_client(ok_to_fail)
   ok_to_fail = ok_to_fail or true
+  vim.lsp.enable({ "vectorcode_server" }, true)
   if #vim.lsp.get_clients({ name = "vectorcode_server" }) > 0 then
+    -- server started
     CLIENT = vim.lsp.get_clients({ name = "vectorcode_server" })[1]
   else
-    local cmd = { "vectorcode-server" }
-
-    local try_root = vim.fs.root(".", ".vectorcode") or vim.fs.root(".", ".git")
-    if try_root ~= nil then
-      vim.list_extend(cmd, { "--project_root", try_root })
-    else
+    -- failed to start server
+    if vc_config.get_user_config().notify or not ok_to_fail then
       vim.schedule(function()
         vim.notify(
-          "Failed to start vectorcode-server due to failing to resolve the project root.",
+          "Failed to start vectorcode-server due to the following error.",
           vim.log.levels.ERROR,
           notify_opts
         )
       end)
       return false
-    end
-    local id, err = vim.lsp.start_client({
-      name = "vectorcode_server",
-      cmd = cmd,
-    })
-
-    if err ~= nil and (vc_config.get_user_config().notify or not ok_to_fail) then
-      vim.schedule(function()
-        vim.notify(
-          ("Failed to start vectorcode-server due to the following error:\n%s"):format(
-            err
-          ),
-          vim.log.levels.ERROR,
-          notify_opts
-        )
-      end)
-      return false
-    elseif id ~= nil then
-      local cli = vim.lsp.get_client_by_id(id)
-      if cli ~= nil then
-        CLIENT = cli
-        return true
-      end
     end
   end
 end

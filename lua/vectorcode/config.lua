@@ -55,10 +55,9 @@ local startup_handler = check_cli_wrap(function(configs)
     end)
   end
   if configs.on_setup.lsp then
-    local lsp_module = require("vectorcode.jobrunner.lsp")
-    if type(lsp_module) == "table" then
-      -- this will trigger the private `get_client` function in the runner and hence start the LSP
-      lsp_module.is_job_running(0)
+    local ok, _ = pcall(vim.lsp.enable, "vectorcode_server", true)
+    if not ok then
+      vim.notify("Failed to start vectorcode-server.", vim.log.levels.WARN, notify_opts)
     end
   end
 end)
