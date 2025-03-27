@@ -16,3 +16,10 @@ jobs:
 
       - name: Ruff
         uses: astral-sh/ruff-action@v3
+
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          # CLI arguments
+          args: --check .
