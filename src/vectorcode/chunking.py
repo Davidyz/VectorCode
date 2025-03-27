@@ -1,6 +1,7 @@
 import os
 import re
 from abc import abstractmethod
+from dataclasses import dataclass
 from functools import cache
 from io import TextIOWrapper
 from typing import Generator, Optional
@@ -8,10 +9,24 @@ from typing import Generator, Optional
 from pygments.lexer import Lexer
 from pygments.lexers import guess_lexer_for_filename
 from pygments.util import ClassNotFound
-from tree_sitter import Node
+from tree_sitter import Node, Point
 from tree_sitter_language_pack import get_parser
 
 from vectorcode.cli_utils import Config
+
+
+@dataclass
+class Chunk:
+    """
+    rows are 1-indexed, cols are 0-indexed.
+    """
+
+    text: str
+    start: Point
+    end: Point
+
+    def __str__(self):
+        return self.text
 
 
 class ChunkerBase:
@@ -24,7 +39,7 @@ class ChunkerBase:
         self.config = config
 
     @abstractmethod
-    def chunk(self, data) -> Generator[str, None, None]:
+    def chunk(self, data) -> Generator[Chunk, None, None]:
         raise NotImplementedError
 
 
@@ -34,16 +49,25 @@ class StringChunker(ChunkerBase):
             config = Config()
         super().__init__(config)
 
-    def chunk(self, data: str) -> Generator[str, None, None]:
+    def chunk(self, data: str):
         if self.config.chunk_size < 0:
-            yield data
+            yield Chunk(
+                text=data,
+                start=Point(row=1, column=0),
+                end=Point(row=1, column=len(data)),
+            )
         else:
             step_size = max(
                 1, int(self.config.chunk_size * (1 - self.config.overlap_ratio))
             )
             i = 0
             while i < len(data):
-                yield data[i : i + self.config.chunk_size]
+                chunk_text = data[i : i + self.config.chunk_size]
+                yield Chunk(
+                    text=chunk_text,
+                    start=Point(row=1, column=i),
+                    end=Point(row=1, column=len(chunk_text) - 1),
+                )
                 if i + self.config.chunk_size >= len(data):
                     break
                 i += step_size
@@ -55,24 +79,41 @@ class FileChunker(ChunkerBase):
             config = Config()
         super().__init__(config)
 
-    def chunk(self, data: TextIOWrapper) -> Generator[str, None, None]:
-        if self.config.chunk_size < 0:
-            yield "".join(data.readlines())
-        else:
-            step_size = max(
-                1, int(self.config.chunk_size * (1 - self.config.overlap_ratio))
-            )
-            # the output of this method should be identical to that of StringChunker.chunk
-            output = data.read(self.config.chunk_size)
-            yield output
-            if len(output) < self.config.chunk_size:
-                return
-            while True:
-                new_chars = data.read(step_size)
-                output = output[step_size:] + new_chars
-                yield output
-                if len(new_chars) < step_size:
-                    return
+    def chunk(self, data: TextIOWrapper) -> Generator[Chunk, None, None]:
+        lines = data.readlines()
+        if len(lines) == 0:
+            return
+        if (
+            self.config.chunk_size < 0
+            or sum(len(i) for i in lines) < self.config.chunk_size
+        ):
+            text = "".join(lines)
+            yield Chunk(text, Point(1, 0), Point(1, len(text) - 1))
+            return
+        text_buffer = ""
+        start_pos = Point(1, 0)
+
+        def seek(point: Point, count: int):
+            while point.column + count > len(lines[point.row - 1]):
+                count -= len(lines[point.row - 1]) - point.column
+                point.row += 1
+                point.column = 0
+            return point
+
+        for ln in range(1, len(lines) + 1):
+            line = lines[ln - 1]
+            if len(text_buffer + line) > self.config.chunk_size:
+                consumed = line[: self.config.chunk_size - len(text_buffer)]
+                yield Chunk(
+                    text_buffer + consumed, start_pos, Point(ln, len(consumed) - 1)
+                )
+                text_buffer = ""
+                if len(consumed) < len(line):
+                    start_pos = Point(ln, len(consumed))
+                else:
+                    start_pos = Point(ln + 1, 0)
+            else:
+                text_buffer += line
 
 
 class TreeSitterChunker(ChunkerBase):
@@ -81,22 +122,77 @@ class TreeSitterChunker(ChunkerBase):
             config = Config()
         super().__init__(config)
 
-    def __chunk_node(self, node: Node, text: str) -> Generator[str, None, None]:
+    def __chunk_node(self, node: Node, text: str) -> Generator[Chunk, None, None]:
         current_chunk = ""
+
+        current_start = None
+
         for child in node.children:
-            child_length = child.end_byte - child.start_byte
+            child_text = text[child.start_byte : child.end_byte]
+            child_length = len(child_text)
+
             if child_length > self.config.chunk_size:
+                # Yield current chunk if exists
                 if current_chunk:
-                    yield current_chunk
+                    assert current_start is not None
+                    yield Chunk(
+                        text=current_chunk,
+                        start=current_start,
+                        end=Point(
+                            row=current_start.row + current_chunk.count("\n"),
+                            column=len(current_chunk.split("\n")[-1]) - 1
+                            if "\n" in current_chunk
+                            else current_start.column + len(current_chunk) - 1,
+                        ),
+                    )
                     current_chunk = ""
+                    current_start = None
+
+                # Recursively chunk the large child node
                 yield from self.__chunk_node(child, text)
-            elif len(current_chunk) + child_length > self.config.chunk_size:
-                yield current_chunk
-                current_chunk = text[child.start_byte : child.end_byte]
+
+            elif not current_chunk:
+                # Start new chunk
+                current_chunk = child_text
+                current_start = Point(
+                    row=child.start_point.row + 1, column=child.start_point.column
+                )
+
+            elif len(current_chunk) + child_length <= self.config.chunk_size:
+                # Add to current chunk
+                current_chunk += child_text
+
             else:
-                current_chunk += text[child.start_byte : child.end_byte]
+                # Yield current chunk and start new one
+                assert current_start is not None
+                yield Chunk(
+                    text=current_chunk,
+                    start=current_start,
+                    end=Point(
+                        row=current_start.row + current_chunk.count("\n"),
+                        column=len(current_chunk.split("\n")[-1]) - 1
+                        if "\n" in current_chunk
+                        else current_start.column + len(current_chunk) - 1,
+                    ),
+                )
+                current_chunk = child_text
+                current_start = Point(
+                    row=child.start_point.row + 1, column=child.start_point.column
+                )
+
+        # Yield remaining chunk
         if current_chunk:
-            yield current_chunk
+            assert current_start is not None
+            yield Chunk(
+                text=current_chunk,
+                start=current_start,
+                end=Point(
+                    row=current_start.row + current_chunk.count("\n"),
+                    column=len(current_chunk.split("\n")[-1]) - 1
+                    if "\n" in current_chunk
+                    else current_start.column + len(current_chunk) - 1,
+                ),
+            )
 
     @cache
     def __guess_type(self, path: str, content: str) -> Optional[Lexer]:
@@ -119,7 +215,7 @@ class TreeSitterChunker(ChunkerBase):
             return f"(?:{'|'.join(patterns)})"
         return ""
 
-    def chunk(self, data: str) -> Generator[str, None, None]:
+    def chunk(self, data: str) -> Generator[Chunk, None, None]:
         """
         data: path to the file
         """
@@ -155,7 +251,7 @@ class TreeSitterChunker(ChunkerBase):
             if pattern_str:
                 re_pattern = re.compile(pattern_str)
                 for chunk in chunks_gen:
-                    if re_pattern.match(chunk) is None:
+                    if re_pattern.match(chunk.text) is None:
                         yield chunk
             else:
                 yield from chunks_gen
