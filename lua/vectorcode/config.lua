@@ -18,11 +18,20 @@ local config = {
   on_setup = { update = false, lsp = false },
 }
 
-vim.lsp.config.vectorcode_server = vim.tbl_deep_extend(
-  "force",
-  { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } },
-  vim.lsp.config.vectorcode_server or {}
-)
+---@type vim.lsp.ClientConfig
+local lsp_configs =
+  { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
+if vim.lsp.config ~= nil then
+  -- nvim >= 0.11.0
+  lsp_configs =
+    vim.tbl_deep_extend("force", lsp_configs, vim.lsp.config.vectorcode_server or {})
+else
+  -- nvim < 0.11.0
+  local ok, lspconfig = pcall(require, "lspconfig.configs")
+  if ok and lspconfig.vectorcode_server ~= nil then
+    lsp_configs = lspconfig.vectorcode_server.config_def.default_config
+  end
+end
 
 local setup_config = vim.deepcopy(config, true)
 local notify_opts = { title = "VectorCode" }
@@ -61,7 +70,7 @@ local startup_handler = check_cli_wrap(function(configs)
     end)
   end
   if configs.on_setup.lsp then
-    local ok, _ = pcall(vim.lsp.start, vim.lsp.config.vectorcode_server)
+    local ok, _ = pcall(vim.lsp.start, lsp_configs)
     if not ok then
       vim.notify("Failed to start vectorcode-server.", vim.log.levels.WARN, notify_opts)
     end
@@ -140,4 +149,6 @@ return {
   has_cli = has_cli,
 
   check_cli_wrap = check_cli_wrap,
+  ---@type vim.lsp.ClientConfig
+  lsp_configs = lsp_configs,
 }
