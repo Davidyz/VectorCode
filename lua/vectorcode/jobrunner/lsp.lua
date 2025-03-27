@@ -5,11 +5,6 @@ then
   return nil
 end
 
-vim.lsp.config(
-  "vectorcode_server",
-  { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
-)
-
 ---@type VectorCode.JobRunner
 local jobrunner = {}
 

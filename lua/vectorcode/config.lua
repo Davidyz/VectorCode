@@ -18,6 +18,12 @@ local config = {
   on_setup = { update = false, lsp = false },
 }
 
+vim.lsp.config.vectorcode_server = vim.tbl_deep_extend(
+  "force",
+  { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } },
+  vim.lsp.config.vectorcode_server or {}
+)
+
 local setup_config = vim.deepcopy(config, true)
 local notify_opts = { title = "VectorCode" }
 
