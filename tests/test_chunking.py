@@ -12,24 +12,30 @@ from vectorcode.chunking import (
 from vectorcode.cli_utils import Config
 
 
-class TestChunking:
+class TestStringChunker:
     file_chunker = FileChunker()
 
     def test_string_chunker(self):
         string_chunker = StringChunker(Config(chunk_size=-1, overlap_ratio=0.5))
-        assert list(string_chunker.chunk("hello world")) == ["hello world"]
+        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
+            "hello world"
+        ]
         string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.5))
-        assert list(string_chunker.chunk("hello world")) == [
+        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
             "hello",
             "llo w",
             "o wor",
             "world",
         ]
         string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0))
-        assert list(string_chunker.chunk("hello world")) == ["hello", " worl", "d"]
+        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
+            "hello",
+            " worl",
+            "d",
+        ]
 
         string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.8))
-        assert list(string_chunker.chunk("hello world")) == [
+        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
             "hello",
             "ello ",
             "llo w",
@@ -39,31 +45,49 @@ class TestChunking:
             "world",
         ]
 
+
+class TestFileChunker:
     def test_file_chunker(self):
-        """
-        Use StringChunker output as ground truth to test chunking.
-        """
-        file_path = __file__
-        ratio = 0.5
-        chunk_size = 100
+        test_content = "hello world"
 
-        with open(file_path) as fin:
-            string_chunker = StringChunker(
-                Config(chunk_size=chunk_size, overlap_ratio=ratio)
-            )
-            string_chunks = list(string_chunker.chunk(fin.read()))
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
+            tmp_file.write(test_content)
+            tmp_file_name = tmp_file.name
 
-        with open(file_path) as fin:
-            file_chunker = FileChunker(
-                Config(chunk_size=chunk_size, overlap_ratio=ratio)
-            )
-            file_chunks = list(file_chunker.chunk(fin))
+        # Test negative chunk size (return whole file)
+        with open(tmp_file_name, "r") as f:
+            chunker = FileChunker(Config(chunk_size=-1, overlap_ratio=0.5))
+            assert list(str(i) for i in chunker.chunk(f)) == ["hello world"]
 
-        assert len(string_chunks) == len(file_chunks), (
-            f"Number of chunks do not match. {len(string_chunks)} != {len(file_chunks)}"
-        )
-        for string_chunk, file_chunk in zip(string_chunks, file_chunks):
-            assert string_chunk == file_chunk
+        # Test basic chunking with overlap
+        with open(tmp_file_name, "r") as f:
+            chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0.5))
+            assert list(str(i) for i in chunker.chunk(f)) == [
+                "hello",
+                "llo w",
+                "o wor",
+                "world",
+            ]
+
+        # Test no overlap
+        with open(tmp_file_name, "r") as f:
+            chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0))
+            assert list(str(i) for i in chunker.chunk(f)) == ["hello", " worl", "d"]
+
+        # Test high overlap ratio
+        with open(tmp_file_name, "r") as f:
+            chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0.8))
+            assert list(str(i) for i in chunker.chunk(f)) == [
+                "hello",
+                "ello ",
+                "llo w",
+                "lo wo",
+                "o wor",
+                " worl",
+                "world",
+            ]
+
+        os.remove(tmp_file_name)
 
 
 def test_no_config():
@@ -96,7 +120,7 @@ def bar():
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == ['def foo():\n    return "foo"', 'def bar():\n    return "bar"']
     os.remove(test_file)
 
@@ -118,7 +142,7 @@ def bar():
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == ['def bar():\n    return "bar"']
     os.remove(test_file)
 
@@ -140,7 +164,7 @@ def bar():
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == []
     os.remove(test_file)
 
@@ -160,7 +184,7 @@ def bar():
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == ['def bar():\n    return "bar"']
     os.remove(test_file)
 
@@ -178,7 +202,7 @@ end
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == ['functionbar()return "bar"end']
     os.remove(test_file)
 
@@ -199,7 +223,7 @@ end
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == ['functionfoo()return "foo"end', 'functionbar()return "bar"end']
 
     os.remove(test_file)
@@ -221,7 +245,7 @@ end
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert len(chunks) > 0
 
     os.remove(test_file)
@@ -243,7 +267,7 @@ end
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    chunks = list(chunker.chunk(test_file))
+    chunks = list(str(i) for i in chunker.chunk(test_file))
     assert len(chunks) == 1
 
     os.remove(test_file)
@@ -268,8 +292,8 @@ def test_treesitter_chunker_fallback():
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-    tree_sitter_chunks = list(tree_sitter_chunker.chunk(test_file))
-    string_chunks = list(string_chunker.chunk(test_content))
+    tree_sitter_chunks = list(str(i) for i in tree_sitter_chunker.chunk(test_file))
+    string_chunks = list(str(i) for i in string_chunker.chunk(test_content))
 
     assert tree_sitter_chunks == string_chunks
 
