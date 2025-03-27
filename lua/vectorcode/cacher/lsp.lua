@@ -35,12 +35,8 @@ end
 
 ---@return boolean
 local function is_lsp_running()
-  local clients = vim.lsp.get_clients({ name = "vectorcode_server" })
-  if #clients == 0 then
-    return false
-  end
-  client_id = clients[1].id
-  return true
+  client_id = job_runner.init()
+  return client_id ~= nil
 end
 
 ---@type table<integer, VectorCode.Cache>
@@ -169,7 +165,7 @@ M.register_buffer = vc_config.check_cli_wrap(
     opts =
       vim.tbl_deep_extend("force", vc_config.get_user_config().async_opts, opts or {})
 
-    assert(client_id ~= nil)
+    assert(is_lsp_running())
 
     if CACHE[bufnr] ~= nil then
       -- update the options and/or query_cb

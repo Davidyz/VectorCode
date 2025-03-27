@@ -5,6 +5,11 @@ then
   return nil
 end
 
+vim.lsp.config(
+  "vectorcode_server",
+  { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
+)
+
 ---@type VectorCode.JobRunner
 local jobrunner = {}
 
@@ -14,30 +19,33 @@ local CLIENT = nil
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 
+--- Returns the Client ID if applicable, or `nil` if the language server fails to start
 ---@param ok_to_fail boolean
-local function get_client(ok_to_fail)
+---@return integer?
+function jobrunner.init(ok_to_fail)
   ok_to_fail = ok_to_fail or true
-  vim.lsp.enable({ "vectorcode_server" }, true)
-  if #vim.lsp.get_clients({ name = "vectorcode_server" }) > 0 then
+  local client_id = vim.lsp.start(vim.lsp.config.vectorcode_server, {})
+  if client_id ~= nil then
     -- server started
-    CLIENT = vim.lsp.get_clients({ name = "vectorcode_server" })[1]
+    CLIENT = vim.lsp.get_client_by_id(client_id) --[[@as vim.lsp.Client]]
   else
     -- failed to start server
     if vc_config.get_user_config().notify or not ok_to_fail then
       vim.schedule(function()
         vim.notify(
-          "Failed to start vectorcode-server due to the following error.",
+          "Failed to start vectorcode-server due some error.",
           vim.log.levels.ERROR,
           notify_opts
         )
       end)
-      return false
     end
+    return nil
   end
+  return client_id
 end
 
 function jobrunner.run(args, timeout_ms, bufnr)
-  get_client(false)
+  jobrunner.init(false)
   assert(CLIENT ~= nil)
   assert(bufnr ~= nil)
   if timeout_ms == nil or timeout_ms < 0 then
@@ -60,7 +68,7 @@ function jobrunner.run(args, timeout_ms, bufnr)
 end
 
 function jobrunner.run_async(args, callback, bufnr)
-  get_client(false)
+  jobrunner.init(false)
   assert(CLIENT ~= nil)
   assert(bufnr ~= nil)
 
@@ -81,7 +89,7 @@ function jobrunner.run_async(args, callback, bufnr)
     end
   end
   args = require("vectorcode.jobrunner").find_root(args, bufnr)
-  local _, id = CLIENT.request(
+  local _, id = CLIENT:request(
     vim.lsp.protocol.Methods.workspace_executeCommand,
     { command = "vectorcode", arguments = args },
     function(err, result, _, _)
@@ -99,7 +107,7 @@ function jobrunner.run_async(args, callback, bufnr)
 end
 
 function jobrunner.is_job_running(job_handler)
-  get_client(true)
+  jobrunner.init(true)
   if CLIENT ~= nil then
     local request_data = CLIENT.requests[job_handler]
     return request_data ~= nil and request_data.type == "pending"
@@ -108,9 +116,9 @@ function jobrunner.is_job_running(job_handler)
 end
 
 function jobrunner.stop_job(job_handler)
-  get_client(true)
+  jobrunner.init(true)
   if CLIENT ~= nil then
-    CLIENT.cancel_request(job_handler)
+    CLIENT:cancel_request(job_handler)
   end
 end
 

@@ -7,6 +7,7 @@ local utils = require("vectorcode.utils")
 ---@field run fun(args: string[], timeout_ms: integer?, bufnr: integer):(result:table, error:table)
 ---@field is_job_running fun(job_handle: integer):boolean
 ---@field stop_job fun(job_handle: integer)
+---@field init function?
 
 return {
   --- Automatically find project_root from buffer path if it's not already specified.
