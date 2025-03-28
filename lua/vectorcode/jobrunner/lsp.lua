@@ -19,7 +19,7 @@ local notify_opts = vc_config.notify_opts
 ---@return integer?
 function jobrunner.init(ok_to_fail)
   ok_to_fail = ok_to_fail or true
-  local client_id = vim.lsp.start(vc_config.lsp_configs, {})
+  local client_id = vim.lsp.start(vc_config.lsp_configs(), {})
   if client_id ~= nil then
     -- server started
     CLIENT = vim.lsp.get_client_by_id(client_id) --[[@as vim.lsp.Client]]
