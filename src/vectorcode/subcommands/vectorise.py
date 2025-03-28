@@ -63,7 +63,7 @@ async def chunked_add(
             chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
             metas = []
             for chunk in chunks:
-                meta = {"path": full_path_str}
+                meta: dict[str, str | dict[str, int]] = {"path": full_path_str}
                 if isinstance(chunk, Chunk):
                     meta["start"] = {"row": chunk.start.row, "col": chunk.start.column}
                     meta["end"] = {"row": chunk.end.row, "col": chunk.end.column}
@@ -76,7 +76,7 @@ async def chunked_add(
                         documents=[str(i) for i in inserted_chunks],
                         metadatas=metas,
                     )
-    except UnicodeDecodeError:
+    except UnicodeDecodeError:  # pragma: nocover
         # probably binary. skip it.
         return
 
