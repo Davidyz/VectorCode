@@ -22,9 +22,9 @@ local config = {
 local lsp_configs = function()
   local cfg =
     { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
-  if vim.lsp.config ~= nil then
+  if vim.lsp.config ~= nil and vim.lsp.config.vectorcode_server ~= nil then
     -- nvim >= 0.11.0
-    cfg = vim.tbl_deep_extend("force", cfg, vim.lsp.config.vectorcode_server or {})
+    cfg = vim.tbl_deep_extend("force", cfg, vim.lsp.config.vectorcode_server)
   else
     -- nvim < 0.11.0
     local ok, lspconfig = pcall(require, "lspconfig.configs")

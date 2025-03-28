@@ -177,7 +177,7 @@ The following are the available options for the parameter of this function:
     update the embeddings;
   - `lsp`: if `true`, the plugin will try to start the LSP server on startup so
     that you won't need to wait for the server loading when making your first 
-    request. _Requires neovim 0.11.0+._
+    request.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the top-level
@@ -293,7 +293,13 @@ interface:
 1. The `default` backend which works exactly like the original implementation
    used in previous versions;
 2. The `lsp` based backend, which make use of the experimental `vectorcode-server`
-   implemented in version 0.4.0. _Requires neovim 0.11.0+._
+   implemented in version 0.4.0. If you want to customise the LSP executable or
+   any options supported by `vim.lsp.ClientConfig`, you can do so by using
+   `vim.lsp.config()` or 
+   [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig). The LSP will
+   attempt to read configurations from these 2 sources before it starts. (If
+   `vim.lsp.config.vectorcode_server` is not `nil`, this will be used and
+   nvim-lspconfig will be ignored.)
 
 
 | Features | `default`                                                                                                 | `lsp`                                                                                                                     |
