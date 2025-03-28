@@ -6,11 +6,12 @@ from typing import Any, DefaultDict
 import numpy
 from chromadb.api.types import QueryResult
 
-from vectorcode.cli_utils import Config
+from vectorcode.cli_utils import Config, QueryInclude
 
 
 class RerankerBase:
     def __init__(self, configs: Config, **kwargs: Any):
+        self.configs = configs
         self.n_result = configs.n_result
 
     @abstractmethod
@@ -62,15 +63,19 @@ class CrossEncoderReranker(RerankerBase):
         assert results["documents"] is not None
         documents: DefaultDict[str, list[float]] = defaultdict(list)
         for query_chunk_idx in range(len(self.query_chunks)):
+            chunk_ids = results["ids"][query_chunk_idx]
             chunk_metas = results["metadatas"][query_chunk_idx]
             chunk_docs = results["documents"][query_chunk_idx]
             ranks = self.model.rank(
                 self.query_chunks[query_chunk_idx], chunk_docs, apply_softmax=True
             )
             for rank in ranks:
-                documents[chunk_metas[rank["corpus_id"]]["path"]].append(
-                    float(rank["score"])
-                )
+                if QueryInclude.chunk in self.configs.include:
+                    documents[chunk_ids[rank["corpus_id"]]].append(float(rank["score"]))
+                else:
+                    documents[chunk_metas[rank["corpus_id"]]["path"]].append(
+                        float(rank["score"])
+                    )
 
         top_k = int(numpy.mean(tuple(len(i) for i in documents.values())))
         for key in documents.keys():

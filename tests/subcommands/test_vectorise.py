@@ -9,7 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pathspec
 import pytest
 from chromadb.api.models.AsyncCollection import AsyncCollection
+from tree_sitter import Point
 
+from vectorcode.chunking import Chunk
 from vectorcode.cli_utils import Config
 from vectorcode.subcommands.vectorise import (
     chunked_add,
@@ -47,7 +49,7 @@ async def test_chunked_add():
     semaphore = asyncio.Semaphore(1)
 
     with patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk:
-        mock_chunk.return_value = ["chunk1", "chunk2"]
+        mock_chunk.return_value = [Chunk("chunk1", Point(1, 0), Point(1, 5)), "chunk2"]
         await chunked_add(
             file_path,
             collection,
