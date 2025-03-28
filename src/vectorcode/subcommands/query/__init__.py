@@ -22,7 +22,7 @@ async def get_query_result_files(
     if configs.query:
         chunker = StringChunker(configs)
         for q in configs.query:
-            query_chunks.extend(chunker.chunk(q))
+            query_chunks.extend(str(i) for i in chunker.chunk(q))
 
     configs.query_exclude = [
         expand_path(i, True)

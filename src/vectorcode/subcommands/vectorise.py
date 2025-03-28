@@ -13,7 +13,7 @@ import tqdm
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 
-from vectorcode.chunking import TreeSitterChunker
+from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import Config, expand_globs, expand_path
 from vectorcode.common import get_client, get_collection, verify_ef
 
@@ -54,18 +54,27 @@ async def chunked_add(
 
     try:
         async with semaphore:
-            chunks = list(TreeSitterChunker(configs).chunk(full_path_str))
+            chunks: list[Chunk | str] = list(
+                TreeSitterChunker(configs).chunk(full_path_str)
+            )
             if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
                 # empty file
                 return
             chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
+            metas = []
+            for chunk in chunks:
+                meta = {"path": full_path_str}
+                if isinstance(chunk, Chunk):
+                    meta["start"] = {"row": chunk.start.row, "col": chunk.start.column}
+                    meta["end"] = {"row": chunk.end.row, "col": chunk.end.column}
+                metas.append(meta)
             async with collection_lock:
                 for idx in range(0, len(chunks), max_batch_size):
                     inserted_chunks = chunks[idx : idx + max_batch_size]
                     await collection.add(
                         ids=[get_uuid() for _ in inserted_chunks],
-                        documents=inserted_chunks,
-                        metadatas=[{"path": full_path_str} for _ in inserted_chunks],
+                        documents=[str(i) for i in inserted_chunks],
+                        metadatas=metas,
                     )
     except UnicodeDecodeError:
         # probably binary. skip it.

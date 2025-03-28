@@ -48,10 +48,10 @@ class TestStringChunker:
 
 class TestFileChunker:
     def test_file_chunker(self):
-        test_content = "hello world"
+        test_content = ["hello ", "world"]
 
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
-            tmp_file.write(test_content)
+            tmp_file.writelines(test_content)
             tmp_file_name = tmp_file.name
 
         # Test negative chunk size (return whole file)
