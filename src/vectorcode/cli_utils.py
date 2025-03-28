@@ -23,6 +23,7 @@ CHECK_OPTIONS = ["config"]
 class QueryInclude(StrEnum):
     path = "path"
     document = "document"
+    chunk = "chunk"
 
     def to_header(self) -> str:
         """

@@ -7,7 +7,7 @@ from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
 
 from vectorcode.chunking import StringChunker
-from vectorcode.cli_utils import Config, expand_globs, expand_path
+from vectorcode.cli_utils import Config, QueryInclude, expand_globs, expand_path
 from vectorcode.common import (
     get_client,
     get_collection,
@@ -33,12 +33,14 @@ async def get_query_result_files(
         print("Empty collection!", file=sys.stderr)
         return []
     try:
-        num_query = await collection.count()
-        if configs.query_multiplier > 0:
-            num_query = min(
-                int(configs.n_result * configs.query_multiplier),
-                await collection.count(),
-            )
+        num_query = configs.n_result
+        if QueryInclude.chunk not in configs.include:
+            num_query = await collection.count()
+            if configs.query_multiplier > 0:
+                num_query = min(
+                    int(configs.n_result * configs.query_multiplier),
+                    await collection.count(),
+                )
         if len(configs.query_exclude):
             filtered_files = {"path": {"$nin": configs.query_exclude}}
         else:
@@ -71,6 +73,15 @@ async def get_query_result_files(
 
 
 async def query(configs: Config) -> int:
+    if (
+        QueryInclude.chunk in configs.include
+        and QueryInclude.document in configs.include
+    ):
+        print(
+            "Having both chunk and document in the output is not supported!",
+            file=sys.stderr,
+        )
+        return 1
     client = await get_client(configs)
     try:
         collection = await get_collection(client, configs, False)
@@ -101,14 +112,16 @@ async def query(configs: Config) -> int:
 
     for path in await get_query_result_files(collection, configs):
         if os.path.isfile(path):
-            with open(path) as fin:
-                document = fin.read()
             if configs.use_absolute_path:
                 output_path = os.path.abspath(path)
             else:
                 output_path = os.path.relpath(path, configs.project_root)
+            full_result = {"path": output_path}
+            if QueryInclude.document in configs.include:
+                with open(path) as fin:
+                    document = fin.read()
+                    full_result["document"] = document
 
-            full_result = {"path": output_path, "document": document}
             structured_result.append(
                 {str(key): full_result[str(key)] for key in configs.include}
             )
