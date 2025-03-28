@@ -66,7 +66,7 @@ class StringChunker(ChunkerBase):
                 yield Chunk(
                     text=chunk_text,
                     start=Point(row=1, column=i),
-                    end=Point(row=1, column=len(chunk_text) - 1),
+                    end=Point(row=1, column=i + len(chunk_text) - 1),
                 )
                 if i + self.config.chunk_size >= len(data):
                     break

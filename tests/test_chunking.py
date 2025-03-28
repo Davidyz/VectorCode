@@ -2,8 +2,10 @@ import os
 import tempfile
 
 import pytest
+from tree_sitter import Point
 
 from vectorcode.chunking import (
+    Chunk,
     ChunkerBase,
     FileChunker,
     StringChunker,
@@ -27,12 +29,18 @@ class TestStringChunker:
             "o wor",
             "world",
         ]
+        assert list(string_chunker.chunk("hello world"))[0] == Chunk(
+            "hello", Point(1, 0), Point(1, 4)
+        )
+
         string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0))
         assert list(str(i) for i in string_chunker.chunk("hello world")) == [
             "hello",
             " worl",
             "d",
         ]
+        chunks = list(string_chunker.chunk("hello world"))
+        assert chunks[1] == Chunk(" worl", Point(1, 5), Point(1, 9))
 
         string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.8))
         assert list(str(i) for i in string_chunker.chunk("hello world")) == [
@@ -86,6 +94,32 @@ class TestFileChunker:
                 " worl",
                 "world",
             ]
+
+        os.remove(tmp_file_name)
+
+    def test_file_chunker_positions(self):
+        test_content = ["first line\n", "second line\n", "third line"]
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
+            tmp_file.writelines(test_content)
+            tmp_file_name = tmp_file.name
+
+        # Test chunk positions
+        with open(tmp_file_name, "r") as f:
+            chunker = FileChunker(Config(chunk_size=10, overlap_ratio=0))
+            chunks = list(chunker.chunk(f))
+
+            assert chunks[0].text == "first line"
+            assert chunks[0].start == Point(1, 0)
+            assert chunks[0].end == Point(1, 9)
+
+            assert chunks[1].text == "\nsecond li"
+            assert chunks[1].start == Point(1, 10)
+            assert chunks[1].end == Point(2, 8)
+
+            assert chunks[2].text == "ne\nthird l"
+            assert chunks[2].start == Point(2, 9)
+            assert chunks[2].end == Point(3, 6)
 
         os.remove(tmp_file_name)
 
@@ -296,5 +330,45 @@ def test_treesitter_chunker_fallback():
     string_chunks = list(str(i) for i in string_chunker.chunk(test_content))
 
     assert tree_sitter_chunks == string_chunks
+
+    os.remove(test_file)
+
+
+def test_treesitter_chunker_positions():
+    """Test that TreeSitterChunker produces correct start/end positions for chunks."""
+    chunker = TreeSitterChunker(Config(chunk_size=15))
+
+    test_content = """\
+def foo():
+    return 1 + \\
+        2
+
+@decorator
+def bar():
+    return "bar"
+"""
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".py") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(chunker.chunk(test_file))
+
+    # Verify chunks and their positions
+    assert len(chunks) >= 2  # Should have at least 2 chunks
+
+    # First chunk should contain the function definition start
+    assert "deffoo():" in chunks[0].text
+    assert chunks[0].start == Point(1, 0)
+
+    # Last chunk should contain the final return statement
+    assert 'return "bar"' in chunks[-1].text
+    assert chunks[-1].end.row == 7
+    assert chunks[-1].end.column in (14, 15)  # Allow 1-column difference
+
+    # Verify positions are contiguous
+    for i in range(len(chunks) - 1):
+        assert chunks[i].end.row <= chunks[i + 1].start.row
+        if chunks[i].end.row == chunks[i + 1].start.row:
+            assert chunks[i].end.column <= chunks[i + 1].start.column
 
     os.remove(test_file)
