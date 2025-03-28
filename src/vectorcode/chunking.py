@@ -90,30 +90,44 @@ class FileChunker(ChunkerBase):
             text = "".join(lines)
             yield Chunk(text, Point(1, 0), Point(1, len(text) - 1))
             return
-        text_buffer = ""
-        start_pos = Point(1, 0)
 
-        def seek(point: Point, count: int):
-            while point.column + count > len(lines[point.row - 1]):
-                count -= len(lines[point.row - 1]) - point.column
-                point.row += 1
-                point.column = 0
-            return point
+        text = "".join(lines)
+        step_size = max(
+            1, int(self.config.chunk_size * (1 - self.config.overlap_ratio))
+        )
 
-        for ln in range(1, len(lines) + 1):
-            line = lines[ln - 1]
-            if len(text_buffer + line) > self.config.chunk_size:
-                consumed = line[: self.config.chunk_size - len(text_buffer)]
-                yield Chunk(
-                    text_buffer + consumed, start_pos, Point(ln, len(consumed) - 1)
-                )
-                text_buffer = ""
-                if len(consumed) < len(line):
-                    start_pos = Point(ln, len(consumed))
-                else:
-                    start_pos = Point(ln + 1, 0)
-            else:
-                text_buffer += line
+        # Convert lines to absolute positions
+        line_offsets = [0]
+        for line in lines:
+            line_offsets.append(line_offsets[-1] + len(line))
+
+        i = 0
+        while i < len(text):
+            chunk_text = text[i : i + self.config.chunk_size]
+
+            # Find start position
+            start_line = (
+                next(ln for ln, offset in enumerate(line_offsets) if offset > i) - 1
+            )
+            start_col = i - line_offsets[start_line]
+
+            # Find end position
+            end_pos = i + len(chunk_text)
+            end_line = (
+                next(ln for ln, offset in enumerate(line_offsets) if offset >= end_pos)
+                - 1
+            )
+            end_col = end_pos - line_offsets[end_line] - 1
+
+            yield Chunk(
+                chunk_text,
+                Point(start_line + 1, start_col),
+                Point(end_line + 1, end_col),
+            )
+
+            if i + self.config.chunk_size >= len(text):
+                break
+            i += step_size
 
 
 class TreeSitterChunker(ChunkerBase):
