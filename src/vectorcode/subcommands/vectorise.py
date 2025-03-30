@@ -65,8 +65,9 @@ async def chunked_add(
             for chunk in chunks:
                 meta: dict[str, str | dict[str, int]] = {"path": full_path_str}
                 if isinstance(chunk, Chunk):
-                    meta["start"] = {"row": chunk.start.row, "col": chunk.start.column}
-                    meta["end"] = {"row": chunk.end.row, "col": chunk.end.column}
+                    meta["start"] = chunk.start.row
+                    meta["end"] = chunk.end.row
+
                 metas.append(meta)
             async with collection_lock:
                 for idx in range(0, len(chunks), max_batch_size):

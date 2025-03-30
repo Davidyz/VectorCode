@@ -4,7 +4,7 @@ import pytest
 from pygls.server import LanguageServer
 
 from vectorcode import __version__
-from vectorcode.cli_utils import CliAction, Config
+from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.lsp_main import (
     execute_command,
     lsp_start,
@@ -23,13 +23,18 @@ def mock_language_server():
 
 @pytest.fixture
 def mock_config():
-    config = MagicMock(spec=Config)
+    # config = MagicMock(spec=Config)
+    config = Config()
     config.host = "localhost"
     config.port = 8000
     config.action = CliAction.query
     config.project_root = "/test/project"
     config.use_absolute_path = True
     config.pipe = False
+    config.overlap_ratio = 0.2
+    config.query_exclude = []
+    config.include = [QueryInclude.path]
+    config.query_multipler = 10
     return config
 
 

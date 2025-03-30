@@ -5,7 +5,7 @@ from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
 
-from vectorcode.cli_utils import Config, QueryInclude
+from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.subcommands.query import get_query_result_files, query
 
 
@@ -71,7 +71,7 @@ async def test_get_query_result_files(mock_collection, mock_config):
         assert IncludeEnum.metadatas in kwargs["include"]
         assert IncludeEnum.distances in kwargs["include"]
         assert IncludeEnum.documents in kwargs["include"]
-        assert kwargs["where"] is None  # Since query_exclude is empty
+        assert not kwargs["where"]  # Since query_exclude is empty
 
         # Check reranker was used correctly
         MockReranker.assert_called_once_with(mock_config)
@@ -444,3 +444,11 @@ async def test_query_invalid_ef(mock_config):
 
         # Verify the function returns error code
         assert result == 1
+
+
+@pytest.mark.asyncio
+async def test_query_invalid_include():
+    faulty_config = Config(
+        action=CliAction.query, include=[QueryInclude.chunk, QueryInclude.document]
+    )
+    assert await query(faulty_config) != 0

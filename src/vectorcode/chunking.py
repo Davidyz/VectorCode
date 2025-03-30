@@ -235,10 +235,11 @@ class TreeSitterChunker(ChunkerBase):
         """
         assert os.path.isfile(data)
         with open(data) as fin:
-            content = fin.read()
-        if self.config.chunk_size < 0:
-            yield content
-            return
+            lines = fin.readlines()
+            content = "".join(lines)
+            if self.config.chunk_size < 0 and content:
+                yield Chunk(content, Point(1, 0), Point(len(lines), len(lines[-1]) - 1))
+                return
         parser = None
         language = None
         lexer = self.__guess_type(data, content)

@@ -2,6 +2,7 @@ import json
 import os
 import sys
 
+from chromadb import GetResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
@@ -33,18 +34,20 @@ async def get_query_result_files(
         print("Empty collection!", file=sys.stderr)
         return []
     try:
+        if len(configs.query_exclude):
+            filtered_files: dict[str, dict] = {"path": {"$nin": configs.query_exclude}}
+        else:
+            filtered_files = {}
         num_query = configs.n_result
-        if QueryInclude.chunk not in configs.include:
+        if QueryInclude.chunk in configs.include:
+            filtered_files["start"] = {"$gte": 0}
+        else:
             num_query = await collection.count()
             if configs.query_multiplier > 0:
                 num_query = min(
                     int(configs.n_result * configs.query_multiplier),
                     await collection.count(),
                 )
-        if len(configs.query_exclude):
-            filtered_files = {"path": {"$nin": configs.query_exclude}}
-        else:
-            filtered_files = None
         results = await collection.query(
             query_texts=query_chunks,
             n_results=num_query,
@@ -70,6 +73,64 @@ async def get_query_result_files(
             configs, query_chunks, configs.reranker, **configs.reranker_params
         ).rerank(results)
     return aggregated_results
+
+
+async def build_query_results(
+    collection: AsyncCollection, configs: Config
+) -> list[dict[str, str | int]]:
+    structured_result = []
+    for identifier in await get_query_result_files(collection, configs):
+        if os.path.isfile(identifier):
+            if configs.use_absolute_path:
+                output_path = os.path.abspath(identifier)
+            else:
+                output_path = os.path.relpath(identifier, configs.project_root)
+            full_result = {"path": output_path}
+            with open(identifier) as fin:
+                document = fin.read()
+                full_result["document"] = document
+
+            structured_result.append(
+                {str(key): full_result[str(key)] for key in configs.include}
+            )
+        elif QueryInclude.chunk in configs.include:
+            chunk: GetResult = await collection.get(
+                identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
+            )
+            meta = chunk.get(
+                "metadatas",
+            )
+            if meta is not None and len(meta) != 0:
+                full_result: dict[str, str | int] = {
+                    "chunk": str(chunk.get("documents", [""])[0])
+                }
+                if meta[0].get("start") is not None and meta[0].get("end") is not None:
+                    path = str(meta[0].get("path"))
+                    with open(path) as fin:
+                        start: int = meta[0]["start"]
+                        end: int = meta[0]["end"]
+                        full_result["chunk"] = "".join(fin.readlines()[start : end + 1])
+                    full_result["start_line"] = start
+                    full_result["end_line"] = end
+                    full_result["path"] = str(
+                        meta[0]["path"]
+                        if configs.use_absolute_path
+                        else os.path.relpath(meta[0]["path"], str(configs.project_root))
+                    )
+
+                    structured_result.append(full_result)
+            else:
+                print(
+                    "This collection doesn't support chunk-mode output because it lacks the necessary metadata. Please re-vectorise it.",
+                    file=sys.stderr,
+                )
+
+        else:
+            print(
+                f"{identifier} is no longer a valid file! Please re-run vectorcode vectorise to refresh the database.",
+                file=sys.stderr,
+            )
+    return structured_result
 
 
 async def query(configs: Config) -> int:
@@ -108,28 +169,7 @@ async def query(configs: Config) -> int:
     if not configs.pipe:
         print("Starting querying...")
 
-    structured_result = []
-
-    for path in await get_query_result_files(collection, configs):
-        if os.path.isfile(path):
-            if configs.use_absolute_path:
-                output_path = os.path.abspath(path)
-            else:
-                output_path = os.path.relpath(path, configs.project_root)
-            full_result = {"path": output_path}
-            if QueryInclude.document in configs.include:
-                with open(path) as fin:
-                    document = fin.read()
-                    full_result["document"] = document
-
-            structured_result.append(
-                {str(key): full_result[str(key)] for key in configs.include}
-            )
-        else:
-            print(
-                f"{path} is no longer a valid file! Please re-run vectorcode vectorise to refresh the database.",
-                file=sys.stderr,
-            )
+    structured_result = await build_query_results(collection, configs)
 
     if configs.pipe:
         print(json.dumps(structured_result))

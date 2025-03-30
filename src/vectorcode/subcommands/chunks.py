@@ -9,5 +9,5 @@ async def chunks(configs: Config) -> int:
     result = []
     for file_path in configs.files:
         result.append(list(chunker.chunk(str(file_path))))
-    print(json.dumps(result))
+    print(json.dumps(str(result)))
     return 0

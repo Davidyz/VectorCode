@@ -24,7 +24,7 @@ from vectorcode.cli_utils import (
 )
 from vectorcode.common import get_client, get_collection, try_server
 from vectorcode.subcommands.ls import get_collection_list
-from vectorcode.subcommands.query import get_query_result_files
+from vectorcode.subcommands.query import build_query_results
 
 cached_project_configs: dict[str, Config] = {}
 DEFAULT_PROJECT_ROOT: str | None = None
@@ -108,20 +108,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             )
             final_results = []
             try:
-                for path in await get_query_result_files(
-                    collection=collection,
-                    configs=final_configs,
-                ):
-                    if os.path.isfile(path):
-                        with open(path) as fin:
-                            output_path = path
-                            if not final_configs.use_absolute_path:
-                                output_path = os.path.relpath(
-                                    path, final_configs.project_root
-                                )
-                            final_results.append(
-                                {"path": output_path, "document": fin.read()}
-                            )
+                final_results.extend(
+                    await build_query_results(collection, final_configs)
+                )
             finally:
                 ls.progress.end(
                     progress_token,
