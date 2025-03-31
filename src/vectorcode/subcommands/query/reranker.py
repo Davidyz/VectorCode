@@ -28,16 +28,20 @@ class NaiveReranker(RerankerBase):
         assert results["distances"] is not None
         documents: DefaultDict[str, list[float]] = defaultdict(list)
         for query_chunk_idx in range(len(results["ids"])):
+            chunk_ids = results["ids"][query_chunk_idx]
             chunk_metas = results["metadatas"][query_chunk_idx]
             chunk_distances = results["distances"][query_chunk_idx]
             # NOTE: distances, smaller is better.
             paths = [str(meta["path"]) for meta in chunk_metas]
             assert len(paths) == len(chunk_distances)
-            for distance, path in zip(chunk_distances, paths):
-                if path is None:
+            for distance, identifier in zip(
+                chunk_distances,
+                chunk_ids if QueryInclude.chunk in self.configs.include else paths,
+            ):
+                if identifier is None:
                     # so that vectorcode doesn't break on old collections.
                     continue
-                documents[path].append(distance)
+                documents[identifier].append(distance)
 
         top_k = int(numpy.mean(tuple(len(i) for i in documents.values())))
         for key in documents.keys():
