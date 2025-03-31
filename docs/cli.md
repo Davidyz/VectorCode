@@ -331,6 +331,16 @@ vectorcode query foo bar --include path
 This will only include the `path` in the output. This is effective for both
 normal CLI usage and [`--pipe` mode](#for-developers).
 
+For some applications, it may be overkill to use the full document as context
+and all you need is the chunks. You can do this by using `--include chunk` or
+`--include chunk path` in the command. This will return chunks from the
+document, and in `pipe` mode the objects will also include the line numbers of 
+the first and last lines in the chunk. Note that `chunk` and `document` cannot be used at
+the same time, and the number of query result (the `-n` parameter) will refer to
+the number of retrieved chunks when you use `--include chunk`. For the sake of 
+completeness, the first and last lines of a chunk will be completed to include
+the whole lines if the chunker broke the text from mid-line.
+
 ### Listing All Collections
 
 You can use `vectorcode ls` command to list all collections in your ChromaDB.
@@ -432,6 +442,25 @@ For the query command, here's the format printed in the `pipe` mode:
 ```
 Basically an array of dictionaries with 2 keys: `"path"` for the path to the
 document, and `"document"` for the content of the document.
+
+If you used `--include chunk path` parameters, the array will look like this:
+```json
+[
+    {
+        "path": "path_to_your_code.py",
+        "chunk": "foo",
+        "start_line": 1,
+        "end_line": 1,
+    },
+    {
+        "path": "path_to_another_file.py",
+        "chunk": "bar",
+        "start_line": 1,
+        "end_line": 1,
+    }
+]
+```
+Keep in mind that both `start_line` and `end_line` are inclusive.
 
 #### `vectorcode vectorise`
 The output is in JSON format. It contains a dictionary with the following fields:
