@@ -1,12 +1,17 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 import pytest
+from chromadb import GetResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
 
 from vectorcode.cli_utils import CliAction, Config, QueryInclude
-from vectorcode.subcommands.query import get_query_result_files, query
+from vectorcode.subcommands.query import (
+    build_query_results,
+    get_query_result_files,
+    query,
+)
 
 
 @pytest.fixture
@@ -17,8 +22,16 @@ def mock_collection():
         "ids": [["id1", "id2", "id3"], ["id4", "id5", "id6"]],
         "distances": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
         "metadatas": [
-            [{"path": "file1.py"}, {"path": "file2.py"}, {"path": "file3.py"}],
-            [{"path": "file2.py"}, {"path": "file4.py"}, {"path": "file3.py"}],
+            [
+                {"path": "file1.py", "start": 1, "end": 1},
+                {"path": "file2.py", "start": 1, "end": 1},
+                {"path": "file3.py", "start": 1, "end": 1},
+            ],
+            [
+                {"path": "file2.py", "start": 1, "end": 1},
+                {"path": "file4.py", "start": 1, "end": 1},
+                {"path": "file3.py", "start": 1, "end": 1},
+            ],
         ],
         "documents": [
             ["content1", "content2", "content3"],
@@ -81,6 +94,83 @@ async def test_get_query_result_files(mock_collection, mock_config):
 
         # Check the result
         assert result == ["file1.py", "file2.py", "file3.py"]
+
+
+@pytest.mark.asyncio
+async def test_get_query_result_files_include_chunk(mock_collection, mock_config):
+    """Test get_query_result_files when QueryInclude.chunk is included."""
+    mock_config.include = [QueryInclude.chunk]  # Include chunk
+
+    with patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker:
+        mock_reranker_instance = MagicMock()
+        mock_reranker_instance.rerank.return_value = ["chunk1"]
+        MockReranker.return_value = mock_reranker_instance
+
+        await get_query_result_files(mock_collection, mock_config)
+
+        # Check query call includes where clause for chunks
+        mock_collection.query.assert_called_once()
+        _, kwargs = mock_collection.query.call_args
+        # Line 43: Check the 'if' condition branch
+        assert kwargs["where"] == {"start": {"$gte": 0}}
+        assert kwargs["n_results"] == 3  # n_result should be used directly
+
+
+@pytest.mark.asyncio
+async def test_build_query_results_chunk_mode_success(mock_collection, mock_config):
+    """Test build_query_results in chunk mode successfully retrieves chunk details."""
+    mock_config.include = [QueryInclude.chunk, QueryInclude.path]
+    mock_config.project_root = "/test/project"
+    mock_config.use_absolute_path = False
+    identifier = "chunk_id_1"
+    file_path = "/test/project/subdir/file1.py"
+    relative_path = "subdir/file1.py"
+    start_line = 5
+    end_line = 10
+
+    full_file_content_lines = [f"line {i}\n" for i in range(15)]
+    full_file_content = "".join(full_file_content_lines)
+
+    expected_chunk_content = "".join(full_file_content_lines[start_line : end_line + 1])
+
+    mock_get_result = GetResult(
+        ids=[identifier],
+        embeddings=None,
+        documents=["original chunk doc in db"],
+        metadatas=[{"path": file_path, "start": start_line, "end": end_line}],
+    )
+
+    with (
+        patch(
+            "vectorcode.subcommands.query.get_query_result_files",
+            return_value=[identifier],
+        ),
+        patch("os.path.isfile", return_value=False),
+        patch("builtins.open", mock_open(read_data=full_file_content)) as mocked_open,
+        patch("os.path.relpath", return_value=relative_path) as mock_relpath,
+    ):
+        mock_collection.get = AsyncMock(return_value=mock_get_result)
+
+        results = await build_query_results(mock_collection, mock_config)
+
+        mock_collection.get.assert_called_once_with(
+            identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
+        )
+
+        mocked_open.assert_called_once_with(file_path)
+
+        mock_relpath.assert_called_once_with(file_path, str(mock_config.project_root))
+
+        assert len(results) == 1
+
+        expected_full_result = {
+            "path": relative_path,
+            "chunk": expected_chunk_content,
+            "start_line": start_line,
+            "end_line": end_line,
+        }
+
+        assert results[0] == expected_full_result
 
 
 @pytest.mark.asyncio
