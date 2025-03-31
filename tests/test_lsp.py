@@ -88,7 +88,7 @@ async def test_execute_command_query(mock_language_server, mock_config):
         patch("vectorcode.lsp_main.get_client", new_callable=AsyncMock),
         patch("vectorcode.lsp_main.get_collection", new_callable=AsyncMock),
         patch(
-            "vectorcode.lsp_main.get_query_result_files", new_callable=AsyncMock
+            "vectorcode.lsp_main.build_query_results", new_callable=AsyncMock
         ) as mock_get_query_result_files,
         patch("os.path.isfile", return_value=True),
         patch("vectorcode.lsp_main.try_server", return_value=True),
