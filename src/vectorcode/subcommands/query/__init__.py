@@ -112,11 +112,14 @@ async def build_query_results(
                         full_result["chunk"] = "".join(fin.readlines()[start : end + 1])
                     full_result["start_line"] = start
                     full_result["end_line"] = end
-                    full_result["path"] = str(
-                        meta[0]["path"]
-                        if configs.use_absolute_path
-                        else os.path.relpath(meta[0]["path"], str(configs.project_root))
-                    )
+                    if QueryInclude.path in configs.include:
+                        full_result["path"] = str(
+                            meta[0]["path"]
+                            if configs.use_absolute_path
+                            else os.path.relpath(
+                                meta[0]["path"], str(configs.project_root)
+                            )
+                        )
 
                     structured_result.append(full_result)
             else:
