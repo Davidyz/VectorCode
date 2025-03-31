@@ -542,3 +542,42 @@ async def test_query_invalid_include():
         action=CliAction.query, include=[QueryInclude.chunk, QueryInclude.document]
     )
     assert await query(faulty_config) != 0
+
+
+@pytest.mark.asyncio
+async def test_query_chunk_mode_no_metadata_fallback(mock_config):
+    mock_config.include = [QueryInclude.chunk, QueryInclude.path]
+    mock_client = AsyncMock()
+    mock_collection = AsyncMock()
+
+    # Mock collection.get to return no IDs for the metadata check
+    mock_collection.get.return_value = {"ids": []}
+
+    with (
+        patch("vectorcode.subcommands.query.get_client", return_value=mock_client),
+        patch(
+            "vectorcode.subcommands.query.get_collection", return_value=mock_collection
+        ),
+        patch("vectorcode.subcommands.query.verify_ef", return_value=True),
+        patch("vectorcode.subcommands.query.build_query_results") as mock_build_results,
+        patch("sys.stderr") as mock_stderr,
+    ):
+        mock_build_results.return_value = []  # Return empty results for simplicity
+
+        result = await query(mock_config)
+
+        assert result == 0
+
+        # Verify the metadata check call
+        mock_collection.get.assert_called_once_with(where={"start": {"$gte": 0}})
+
+        # Verify the warning was printed
+        assert mock_stderr.write.call_count > 0
+        call_args, _ = mock_stderr.write.call_args_list[0]
+        assert "Falling back to `--include path document`" in call_args[0]
+
+        # Verify build_query_results was called with the *modified* config
+        mock_build_results.assert_called_once()
+        args, _ = mock_build_results.call_args
+        _, called_config = args
+        assert called_config.include == [QueryInclude.path, QueryInclude.document]

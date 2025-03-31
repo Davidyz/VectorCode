@@ -35,12 +35,12 @@ async def get_query_result_files(
         return []
     try:
         if len(configs.query_exclude):
-            filtered_files: dict[str, dict] = {"path": {"$nin": configs.query_exclude}}
+            filter: dict[str, dict] = {"path": {"$nin": configs.query_exclude}}
         else:
-            filtered_files = {}
+            filter = {}
         num_query = configs.n_result
         if QueryInclude.chunk in configs.include:
-            filtered_files["start"] = {"$gte": 0}
+            filter["start"] = {"$gte": 0}
         else:
             num_query = await collection.count()
             if configs.query_multiplier > 0:
@@ -56,7 +56,7 @@ async def get_query_result_files(
                 IncludeEnum.distances,
                 IncludeEnum.documents,
             ],
-            where=filtered_files,
+            where=filter or None,
         )
     except IndexError:
         # no results found
@@ -168,6 +168,16 @@ async def query(configs: Config) -> int:
 
     if not configs.pipe:
         print("Starting querying...")
+
+    if QueryInclude.chunk in configs.include:
+        if len((await collection.get(where={"start": {"$gte": 0}}))["ids"]) == 0:
+            print(
+                """
+This collection doesn't contain line range metadata. Falling back to `--include path document`. 
+Please re-vectorise it to use `--include chunk`.""",
+                file=sys.stderr,
+            )
+            configs.include = [QueryInclude.path, QueryInclude.document]
 
     structured_result = await build_query_results(collection, configs)
 
