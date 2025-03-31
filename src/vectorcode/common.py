@@ -134,7 +134,7 @@ def get_collection_name(full_path: str) -> str:
     return collection_id
 
 
-def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction:
+def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction | None:
     try:
         return getattr(embedding_functions, configs.embedding_function)(
             **configs.embedding_params
@@ -145,6 +145,16 @@ def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction:
             file=sys.stderr,
         )
         return embedding_functions.SentenceTransformerEmbeddingFunction()
+    except Exception as e:
+        print(
+            f"Failed to use {configs.embedding_function} with the following error:",
+            file=sys.stderr,
+        )
+        e.add_note(
+            "\nFor errors caused by missing dependency, consult the documentation of pipx (or whatever package manager that you installed VectorCode with) for instructions to inject libraries into the virtual environment."
+        )
+
+        raise
 
 
 __COLLECTION_CACHE: dict[str, AsyncCollection] = {}

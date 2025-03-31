@@ -9,6 +9,7 @@ import httpx
 import pytest
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
+from chromadb.utils import embedding_functions
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import (
@@ -66,6 +67,34 @@ def test_get_embedding_function():
     )
     embedding_function = get_embedding_function(config)
     assert "SentenceTransformerEmbeddingFunction" in str(type(embedding_function))
+
+
+def test_get_embedding_function_init_exception():
+    # Test when the embedding function exists but raises an error during initialization
+    config = Config(
+        embedding_function="SentenceTransformerEmbeddingFunction",
+        embedding_params={"model_name": "non_existent_model_should_cause_error"},
+    )
+
+    # Mock SentenceTransformerEmbeddingFunction.__init__ to raise a generic exception
+    with patch.object(
+        embedding_functions, "SentenceTransformerEmbeddingFunction", autospec=True
+    ) as mock_stef:
+        # Simulate an error during the embedding function's __init__
+        mock_stef.side_effect = Exception("Simulated initialization error")
+
+        with pytest.raises(Exception) as excinfo:
+            get_embedding_function(config)
+
+        # Check if the raised exception is the one we simulated
+        assert "Simulated initialization error" in str(excinfo.value)
+        # Check if the additional note was added
+        assert "For errors caused by missing dependency" in excinfo.value.__notes__[0]
+
+        # Verify that the constructor was called with the correct parameters
+        mock_stef.assert_called_once_with(
+            model_name="non_existent_model_should_cause_error"
+        )
 
 
 @pytest.mark.asyncio
