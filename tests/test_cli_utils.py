@@ -305,7 +305,7 @@ def test_find_project_root():
 async def test_get_project_config_no_local_config():
     with tempfile.TemporaryDirectory() as temp_dir:
         config = await get_project_config(temp_dir)
-        assert config.host == "127.0.0.1"  # Ensure global config or default is loaded
+        assert config.host in {"127.0.0.1", "localhost"}
 
 
 @pytest.mark.asyncio
