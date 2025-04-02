@@ -8,6 +8,6 @@ async def chunks(configs: Config) -> int:
     chunker = TreeSitterChunker(configs)
     result = []
     for file_path in configs.files:
-        result.append(list(chunker.chunk(str(file_path))))
-    print(json.dumps(str(result)))
+        result.append(list(i.text for i in chunker.chunk(str(file_path))))
+    print(json.dumps((result)))
     return 0

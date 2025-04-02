@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vectorcode.chunking import TreeSitterChunker
+from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import Config
 from vectorcode.subcommands import chunks
 
@@ -19,8 +19,8 @@ async def test_chunks():
     mock_chunker = TreeSitterChunker(mock_config)
     mock_chunker.chunk = MagicMock()
     mock_chunker.chunk.side_effect = [
-        ["chunk1_file1", "chunk2_file1"],
-        ["chunk1_file2", "chunk2_file2"],
+        [Chunk("chunk1_file1", None, None), Chunk("chunk2_file1", None, None)],
+        [Chunk("chunk1_file2", None, None), Chunk("chunk2_file2", None, None)],
     ]
     with patch(
         "vectorcode.subcommands.chunks.TreeSitterChunker", return_value=mock_chunker

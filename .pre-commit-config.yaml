@@ -14,13 +14,3 @@ repos:
   hooks:
     - id: stylua-github
       language: lua
-- repo: 'https://github.com/kdheepak/panvimdoc'
-  rev: v4.0.1
-  hooks:
-    - id: panvimdoc-docker
-      files: docs/neovim.md
-      args:
-        - '--project-name'
-        - 'VectorCode'
-        - '--input-file'
-        - './docs/neovim.md'
