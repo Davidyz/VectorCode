@@ -16,6 +16,7 @@ dependencies = [
     "tree-sitter-language-pack",
     "pygments",
     "transformers>=4.36.0",
+    "wheel<0.46.0",
 ]
 requires-python = ">=3.11,<3.14"
 readme = "README.md"
