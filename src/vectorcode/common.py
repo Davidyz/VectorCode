@@ -41,8 +41,8 @@ async def get_collections(
         yield collection
 
 
-async def try_server(host: str, port: int):
-    url = f"http://{host}:{port}/api/v1/heartbeat"
+async def try_server(host: str, port: int, use_v2: bool = True):
+    url = f"http://{host}:{port}/api/v{2 if use_v2 else 1}/heartbeat"
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url=url)

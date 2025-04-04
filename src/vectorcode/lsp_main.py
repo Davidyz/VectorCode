@@ -43,7 +43,9 @@ async def make_caches(project_root: str):
     config = cached_project_configs[project_root]
     config.project_root = project_root
     host, port = config.host, config.port
-    if not await try_server(host, port):  # pragma: nocover
+    if not (
+        await try_server(host, port, True) or await try_server(host, port, False)
+    ):  # pragma: nocover
         raise ConnectionError(
             "Failed to find an existing ChromaDB server, which is a hard requirement for LSP mode!"
         )

@@ -5,7 +5,7 @@ description = "A tool to vectorise repositories for RAG."
 authors = [{ name = "Davidyz", email = "hzjlyz@gmail.com" }]
 dependencies = [
     "sentence-transformers",
-    "chromadb>=1.0.0b0",
+    "chromadb>=1.0.0",
     "pathspec",
     "tabulate",
     "shtab",
