@@ -5,7 +5,6 @@ import sys
 from asyncio import Lock
 
 import tqdm
-from chromadb.api.types import IncludeEnum
 from chromadb.errors import NotFoundError
 
 from vectorcode.cli_utils import Config
@@ -31,7 +30,7 @@ async def update(configs: Config) -> int:
     if collection is None or not verify_ef(collection, configs):
         return 1
 
-    metas = (await collection.get(include=[IncludeEnum.metadatas]))["metadatas"]
+    metas = (await collection.get(include=["metadatas"]))["metadatas"]
     if metas is None:
         return 0
     files_gen = (str(meta.get("path", "")) for meta in metas)

@@ -5,7 +5,6 @@ from typing import cast
 
 from chromadb import GetResult, Where
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidDimensionException, NotFoundError
 
 from vectorcode.chunking import StringChunker
@@ -67,9 +66,9 @@ async def get_query_result_files(
             query_texts=query_chunks,
             n_results=num_query,
             include=[
-                IncludeEnum.metadatas,
-                IncludeEnum.distances,
-                IncludeEnum.documents,
+                "metadatas",
+                "distances",
+                "documents",
             ],
             where=cast(Where, filter) or None,
         )
@@ -100,14 +99,14 @@ async def build_query_results(
                 {str(key): full_result[str(key)] for key in configs.include}
             )
         elif QueryInclude.chunk in configs.include:
-            chunks: GetResult = await collection.get(
-                identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
+            chunk: GetResult = await collection.get(
+                identifier, include=["metadatas", "documents"]
             )
-            meta = chunks.get(
+            meta = chunk.get(
                 "metadatas",
             )
             if meta is not None and len(meta) != 0:
-                chunk_texts = chunks.get("documents")
+                chunk_texts = chunk.get("documents")
                 assert chunk_texts is not None, (
                     "QueryResult does not contain `documents`!"
                 )
