@@ -166,6 +166,8 @@ async def test_expand_globs():
         assert len(expanded_paths) == 1
         assert file2_path in expanded_paths
 
+        assert len(await expand_globs([os.path.join(temp_dir, "**", "*.txt")])) == 3
+
 
 def test_expand_path():
     path_with_user = "~/test_dir"

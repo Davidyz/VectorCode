@@ -444,6 +444,8 @@ async def expand_globs(
         curr = stack.pop()
         if os.path.isfile(curr):
             result.add(expand_path(curr))
+        elif "**" in str(curr):
+            stack.extend(glob.glob(str(curr), recursive=True))
         elif "*" in str(curr):
             stack.extend(glob.glob(str(curr), recursive=recursive))
         elif os.path.isdir(curr) and recursive:
