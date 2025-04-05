@@ -4,7 +4,6 @@ import socket
 
 import tabulate
 from chromadb.api import AsyncClientAPI
-from chromadb.api.types import IncludeEnum
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import get_client, get_collections
@@ -14,7 +13,7 @@ async def get_collection_list(client: AsyncClientAPI) -> list[dict]:
     result = []
     async for collection in get_collections(client):
         meta = collection.metadata
-        document_meta = await collection.get(include=[IncludeEnum.metadatas])
+        document_meta = await collection.get(include=["metadatas"])
         unique_files = set(
             i.get("path") for i in document_meta["metadatas"] if i is not None
         )
