@@ -23,8 +23,7 @@ logger = logging.getLogger(name=__name__)
 async def get_collections(
     client: AsyncClientAPI,
 ) -> AsyncGenerator[AsyncCollection, None]:
-    for collection_name in await client.list_collections():
-        collection = await client.get_collection(collection_name, None)
+    for collection in await client.list_collections():
         meta = collection.metadata
         if meta is None:
             continue

@@ -489,62 +489,54 @@ async def test_get_collections():
     # Mocking AsyncClientAPI and AsyncCollection
     mock_client = MagicMock(spec=AsyncClientAPI)
 
-    # Mock successful get_collection
-    mock_collection1 = MagicMock(spec=AsyncCollection)
-    mock_collection1.metadata = {
+    # Create test collections with different metadata scenarios
+    valid_collection = MagicMock(spec=AsyncCollection)
+    valid_collection.metadata = {
         "created-by": "VectorCode",
         "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
         "hostname": socket.gethostname(),
     }
 
-    # collection with meta == None
-    mock_collection2 = MagicMock(spec=AsyncCollection)
-    mock_collection2.metadata = None
+    no_metadata_collection = MagicMock(spec=AsyncCollection)
+    no_metadata_collection.metadata = None
 
-    # collection with wrong "created-by"
-    mock_collection3 = MagicMock(spec=AsyncCollection)
-    mock_collection3.metadata = {
-        "created-by": "NotVectorCode",
+    wrong_creator_collection = MagicMock(spec=AsyncCollection)
+    wrong_creator_collection.metadata = {
+        "created-by": "OtherTool",
         "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
         "hostname": socket.gethostname(),
     }
 
-    # collection with wrong "username"
-    mock_collection4 = MagicMock(spec=AsyncCollection)
-    mock_collection4.metadata = {
+    wrong_user_collection = MagicMock(spec=AsyncCollection)
+    wrong_user_collection.metadata = {
         "created-by": "VectorCode",
         "username": "wrong_user",
         "hostname": socket.gethostname(),
     }
 
-    # collection with wrong "hostname"
-    mock_collection5 = MagicMock(spec=AsyncCollection)
-    mock_collection5.metadata = {
+    wrong_host_collection = MagicMock(spec=AsyncCollection)
+    wrong_host_collection.metadata = {
         "created-by": "VectorCode",
         "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
         "hostname": "wrong_host",
     }
 
+    # Mock list_collections to return the collections directly
     mock_client.list_collections.return_value = [
-        "collection1",
-        "collection2",
-        "collection3",
-        "collection4",
-        "collection5",
-    ]
-    mock_client.get_collection.side_effect = [
-        mock_collection1,
-        mock_collection2,
-        mock_collection3,
-        mock_collection4,
-        mock_collection5,
+        valid_collection,
+        no_metadata_collection,
+        wrong_creator_collection,
+        wrong_user_collection,
+        wrong_host_collection,
     ]
 
-    collections = [
-        collection async for collection in get_collections(mock_client)
-    ]  # call get_collections
+    # Collect the filtered collections
+    collections = [collection async for collection in get_collections(mock_client)]
+
+    # Verify only the valid collection was returned
     assert len(collections) == 1
-    assert collections[0] == mock_collection1
+    assert collections[0] == valid_collection
+    mock_client.list_collections.assert_called_once()
 
 
 def test_get_embedding_function_fallback():
