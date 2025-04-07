@@ -239,14 +239,22 @@ The JSON configuration file may hold the following values:
   guarantees the return of `n` documents, but with the risk of including too
   many less-relevant chunks that may affect the document selection. Default: 
   `-1` (any negative value means selecting documents based on all indexed chunks);
-- `reranker`: string, a reranking model supported by 
-  [`CrossEncoder`](https://sbert.net/docs/package_reference/cross_encoder/index.html). 
-  A list of available models is available on their documentation. The default
-  model is `"cross-encoder/ms-marco-MiniLM-L-6-v2"`. You can disable the use of
-  `CrossEncoder` by setting this option to a falsy value that is not `null`,
-  such as `false` or `""` (empty string);
+- `reranker`: string, specifies which reranker to use for result sorting. This can be:
+  - A model name for [`CrossEncoderReranker`](https://sbert.net/docs/package_reference/cross_encoder/index.html)
+    (e.g., `"cross-encoder/ms-marco-MiniLM-L-6-v2"`)
+  - A built-in reranker class name (`"NaiveReranker"`, `"CrossEncoderReranker"`, or `"LlamaCppReranker"`)
+  - A custom reranker class name that can be dynamically loaded
+  - You can disable reranking by setting this to a falsy value that is not `null`, such as `false` or `""` (empty string)
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
-  passed to `CrossEncoder` class constructor;
+  passed to the reranker class constructor. For example:
+  ```json
+  {
+    "reranker": "LlamaCppReranker",
+    "reranker_params": {
+      "model_name": "http://localhost:8085/v1/reranking"
+    }
+  }
+  ```
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
   for Chromadb client settings so that you can configure 
   [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
