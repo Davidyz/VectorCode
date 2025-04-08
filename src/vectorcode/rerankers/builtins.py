@@ -1,38 +1,39 @@
 import heapq
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, List
+from typing import DefaultDict, List
 
 import numpy
 from chromadb.api.types import QueryResult
 
 from vectorcode.cli_utils import Config, QueryInclude
+
 from .base import RerankerBase, register_reranker
 
 
 @register_reranker("naive")
 class NaiveReranker(RerankerBase):
     """A simple reranker that ranks documents by their mean distance."""
-    
+
     def __init__(self, configs: Config = None, **kwargs):
         super().__init__(**kwargs)
         self.configs = configs
         self.n_result = configs.n_result if configs else kwargs.get("n_result", 10)
-        
+
     def rerank(self, results: QueryResult) -> List[str]:
         """Rerank the query results by mean distance.
-        
+
         Args:
             results: The query results from ChromaDB.
-            
+
         Returns:
             A list of document IDs sorted by mean distance.
         """
         assert results["metadatas"] is not None
         assert results["distances"] is not None
         documents: DefaultDict[str, list[float]] = defaultdict(list)
-        
+
         include = getattr(self.configs, "include", None) if self.configs else None
-        
+
         for query_chunk_idx in range(len(results["ids"])):
             chunk_ids = results["ids"][query_chunk_idx]
             chunk_metas = results["metadatas"][query_chunk_idx]
@@ -61,44 +62,47 @@ class NaiveReranker(RerankerBase):
 @register_reranker("crossencoder")
 class CrossEncoderReranker(RerankerBase):
     """A reranker that uses a cross-encoder model for reranking."""
-    
-    def __init__(self, 
-                 configs: Config = None, 
-                 query_chunks: List[str] = None, 
-                 model_name: str = None,
-                 **kwargs):
+
+    def __init__(
+        self,
+        configs: Config = None,
+        query_chunks: List[str] = None,
+        model_name: str = None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.configs = configs
         self.n_result = configs.n_result if configs else kwargs.get("n_result", 10)
-        
+
         # Handle model_name correctly
         self.model_name = model_name or kwargs.get("model_name")
         if not self.model_name:
             raise ValueError("model_name must be provided")
-            
+
         self.query_chunks = query_chunks or kwargs.get("query_chunks", [])
         if not self.query_chunks:
             raise ValueError("query_chunks must be provided")
-            
+
         # Import here to avoid requiring sentence-transformers for all rerankers
         from sentence_transformers import CrossEncoder
+
         self.model = CrossEncoder(self.model_name, **kwargs)
 
     def rerank(self, results: QueryResult) -> List[str]:
         """Rerank the query results using a cross-encoder model.
-        
+
         Args:
             results: The query results from ChromaDB.
-            
+
         Returns:
             A list of document IDs sorted by cross-encoder scores.
         """
         assert results["metadatas"] is not None
         assert results["documents"] is not None
         documents: DefaultDict[str, list[float]] = defaultdict(list)
-        
+
         include = getattr(self.configs, "include", None) if self.configs else None
-        
+
         for query_chunk_idx in range(len(self.query_chunks)):
             chunk_ids = results["ids"][query_chunk_idx]
             chunk_metas = results["metadatas"][query_chunk_idx]

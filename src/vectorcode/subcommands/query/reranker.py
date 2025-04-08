@@ -7,8 +7,14 @@ to maintain backward compatibility with existing code.
 For new code, please use the vectorcode.rerankers module directly.
 """
 
-import sys
 import warnings
+
+# Import from the new module
+from vectorcode.rerankers import (
+    CrossEncoderReranker,
+    NaiveReranker,
+    RerankerBase,
+)
 
 # Emit a deprecation warning
 warnings.warn(
@@ -18,16 +24,9 @@ warnings.warn(
     stacklevel=2,
 )
 
-# Import from the new module
-from vectorcode.rerankers import (
-    RerankerBase,
-    NaiveReranker,
-    CrossEncoderReranker,
-)
-
 # Make sure we export all the classes
 __all__ = [
-    'RerankerBase',
-    'NaiveReranker',
-    'CrossEncoderReranker',
+    "RerankerBase",
+    "NaiveReranker",
+    "CrossEncoderReranker",
 ]
