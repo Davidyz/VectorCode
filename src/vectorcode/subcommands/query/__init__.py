@@ -62,45 +62,29 @@ async def get_query_result_files(
         # no results found
         return []
 
-    # Load the appropriate reranker based on configuration
+    # For backward compatibility with existing code and tests
+    from .reranker import NaiveReranker, CrossEncoderReranker
+
+    # Try to use the reranker based on configuration
     try:
-        from vectorcode.rerankers import create_reranker
-
         if not configs.reranker:
-            # Default to NaiveReranker if no reranker specified
-            reranker_name = "naive"
+            # Default to NaiveReranker
+            reranker = NaiveReranker(configs)
+        elif configs.reranker.startswith("cross-encoder/"):
+            # Use CrossEncoder reranker
+            reranker = CrossEncoderReranker(configs, query_chunks, configs.reranker)
         else:
-            reranker_name = configs.reranker
-
-        # Get the reranker parameters
-        reranker_params = (
-            configs.reranker_params.copy()
-            if hasattr(configs, "reranker_params")
-            else {}
-        )
-
-        try:
-            # Create the reranker instance with appropriate parameters
-            reranker = create_reranker(
-                reranker_name,
-                configs=configs,
-                query_chunks=query_chunks,
-                **reranker_params,
-            )
-            aggregated_results = reranker.rerank(results)
-        except (ValueError, ImportError, AttributeError) as e:
-            # Fall back to NaiveReranker if requested reranker can't be loaded
-            print(f"Failed to load reranker '{reranker_name}': {e}", file=sys.stderr)
-            print("Falling back to NaiveReranker", file=sys.stderr)
-            from vectorcode.rerankers import NaiveReranker
-
-            aggregated_results = NaiveReranker(configs=configs).rerank(results)
+            # Try to use a custom reranker from the new module system
+            from vectorcode.rerankers import create_reranker
+            reranker = create_reranker(configs.reranker, configs=configs, query_chunks=query_chunks)
     except Exception as e:
-        # Catch-all fallback to NaiveReranker
-        print(f"Unexpected error loading rerankers: {e}", file=sys.stderr)
-        from .reranker import NaiveReranker
-
-        aggregated_results = NaiveReranker(configs).rerank(results)
+        # Fall back to NaiveReranker on any error
+        print(f"Error loading reranker: {e}", file=sys.stderr)
+        print("Falling back to NaiveReranker", file=sys.stderr)
+        reranker = NaiveReranker(configs)
+    
+    # Apply the reranker
+    aggregated_results = reranker.rerank(results)
     return aggregated_results
 
 
