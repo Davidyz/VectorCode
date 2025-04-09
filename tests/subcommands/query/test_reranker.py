@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from vectorcode.cli_utils import Config, QueryInclude
-from vectorcode.subcommands.query.reranker import (
+from vectorcode.rerankers import (
     CrossEncoderReranker,
     NaiveReranker,
     RerankerBase,
@@ -36,13 +36,11 @@ def query_chunks():
     return ["query chunk 1", "query chunk 2"]
 
 
-# The RerankerBase isn't actually preventing instantiation,
-# but it will raise NotImplementedError when rerank is called
+# Since RerankerBase is now a proper abstract class, we can't instantiate it directly
 def test_reranker_base_method_is_abstract(config):
-    """Test that RerankerBase.rerank raises NotImplementedError"""
-    base_reranker = RerankerBase(config)
-    with pytest.raises(NotImplementedError):
-        base_reranker.rerank({})
+    """Test that RerankerBase cannot be instantiated directly"""
+    with pytest.raises(TypeError):
+        RerankerBase(config=config)
 
 
 def test_naive_reranker_initialization(config):
