@@ -215,13 +215,16 @@ async def test_async_main_cli_action_query(monkeypatch):
 @pytest.mark.asyncio
 async def test_async_main_cli_action_vectorise(monkeypatch):
     mock_cli_args = MagicMock(
-        no_stderr=False, project_root=".", action=CliAction.vectorise
+        no_stderr=False,
+        project_root=".",
+        action=CliAction.vectorise,
+        include_hidden=True,
     )
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
     mock_final_configs = MagicMock(
-        host="test_host", port=1234, action=CliAction.vectorise
+        host="test_host", port=1234, action=CliAction.vectorise, include_hidden=True
     )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",

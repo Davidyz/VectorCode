@@ -52,6 +52,7 @@ class CliAction(Enum):
 class Config:
     no_stderr: bool = False
     recursive: bool = False
+    include_hidden: bool = False
     to_be_deleted: list[str] = field(default_factory=list)
     pipe: bool = False
     action: Optional[CliAction] = None
@@ -203,6 +204,12 @@ def get_cli_parser():
         help="Recursive indexing for directories.",
     )
     vectorise_parser.add_argument(
+        "--include-hidden",
+        action="store_true",
+        default=False,
+        help="Include hidden files.",
+    )
+    vectorise_parser.add_argument(
         "--force",
         "-f",
         action="store_true",
@@ -306,6 +313,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
     files = []
     query = None
     recursive = False
+    include_hidden = False
     number_of_result = 1
     force = False
     chunk_size = -1
@@ -319,6 +327,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
         case "vectorise":
             files = main_args.file_paths
             recursive = main_args.recursive
+            include_hidden = main_args.include_hidden
             force = main_args.force
             chunk_size = main_args.chunk_size
             overlap_ratio = main_args.overlap
@@ -344,6 +353,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
         project_root=main_args.project_root,
         query=query,
         recursive=recursive,
+        include_hidden=include_hidden,
         n_result=number_of_result,
         pipe=main_args.pipe,
         force=force,
@@ -436,7 +446,7 @@ def expand_path(path: PathLike, absolute: bool = False) -> PathLike:
 
 
 async def expand_globs(
-    paths: list[PathLike], recursive: bool = False
+    paths: list[PathLike], recursive: bool = False, include_hidden: bool = False
 ) -> list[PathLike]:
     result = set()
     stack = paths
@@ -445,9 +455,19 @@ async def expand_globs(
         if os.path.isfile(curr):
             result.add(expand_path(curr))
         elif "**" in str(curr):
-            stack.extend(glob.glob(str(curr), recursive=True))
+            stack.extend(
+                glob.glob(str(curr), recursive=True, include_hidden=include_hidden)
+            )
         elif "*" in str(curr):
-            stack.extend(glob.glob(str(curr), recursive=recursive))
+            stack.extend(
+                glob.glob(str(curr), recursive=recursive, include_hidden=include_hidden)
+            )
         elif os.path.isdir(curr) and recursive:
-            stack.extend(glob.glob(os.path.join(curr, "**", "*"), recursive=recursive))
+            stack.extend(
+                glob.glob(
+                    os.path.join(curr, "**", "*"),
+                    recursive=recursive,
+                    include_hidden=include_hidden,
+                )
+            )
     return list(result)

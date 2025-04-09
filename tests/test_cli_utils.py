@@ -343,6 +343,26 @@ async def test_parse_cli_args_vectorise():
 
 
 @pytest.mark.asyncio
+async def test_parse_cli_args_vectorise_recursive_dir():
+    with patch("sys.argv", ["vectorcode", "vectorise", "-r", "."]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.vectorise
+        assert config.files == ["."]
+        assert config.recursive is True
+        assert config.include_hidden is False
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_vectorise_recursive_dir_include_hidden():
+    with patch("sys.argv", ["vectorcode", "vectorise", "-r", "."]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.vectorise
+        assert config.files == ["."]
+        assert config.recursive is True
+        assert config.include_hidden is False
+
+
+@pytest.mark.asyncio
 async def test_parse_cli_args_vectorise_no_files():
     with patch("sys.argv", ["vectorcode", "vectorise"]):
         config = await parse_cli_args()

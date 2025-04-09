@@ -122,8 +122,7 @@ def load_files_from_include(project_root: str) -> list[str]:
     include_file_path = os.path.join(project_root, ".vectorcode", "vectorcode.include")
     if os.path.isfile(include_file_path):
         with open(include_file_path) as fin:
-            specs = pathspec.PathSpec.from_lines(
-                pattern_factory="gitwildmatch",
+            specs = pathspec.GitIgnoreSpec.from_lines(
                 lines=(os.path.expanduser(i) for i in fin.readlines()),
             )
         return [
@@ -144,12 +143,21 @@ async def vectorise(configs: Config) -> int:
         return 1
     if not verify_ef(collection, configs):
         return 1
-    gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
+
     files = await expand_globs(
         configs.files or load_files_from_include(str(configs.project_root)),
         recursive=configs.recursive,
+        include_hidden=configs.include_hidden,
     )
+
+    git_path = os.path.join(configs.project_root, ".git")
+    if os.path.isdir(git_path):
+        files = exclude_paths_by_spec(
+            (str(i) for i in files), pathspec.GitIgnoreSpec.from_lines([".git"])
+        )
+
     if not configs.force:
+        gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
         specs = [
             gitignore_path,
         ]

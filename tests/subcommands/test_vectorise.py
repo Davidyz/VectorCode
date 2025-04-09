@@ -85,9 +85,7 @@ def test_show_stats_pipe_true(capsys):
 
 def test_exclude_paths_by_spec():
     paths = ["file1.py", "file2.py", "exclude.py"]
-    specs = pathspec.PathSpec.from_lines(
-        pattern_factory="gitwildmatch", lines=["exclude.py"]
-    )
+    specs = pathspec.GitIgnoreSpec.from_lines(lines=["exclude.py"])
     excluded_paths = exclude_paths_by_spec(paths, specs)
     assert "exclude.py" not in excluded_paths
     assert len(excluded_paths) == 2
@@ -95,9 +93,7 @@ def test_exclude_paths_by_spec():
 
 def test_include_paths_by_spec():
     paths = ["file1.py", "file2.py", "include.py"]
-    specs = pathspec.PathSpec.from_lines(
-        pattern_factory="gitwildmatch", lines=["include.py", "file1.py"]
-    )
+    specs = pathspec.GitIgnoreSpec.from_lines(lines=["include.py", "file1.py"])
     included_paths = include_paths_by_spec(paths, specs)
     assert "file2.py" not in included_paths
     assert len(included_paths) == 2
