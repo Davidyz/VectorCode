@@ -150,12 +150,6 @@ async def vectorise(configs: Config) -> int:
         include_hidden=configs.include_hidden,
     )
 
-    git_path = os.path.join(configs.project_root, ".git")
-    if os.path.isdir(git_path):
-        files = exclude_paths_by_spec(
-            (str(i) for i in files), pathspec.GitIgnoreSpec.from_lines([".git"])
-        )
-
     if not configs.force:
         gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
         specs = [
