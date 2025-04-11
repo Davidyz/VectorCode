@@ -5,7 +5,7 @@ import os
 import sys
 import uuid
 from asyncio import Lock
-from typing import Iterable
+from typing import Iterable, Optional
 
 import pathspec
 import tabulate
@@ -14,7 +14,13 @@ from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 
 from vectorcode.chunking import Chunk, TreeSitterChunker
-from vectorcode.cli_utils import Config, expand_globs, expand_path
+from vectorcode.cli_utils import (
+    GLOBAL_EXCLUDE_SPEC,
+    GLOBAL_INCLUDE_SPEC,
+    Config,
+    expand_globs,
+    expand_path,
+)
 from vectorcode.common import get_client, get_collection, verify_ef
 
 
@@ -120,11 +126,18 @@ def include_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> lis
 
 def load_files_from_include(project_root: str) -> list[str]:
     include_file_path = os.path.join(project_root, ".vectorcode", "vectorcode.include")
+    specs: Optional[pathspec.GitIgnoreSpec] = None
     if os.path.isfile(include_file_path):
         with open(include_file_path) as fin:
             specs = pathspec.GitIgnoreSpec.from_lines(
                 lines=(os.path.expanduser(i) for i in fin.readlines()),
             )
+    elif os.path.isfile(GLOBAL_INCLUDE_SPEC):
+        with open(GLOBAL_INCLUDE_SPEC) as fin:
+            specs = pathspec.GitIgnoreSpec.from_lines(
+                lines=(os.path.expanduser(i) for i in fin.readlines()),
+            )
+    if specs is not None:
         return [
             result.file
             for result in specs.check_tree_files(project_root)
@@ -160,6 +173,8 @@ async def vectorise(configs: Config) -> int:
         )
         if os.path.isfile(exclude_spec_path):
             specs.append(exclude_spec_path)
+        elif os.path.isfile(GLOBAL_EXCLUDE_SPEC):
+            specs.append(GLOBAL_EXCLUDE_SPEC)
         for spec_path in specs:
             if os.path.isfile(spec_path):
                 with open(spec_path) as fin:

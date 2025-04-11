@@ -4,7 +4,7 @@ import json
 import os
 import socket
 from contextlib import ExitStack
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 import pathspec
 import pytest
@@ -99,24 +99,107 @@ def test_include_paths_by_spec():
     assert len(included_paths) == 2
 
 
-@patch("os.path.isfile", return_value=True)
-@patch("os.path.join", return_value="path/to/.vectorcode/vectorcode.include")
-def test_load_files_from_include(mock_join, mock_isfile, tmpdir):
-    include_file_content = "file1.py\nfile2.py"
-    include_file_path = tmpdir.join("vectorcode.include")
-    include_file_path.write(include_file_content)
-    project_root = str(tmpdir)
+@patch("os.path.isfile")
+@patch("pathspec.PathSpec.check_tree_files")
+def test_load_files_from_local_include(mock_check_tree_files, mock_isfile, tmp_path):
+    """Tests loading files when a local '.vectorcode/vectorcode.include' exists."""
+    project_root = str(tmp_path)
+    local_include_dir = tmp_path / ".vectorcode"
+    local_include_dir.mkdir()
+    local_include_file = local_include_dir / "vectorcode.include"
+    local_include_content = "local_file1.py\nlocal_file2.py"
+    local_include_file.write_text(local_include_content)
 
-    with patch("builtins.open", return_value=open(str(include_file_path), "r")):
-        with patch("pathspec.PathSpec.check_tree_files") as mock_check_tree_files:
-            mock_check_tree_files.return_value = [
-                MagicMock(file="file1.py", include=True),
-                MagicMock(file="file2.py", include=True),
-                MagicMock(file="file3.py", include=False),
-            ]
-            files = load_files_from_include(project_root)
-            assert "file3.py" not in files
-            assert len(files) == 2
+    # Mock os.path.isfile to return True only for the local file
+    mock_isfile.side_effect = lambda p: str(p) == str(local_include_file)
+
+    # Mock check_tree_files
+    mock_check_tree_files.return_value = [
+        MagicMock(file="local_file1.py", include=True),
+        MagicMock(file="local_file2.py", include=True),
+        MagicMock(file="ignored_file.py", include=False),
+    ]
+
+    # Use mock_open for the specific local file path
+    m_open = mock_open(read_data=local_include_content)
+    with patch("builtins.open", m_open):
+        files = load_files_from_include(project_root)
+
+    assert "local_file1.py" in files
+    assert "local_file2.py" in files
+    assert "ignored_file.py" not in files
+    assert len(files) == 2
+    mock_isfile.assert_any_call(str(local_include_file))
+    m_open.assert_called_once_with(str(local_include_file))
+    mock_check_tree_files.assert_called_once()
+
+
+@patch("os.path.isfile")
+@patch("pathspec.PathSpec.check_tree_files")
+def test_load_files_from_global_include(mock_check_tree_files, mock_isfile, tmp_path):
+    """Tests loading files when only a global include spec exists."""
+    project_root = str(tmp_path)
+    local_include_file = tmp_path / ".vectorcode" / "vectorcode.include"
+
+    # Simulate a global include file
+    # Note: We don't actually need the real global path, just a path to use in mocks
+    temp_global_include_dir = tmp_path / "global_config"
+    temp_global_include_dir.mkdir()
+    global_include_file = temp_global_include_dir / "vectorcode.include"
+    global_include_content = "global_file1.py\nglobal_file2.py"
+    global_include_file.write_text(global_include_content)
+
+    # Mock os.path.isfile: False for local, True for (mocked) global
+    mock_isfile.side_effect = lambda p: str(p) == str(global_include_file)
+
+    # Mock check_tree_files
+    mock_check_tree_files.return_value = [
+        MagicMock(file="global_file1.py", include=True),
+        MagicMock(file="global_file2.py", include=True),
+        MagicMock(file="ignored_global.py", include=False),
+    ]
+
+    m_open = mock_open(read_data=global_include_content)
+    # Patch builtins.open and the GLOBAL_INCLUDE_SPEC constant used internally
+    with (
+        patch("builtins.open", m_open),
+        patch(
+            "vectorcode.subcommands.vectorise.GLOBAL_INCLUDE_SPEC",
+            str(global_include_file),
+        ),
+    ):
+        files = load_files_from_include(project_root)
+
+    assert "global_file1.py" in files
+    assert "global_file2.py" in files
+    assert "ignored_global.py" not in files
+    assert len(files) == 2
+    mock_isfile.assert_any_call(str(local_include_file))
+    mock_isfile.assert_any_call(str(global_include_file))
+    m_open.assert_called_once_with(
+        str(global_include_file)
+    )  # Check the global file was opened
+    mock_check_tree_files.assert_called_once()
+
+
+@patch("os.path.isfile", return_value=False)  # Neither local nor global exists
+@patch("pathspec.PathSpec.check_tree_files")
+def test_load_files_from_include_no_files(mock_check_tree_files, mock_isfile, tmp_path):
+    """Tests behavior when neither local nor global include files exist."""
+    project_root = str(tmp_path)
+    local_include_file = tmp_path / ".vectorcode" / "vectorcode.include"
+    # Assume a mocked global path for the check
+    mocked_global_path = "/mock/global/.config/vectorcode/vectorcode.include"
+
+    with patch(
+        "vectorcode.subcommands.vectorise.GLOBAL_INCLUDE_SPEC", mocked_global_path
+    ):
+        files = load_files_from_include(project_root)
+
+    assert files == []
+    mock_isfile.assert_any_call(str(local_include_file))
+    mock_isfile.assert_any_call(mocked_global_path)
+    mock_check_tree_files.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -440,4 +523,102 @@ async def test_vectorise_exclude_file(tmpdir):
         call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
         assert "excluded_file.py" not in call_args
         assert "test_file.py" in call_args
+        assert mock_chunked_add.call_count == 1
+
+
+MOCK_GLOBAL_EXCLUDE_PATH = "/mock/global/.config/vectorcode/vectorcode.exclude"
+
+
+@pytest.mark.asyncio
+@patch("vectorcode.subcommands.vectorise.get_client", new_callable=AsyncMock)
+@patch("vectorcode.subcommands.vectorise.get_collection", new_callable=AsyncMock)
+@patch("vectorcode.subcommands.vectorise.expand_globs", new_callable=AsyncMock)
+@patch("vectorcode.subcommands.vectorise.chunked_add", new_callable=AsyncMock)
+@patch("os.path.isfile")
+@patch("builtins.open", new_callable=mock_open)
+@patch("vectorcode.subcommands.vectorise.GLOBAL_EXCLUDE_SPEC", MOCK_GLOBAL_EXCLUDE_PATH)
+@patch("pathspec.GitIgnoreSpec")
+@patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True)
+async def test_vectorise_uses_global_exclude_when_local_missing(
+    mock_verify_ef,  # Add argument for the new patch
+    mock_gitignore_spec,
+    mock_open_builtin,
+    mock_isfile,
+    mock_chunked_add,
+    mock_expand_globs,
+    mock_get_collection,
+    mock_get_client,
+    tmp_path,
+):
+    """
+    Tests that vectorise uses the global exclude file if the local one
+    and .gitignore are missing.
+    """
+    project_root = str(tmp_path)
+    configs = Config(project_root=project_root, force=False, pipe=True)
+    local_gitignore = tmp_path / ".gitignore"
+    local_exclude_file = tmp_path / ".vectorcode" / "vectorcode.exclude"
+
+    initial_files = [str(tmp_path / "file1.py"), str(tmp_path / "ignored.bin")]
+    mock_expand_globs.return_value = initial_files
+
+    def isfile_side_effect(p):
+        path_str = str(p)
+        if path_str == str(local_gitignore):
+            return False
+        if path_str == str(local_exclude_file):
+            return False
+        if path_str == MOCK_GLOBAL_EXCLUDE_PATH:
+            return True
+        if path_str == str(tmp_path / "file1.py"):
+            return True
+        return False
+
+    mock_isfile.side_effect = isfile_side_effect
+
+    global_exclude_content = "*.bin"
+    m_open = mock_open(read_data=global_exclude_content)
+    with patch("builtins.open", m_open):
+        mock_spec_instance = MagicMock()
+        mock_spec_instance.match_file = lambda path: str(path).endswith(".bin")
+        mock_gitignore_spec.from_lines.return_value = mock_spec_instance
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get_max_batch_size = AsyncMock(return_value=100)
+        mock_get_client.return_value = mock_client_instance
+
+        mock_collection_instance = AsyncMock()
+        mock_collection_instance.get = AsyncMock(
+            return_value={
+                "ids": ["id1"],
+                "metadatas": [
+                    {"path": str(tmp_path / "file1.py")}
+                ],  # Simulate file1.py is in DB
+            }
+        )
+        mock_collection_instance.delete = AsyncMock()
+        mock_get_collection.return_value = mock_collection_instance
+
+        await vectorise(configs)
+
+        mock_verify_ef.assert_called_once_with(mock_collection_instance, configs)
+
+        mock_isfile.assert_any_call(str(local_gitignore))
+        mock_isfile.assert_any_call(str(local_exclude_file))
+        mock_isfile.assert_any_call(MOCK_GLOBAL_EXCLUDE_PATH)
+
+        mock_isfile.assert_any_call(str(tmp_path / "file1.py"))
+
+        m_open.assert_called_with(MOCK_GLOBAL_EXCLUDE_PATH)
+        mock_gitignore_spec.from_lines.assert_called_once_with([global_exclude_content])
+
+        found_correct_call = False
+        for call in mock_chunked_add.call_args_list:
+            args, _ = call
+            if args[0] == str(tmp_path / "file1.py"):
+                found_correct_call = True
+                break
+        assert found_correct_call, (
+            f"chunked_add not called with {str(tmp_path / 'file1.py')}"
+        )
         assert mock_chunked_add.call_count == 1

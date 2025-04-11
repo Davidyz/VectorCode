@@ -16,6 +16,12 @@ PathLike = Union[str, Path]
 GLOBAL_CONFIG_PATH = os.path.join(
     os.path.expanduser("~"), ".config", "vectorcode", "config.json"
 )
+GLOBAL_INCLUDE_SPEC = os.path.join(
+    os.path.expanduser("~"), ".config", "vectorcode", "vectorcode.include"
+)
+GLOBAL_EXCLUDE_SPEC = os.path.join(
+    os.path.expanduser("~"), ".config", "vectorcode", "vectorcode.exclude"
+)
 
 CHECK_OPTIONS = ["config"]
 
