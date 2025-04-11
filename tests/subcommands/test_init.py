@@ -1,6 +1,6 @@
 import os
 import tempfile
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -57,41 +57,41 @@ async def test_init_already_initialized_with_force(capsys):
 @pytest.mark.asyncio
 async def test_init_copies_global_config(capsys):
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create a dummy global config file
-        global_config_content = '{"test": "value"}'
-        with tempfile.NamedTemporaryFile(delete=False) as global_config_file:
-            global_config_file.write(global_config_content.encode())
-            global_config_path = global_config_file.name
+        os.path.join(temp_dir, ".vectorcode")
 
-        project_config_file = os.path.join(temp_dir, ".vectorcode", "config.json")
+        # Create mock global config files
+        config_items = {
+            "config.json": '{"test": "value"}',
+            "vectorcode.include": "*.py",
+            "vectorcode.exclude": "*/tests/*",
+        }
 
-        # Mock os.path.isfile to return True only for the temporary global config file
-        isfile_mock = Mock(return_value=True)
-
-        # Mock shutil.copyfile to assert that the correct files were copied
-        copyfile_mock = Mock()
-        original_global_config_path = os.path.join(
-            os.path.expanduser("~"), ".config", "vectorcode", "config.json"
-        )
-
+        # Patch path expansion and file operations
         with (
-            patch("os.path.isfile", isfile_mock),
-            patch("shutil.copyfile", copyfile_mock),
+            patch("os.path.expanduser", return_value=temp_dir),
+            patch("os.path.isfile", return_value=True),
+            patch("shutil.copyfile") as copyfile_mock,
         ):
-            # Initialize the project
+            # Create mock global config dir
+            global_config_dir = os.path.join(temp_dir, ".config", "vectorcode")
+            os.makedirs(global_config_dir)
+
+            # Write mock global files
+            for filename, content in config_items.items():
+                with open(os.path.join(global_config_dir, filename), "w") as f:
+                    f.write(content)
+
+            # Initialize project
             configs = Config(project_root=temp_dir, force=False)
-            await init(configs)
+            return_code = await init(configs)
 
-            # Assert that shutil.copyfile was called with the correct arguments
-            copyfile_mock.assert_called_once_with(
-                original_global_config_path, project_config_file
-            )
+            # Assert files were copied
+            assert return_code == 0
+            assert copyfile_mock.call_count == len(config_items)
 
-            # Check if the project config was created
-            assert os.path.isfile(project_config_file)
-
+            # Check output messages
             captured = capsys.readouterr()
-            assert "The global configuration at" in captured.out
-
-        # Clean up the global config file
-        os.remove(global_config_path)
+            assert (
+                f"VectorCode project root has been initialised at {temp_dir}"
+                in captured.out
+            )
