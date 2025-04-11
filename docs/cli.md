@@ -15,6 +15,7 @@
   * [Initialising a Project](#initialising-a-project)
   * [Configuring VectorCode](#configuring-vectorcode)
   * [Vectorising Your Code](#vectorising-your-code)
+    * [File Specs](#file-specs)
   * [Making a Query](#making-a-query)
   * [Listing All Collections](#listing-all-collections)
   * [Removing a Collection](#removing-a-collection)
@@ -151,7 +152,7 @@ to refresh the embedding for a particular file, and the CLI provides a
 are currently indexed by VectorCode for the current project. 
 
 If you want something more automagic, check out 
-[this secion in the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
+[this section in the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
 about setting up git hooks to trigger automatic embedding updates when you
 commit/checkout to a different tag.
 
@@ -179,6 +180,13 @@ project-specific settings such as embedding functions and database entry point
 `project_root/.vectorcode/config.json` when you run `vectorcode init`. When a
 project-local config file is present, the global configuration file is ignored
 to avoid confusion. 
+
+The same logics apply to [file specs](#file-specs), which tells VectorCode what
+file it should (or shouldn't) vectorise. If you created a file spec
+`~/.config/vectorcode/vectorcode.include` or
+`~/.config/vectorcode/vectorcode.exclude`, they will be copied to the
+project-local config directory (`project_root/.vectorcode`). They also serve as
+the fallback value if no project-local specs are present.
 
 If you skip `vectorcode init`, VectorCode will look for a directory that
 contains `.git/` subdirectory and use it as the _project root_. In this case, the
@@ -294,6 +302,11 @@ This command also respects `.gitignore`. It by default skips files in
 `.gitignore`. To override this, run the `vectorise` command with `-f`/`--force`
 flag.
 
+There's also a `update` subcommand, which updates the embedding for all the indexed 
+files and remove the embeddings for files that no longer exist.
+
+#### File Specs
+
 As a shorthand, you can create a file at `project_root/.vectorcode/vectorcode.include`.
 This file should follow the same syntax as a 
 [`gitignore` file](https://git-scm.com/docs/gitignore). Files matched by this
@@ -308,8 +321,10 @@ file to denote any files that you want to exclude. This is useful when you have
 some files that should be tracked by git, but are not necessary to be indexed by
 VectorCode.
 
-There's also a `update` subcommand, which updates the embedding for all the indexed 
-files and remove the embeddings for files that no longer exist.
+These specs can be useful if you want to automatically update the embeddings
+on certain conditions. See 
+[the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
+for an example to use it with git hooks.
 
 ### Making a Query
 
