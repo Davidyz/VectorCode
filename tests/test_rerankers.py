@@ -71,9 +71,9 @@ class TestRerankers(unittest.TestCase):
             reranker3 = LlamaCppReranker()
             assert reranker3.api_url == "env_test_url"
 
-        # Test rerank method
-        results = reranker1.rerank(self.query_result)
-        assert results == self.query_result["ids"][0]
+        # Test rerank method raises NotImplementedError
+        with pytest.raises(NotImplementedError):
+            reranker1.rerank(self.query_result)
 
     def test_registry(self):
         """Test the reranker registry functionality."""

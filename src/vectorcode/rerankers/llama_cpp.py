@@ -43,21 +43,9 @@ class LlamaCppReranker(RerankerBase):
             results: The query results from ChromaDB.
 
         Returns:
-            A list of document IDs (uses original ordering for this placeholder).
+            A list of document IDs.
+
+        Raises:
+            NotImplementedError: This reranker is not yet implemented.
         """
-        if not results.get("ids") or not results.get("documents"):
-            print("Warning: Empty results or missing fields", file=sys.stderr)
-            return []
-
-        query_idx = 0  # Use the first query result set
-        ids = results["ids"][query_idx]
-
-        print(
-            f"LlamaCppReranker.rerank called with {len(ids)} results", file=sys.stderr
-        )
-        print("This is a placeholder implementation for the PR.", file=sys.stderr)
-
-        # In a real implementation, this would call the reranking API
-        # and return reordered IDs based on relevance scores
-
-        return ids  # Return original ordering for placeholder
+        raise NotImplementedError("LlamaCppReranker is not yet implemented.")
