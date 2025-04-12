@@ -7,6 +7,7 @@
 ---@field use_lsp boolean?
 ---@field auto_submit table<string, boolean>?
 ---@field ls_on_start boolean?
+---@field no_duplicate boolean?
 
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
@@ -20,6 +21,10 @@ local function flatten_table_to_string(t)
   end
   return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
 end
+
+---@alias path string
+---@type table<CodeCompanion.Chat, table<path, boolean>> For each chat, keep a record of what files has been sent.
+local added_context = {}
 
 local job_runner = nil
 ---@param use_lsp boolean
@@ -58,6 +63,7 @@ local make_tool = check_cli_wrap(function(opts)
     use_lsp = false,
     auto_submit = { ls = false, query = false },
     ls_on_start = false,
+    no_duplicate = false,
   }, opts or {})
   local capping_message = ""
   if opts.max_num > 0 then
@@ -105,6 +111,20 @@ local make_tool = check_cli_wrap(function(opts)
               )
             end
           end
+
+          if opts.no_duplicate then
+            -- exclude files that has been added to the context
+            local existing_files = { "--exclude" }
+            for path, ok in pairs(added_context[agent.chat] or {}) do
+              if ok then
+                table.insert(existing_files, path)
+              end
+            end
+            if #existing_files > 1 then
+              vim.list_extend(args, existing_files)
+            end
+          end
+
           job_runner.run_async(args, function(result, error)
             vim.schedule(function()
               if opts.auto_submit[action.command] then
@@ -315,6 +335,12 @@ Remember:
                   file.document
                 ),
               }, { visible = false })
+              if opts.no_duplicate then
+                if added_context[agent.chat] == nil then
+                  added_context[agent.chat] = {}
+                end
+                added_context[agent.chat][file.path] = true
+              end
             end
           end
         elseif cmd.command == "ls" then
