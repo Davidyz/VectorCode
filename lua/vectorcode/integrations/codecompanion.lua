@@ -13,6 +13,8 @@ local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
 local notify_opts = vc_config.notify_opts
 
+local tool_result_source = "VectorCodeToolResult"
+
 ---@param t table|string
 ---@return string
 local function flatten_table_to_string(t)
@@ -21,10 +23,6 @@ local function flatten_table_to_string(t)
   end
   return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
 end
-
----@alias path string
----@type table<CodeCompanion.Chat, table<path, boolean>> For each chat, keep a record of what files has been sent.
-local added_context = {}
 
 local job_runner = nil
 ---@param use_lsp boolean
@@ -63,7 +61,7 @@ local make_tool = check_cli_wrap(function(opts)
     use_lsp = false,
     auto_submit = { ls = false, query = false },
     ls_on_start = false,
-    no_duplicate = false,
+    no_duplicate = true,
   }, opts or {})
   local capping_message = ""
   if opts.max_num > 0 then
@@ -112,12 +110,12 @@ local make_tool = check_cli_wrap(function(opts)
             end
           end
 
-          if opts.no_duplicate then
+          if opts.no_duplicate and agent.chat.refs ~= nil then
             -- exclude files that has been added to the context
             local existing_files = { "--exclude" }
-            for path, ok in pairs(added_context[agent.chat] or {}) do
-              if ok then
-                table.insert(existing_files, path)
+            for _, ref in pairs(agent.chat.refs) do
+              if ref.source == tool_result_source then
+                table.insert(existing_files, ref.id)
               end
             end
             if #existing_files > 1 then
@@ -318,6 +316,7 @@ Remember:
       success = function(agent, cmd, stdout)
         stdout = stdout[1]
         if cmd.command == "query" then
+          agent.chat.ui:unlock_buf()
           for i, file in pairs(stdout) do
             if opts.max_num < 0 or i <= opts.max_num then
               agent.chat:add_message({
@@ -334,13 +333,12 @@ Remember:
                   file.path,
                   file.document
                 ),
-              }, { visible = false })
-              if opts.no_duplicate then
-                if added_context[agent.chat] == nil then
-                  added_context[agent.chat] = {}
-                end
-                added_context[agent.chat][file.path] = true
-              end
+              }, { visible = false, id = file.path })
+              agent.chat.references:add({
+                source = tool_result_source,
+                id = file.path,
+                opts = { visible = false },
+              })
             end
           end
         elseif cmd.command == "ls" then
