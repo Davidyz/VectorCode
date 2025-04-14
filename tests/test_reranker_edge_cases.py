@@ -1,7 +1,5 @@
 """Tests for edge cases in the rerankers modules."""
 
-from unittest.mock import patch
-
 import pytest
 
 from vectorcode.cli_utils import Config
