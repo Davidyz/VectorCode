@@ -48,6 +48,11 @@ pipx install vectorcode
 in your shell. To specify a particular version of Python, use the `--python` 
 flag. For example, `pipx install vectorcode --python python3.11`. For hardware
 accelerated embedding, refer to [the relevant section](#hardware-acceleration).
+If you want a cpu-only installation without CUDA dependences required by default by pytorch, run:
+```bash
+PIP_INDEX_URL="https://download.pytorch.org/whl/cpu" PIP_EXTRA_INDEX_URL="https://pypi.org/simple" pipx install vectorcode
+```
+
 If you need to install multiple dependency group (for [LSP](#lsp-mode) or
 [MCP](#mcp-server)), you can use the following syntax:
 ```bash
