@@ -24,7 +24,7 @@ jobs:
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v5
         with:
-          mode: "COMMIT"
+          mode: "PR"
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
