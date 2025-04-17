@@ -25,6 +25,43 @@ jobs:
         uses: mikepenz/release-changelog-builder-action@v5
         with:
           mode: "PR"
+          configurationJson: |
+            {
+              "categories": [
+                {
+                  "title": "## 🚀 Features",
+                  "rules": [
+                    {
+                      "pattern": ["^feat"]
+                    }
+                  ]
+                },
+                {
+                  "title": "## 🐛 Fixes",
+                  "rules": [
+                    {
+                      "pattern": ["^fix"]
+                    }
+                  ]
+                },
+                {
+                  "title": "## 🧪 Tests",
+                  "rules": [
+                    {
+                      "pattern": ["^fix"]
+                    }
+                  ]
+                },
+                {
+                  "title": "## 🔀 Refactors",
+                  "rules": [
+                    {
+                      "pattern": ["^refactor"]
+                    }
+                  ]
+                },
+              ],
+            }
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
