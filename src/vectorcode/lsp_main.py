@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import logging
 import os
 import sys
 import time
@@ -18,6 +19,7 @@ from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
     Config,
+    config_logging,
     find_project_root,
     load_config_file,
     parse_cli_args,
@@ -28,6 +30,7 @@ from vectorcode.subcommands.query import build_query_results
 
 cached_project_configs: dict[str, Config] = {}
 DEFAULT_PROJECT_ROOT: str | None = None
+logger = logging.getLogger(__name__)
 
 
 async def make_caches(project_root: str):
@@ -67,7 +70,9 @@ server: LanguageServer = LanguageServer(name="vectorcode-server", version=__vers
 async def execute_command(ls: LanguageServer, args: list[str]):
     global DEFAULT_PROJECT_ROOT
     start_time = time.time()
+    logger.info("Received command arguments: %s", args)
     parsed_args = await parse_cli_args(args)
+    logger.info("Parsed command arguments: %s", parsed_args)
     if parsed_args.action not in {CliAction.query, CliAction.ls}:
         print(
             f"Unsupported vectorcode subcommand: {str(parsed_args.action)}",
@@ -77,7 +82,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
     if parsed_args.project_root is None:
         if DEFAULT_PROJECT_ROOT is not None:
             parsed_args.project_root = DEFAULT_PROJECT_ROOT
+            logger.warning("Using DEFAULT_PROJECT_ROOT: %s", DEFAULT_PROJECT_ROOT)
     elif DEFAULT_PROJECT_ROOT is None:
+        logger.warning("Updating DEFAULT_PROJECT_ROOT to %s", parsed_args.project_root)
         DEFAULT_PROJECT_ROOT = str(parsed_args.project_root)
 
     if parsed_args.project_root is not None:
@@ -97,6 +104,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
         final_configs = parsed_args
         client = await get_client(parsed_args)
         collection = None
+    logger.info("Merged final configs: %s", final_configs)
     progress_token = str(uuid.uuid4())
 
     await ls.progress.create_async(progress_token)
@@ -118,12 +126,12 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         await build_query_results(collection, final_configs)
                     )
             finally:
+                log_message = f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
                 ls.progress.end(
                     progress_token,
-                    types.WorkDoneProgressEnd(
-                        message=f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
-                    ),
+                    types.WorkDoneProgressEnd(message=log_message),
                 )
+                logger.info(log_message)
             return final_results
         case CliAction.ls:
             ls.progress.begin(
@@ -141,6 +149,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     progress_token,
                     types.WorkDoneProgressEnd(message="List retrieved."),
                 )
+                logger.info(f"Retrieved {len(projects)} project(s).")
             return projects
 
 
@@ -158,12 +167,19 @@ async def lsp_start() -> int:
     else:
         DEFAULT_PROJECT_ROOT = os.path.abspath(args.project_root)
 
+    if DEFAULT_PROJECT_ROOT is None:
+        logger.warning("DEFAULT_PROJECT_ROOT is empty.")
+    else:
+        logger.info(f"{DEFAULT_PROJECT_ROOT=}")
+
+    logger.info("Parsed LSP server CLI arguments: %s", args)
     await asyncio.to_thread(server.start_io)
 
     return 0
 
 
 def main():  # pragma: nocover
+    config_logging("vectorcode-lsp-server")
     asyncio.run(lsp_start())
 
 
