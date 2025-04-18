@@ -20,6 +20,7 @@ except ModuleNotFoundError:  # pragma: nocover
 
 from vectorcode.cli_utils import (
     Config,
+    config_logging,
     find_project_config_dir,
     get_project_config,
     load_config_file,
@@ -145,6 +146,7 @@ async def run_server():  # pragma: nocover
 
 
 def main():  # pragma: nocover
+    config_logging("vectorcode-mcp-server", stdio=False)
     return asyncio.run(run_server())
 
 

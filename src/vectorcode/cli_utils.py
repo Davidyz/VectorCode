@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+import sys
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import Enum, StrEnum
@@ -488,7 +489,9 @@ async def expand_globs(
     return list(result)
 
 
-def config_logging(name: str = "vectorcode"):  # pragma: nocover
+def config_logging(
+    name: str = "vectorcode", stdio: bool = True, log_file: bool = False
+):  # pragma: nocover
     """Configure the logging module. This should be called before a `main` function (CLI, LSP or MCP)."""
 
     logging.root.handlers = []
@@ -503,7 +506,7 @@ def config_logging(name: str = "vectorcode"):  # pragma: nocover
             )
 
     handlers = []
-    if level is not None:
+    if level is not None or log_file:
         log_dir = os.path.expanduser("~/.local/share/vectorcode/logs/")
         os.makedirs(log_dir, exist_ok=True)
         # File handler
@@ -511,28 +514,29 @@ def config_logging(name: str = "vectorcode"):  # pragma: nocover
             log_dir, f"{name}-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
         )
         file_handler = logging.FileHandler(log_file_path)
-        file_handler.setLevel(level)
+        file_handler.setLevel(level or logging.WARN)
         handlers.append(file_handler)
 
-    import colorlog
+    if stdio:
+        import colorlog
 
-    # Console handler
-    console_handler = colorlog.StreamHandler()
-    console_handler.setFormatter(
-        colorlog.ColoredFormatter(
-            fmt="%(log_color)s%(levelname)s%(reset)s: %(name)s : %(message)s",
-            log_colors={
-                "DEBUG": "cyan",
-                "INFO": "green",
-                "WARNING": "yellow",
-                "ERROR": "red",
-                "CRITICAL": "bold_red",
-            },
-            reset=True,
+        # Console handler
+        console_handler = colorlog.StreamHandler(sys.stderr)
+        console_handler.setFormatter(
+            colorlog.ColoredFormatter(
+                fmt="%(log_color)s%(levelname)s%(reset)s: %(name)s : %(message)s",
+                log_colors={
+                    "DEBUG": "cyan",
+                    "INFO": "green",
+                    "WARNING": "yellow",
+                    "ERROR": "red",
+                    "CRITICAL": "bold_red",
+                },
+                reset=True,
+            )
         )
-    )
-    console_handler.setLevel(level or logging.WARN)
-    handlers.append(console_handler)
+        console_handler.setLevel(level or logging.WARN)
+        handlers.append(console_handler)
 
     logging.basicConfig(
         handlers=handlers,

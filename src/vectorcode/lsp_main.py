@@ -179,7 +179,7 @@ async def lsp_start() -> int:
 
 
 def main():  # pragma: nocover
-    config_logging("vectorcode-lsp-server")
+    config_logging("vectorcode-lsp-server", stdio=False)
     asyncio.run(lsp_start())
 
 
