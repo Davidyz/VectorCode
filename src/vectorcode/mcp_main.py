@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
@@ -29,6 +30,7 @@ from vectorcode.common import get_client, get_collection, get_collections
 from vectorcode.subcommands.prompt import prompt_strings
 from vectorcode.subcommands.query import get_query_result_files
 
+logger = logging.getLogger(name=__name__)
 mcp = FastMCP("VectorCode", instructions="\n".join(prompt_strings))
 
 
@@ -47,6 +49,7 @@ async def list_collections() -> list[str]:
     async for col in get_collections(client):
         if col.metadata is not None:
             names.append(str(col.metadata.get("path")))
+    logger.info("Retrieved the following collections: %s", names)
     return names
 
 
@@ -58,7 +61,11 @@ async def query_tool(
     query_messages: keywords to query.
     collection_path: Directory to the repository;
     """
+    logger.info(
+        f"query tool called with the following args: {n_query=}, {query_messages=}, {project_root=}"
+    )
     if not os.path.isdir(project_root):
+        logger.error("Invalid project root: %s", project_root)
         raise McpError(
             ErrorData(
                 code=1,
@@ -71,6 +78,7 @@ async def query_tool(
             client = await get_client(config)
             collection = await get_collection(client, config, False)
         except Exception:
+            logger.error("Failed to access collection at %s", project_root)
             raise McpError(
                 ErrorData(
                     code=1,
@@ -87,6 +95,7 @@ async def query_tool(
     query_config = await config.merge_from(
         Config(n_result=n_query, query=query_messages)
     )
+    logger.info("Built the final config: %s", query_config)
     result_paths = await get_query_result_files(
         collection=collection,
         configs=query_config,
@@ -99,7 +108,7 @@ async def query_tool(
                 results.append(
                     f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
                 )
-
+    logger.info("Retrieved the following files: %s", result_paths)
     return results
 
 
@@ -108,6 +117,7 @@ async def mcp_server():
     local_config_dir = await find_project_config_dir(".")
 
     if local_config_dir is not None:
+        logger.info("Found project config: %s", local_config_dir)
         project_root = str(Path(local_config_dir).parent.resolve())
 
         default_config = await load_config_file(
@@ -117,6 +127,7 @@ async def mcp_server():
         default_client = await get_client(default_config)
         try:
             default_collection = await get_collection(default_client, default_config)
+            logger.info("Collection initialised for %s.", project_root)
         except InvalidCollectionException:
             default_collection = None
 
