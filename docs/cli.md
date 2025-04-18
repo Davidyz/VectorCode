@@ -223,6 +223,8 @@ The JSON configuration file may hold the following values:
   Default: `127.0.0.1:8000`;
 - `db_path`: string, Path to local persistent database. This is where the files for 
   your database will be stored. Default: `~/.local/share/vectorcode/chromadb/`;
+- `db_log_path`: string, path to the _directory_ where the built-in chromadb
+  server will write the log to. Default: `~/.local/share/vectorcode/`;
 - `chunk_size`: integer, the maximum number of characters per chunk. A larger
   value reduces the number of items in the database, and hence accelerates the
   search, but at the cost of potentially truncated data and lost information.

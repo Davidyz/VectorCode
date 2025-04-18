@@ -41,6 +41,7 @@ async def test_config_import_from():
         }
         config = await Config.import_from(config_dict)
         assert config.db_path == db_path
+        assert config.db_log_path == os.path.expanduser("~/.local/share/vectorcode/")
         assert config.host == "test_host"
         assert config.port == 1234
         assert config.embedding_function == "TestEmbedding"

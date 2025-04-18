@@ -390,7 +390,7 @@ async def test_start_server():
                 "--path",
                 temp_dir,
                 "--log-path",
-                os.path.join(temp_dir, "chroma.log"),
+                os.path.join(str(config.db_log_path), "chroma.log"),
             ]
             assert args[0] == sys.executable
             assert tuple(args[1:]) == tuple(expected_args[1:])

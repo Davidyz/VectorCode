@@ -92,7 +92,7 @@ async def start_server(configs: Config):
         "--path",
         db_path,
         "--log-path",
-        os.path.join(str(configs.project_root), "chroma.log"),
+        os.path.join(str(configs.db_log_path), "chroma.log"),
         stdout=subprocess.DEVNULL,
         stderr=sys.stderr,
         env=env,

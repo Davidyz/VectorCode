@@ -72,6 +72,7 @@ class Config:
     n_result: int = 1
     force: bool = False
     db_path: Optional[str] = "~/.local/share/vectorcode/chromadb/"
+    db_log_path: str = "~/.local/share/vectorcode/"
     db_settings: Optional[dict] = None
     chunk_size: int = 2500
     overlap_ratio: float = 0.2
@@ -110,6 +111,9 @@ class Config:
                 "host": host,
                 "port": port,
                 "db_path": db_path,
+                "db_log_path": os.path.expanduser(
+                    config_dict.get("db_log_path", "~/.local/share/vectorcode/")
+                ),
                 "chunk_size": config_dict.get("chunk_size", 2500),
                 "overlap_ratio": config_dict.get("overlap_ratio", 0.2),
                 "query_multiplier": config_dict.get("query_multiplier", -1),
