@@ -346,25 +346,34 @@ async def test_get_collection_hnsw():
 
 @pytest.mark.asyncio
 async def test_start_server():
-    # Mock subprocess.Popen
-    with (
-        patch("asyncio.create_subprocess_exec") as MockCreateProcess,
-        patch("asyncio.sleep"),
-        patch("socket.socket") as MockSocket,
-        patch("vectorcode.common.wait_for_server") as MockWaitForServer,
-    ):
-        # Mock socket to return a specific port
-        mock_socket = MagicMock()
-        mock_socket.getsockname.return_value = ("localhost", 12345)  # Mock port
-        MockSocket.return_value.__enter__.return_value = mock_socket
+    with tempfile.TemporaryDirectory() as temp_dir:
 
-        # Mock the process object
-        mock_process = MagicMock()
-        mock_process.returncode = 0  # Simulate successful execution
-        MockCreateProcess.return_value = mock_process
+        def _new_isdir(path):
+            if str(temp_dir) in str(path):
+                return True
+            return False
 
-        # Create a config object
-        with tempfile.TemporaryDirectory() as temp_dir:
+        # Mock subprocess.Popen
+        with (
+            patch("asyncio.create_subprocess_exec") as MockCreateProcess,
+            patch("asyncio.sleep"),
+            patch("socket.socket") as MockSocket,
+            patch("vectorcode.common.wait_for_server") as MockWaitForServer,
+            patch("os.path.isdir") as mock_isdir,
+            patch("os.makedirs") as mock_makedirs,
+        ):
+            mock_isdir.side_effect = _new_isdir
+            # Mock socket to return a specific port
+            mock_socket = MagicMock()
+            mock_socket.getsockname.return_value = ("localhost", 12345)  # Mock port
+            MockSocket.return_value.__enter__.return_value = mock_socket
+
+            # Mock the process object
+            mock_process = MagicMock()
+            mock_process.returncode = 0  # Simulate successful execution
+            MockCreateProcess.return_value = mock_process
+
+            # Create a config object
             config = Config(
                 host="localhost",
                 port=8000,
@@ -398,11 +407,10 @@ async def test_start_server():
             assert kwargs["stderr"] == sys.stderr
             assert "ANONYMIZED_TELEMETRY" in kwargs["env"]
 
-            # Assert that wait_for_server was called with the correct arguments
             MockWaitForServer.assert_called_once_with("localhost", 12345)
 
-            # Assert that the function returns the process
             assert process == mock_process
+            mock_makedirs.assert_called_once_with(config.db_log_path)
 
 
 @pytest.mark.asyncio

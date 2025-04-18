@@ -69,6 +69,9 @@ async def wait_for_server(host, port, timeout=10):
 async def start_server(configs: Config):
     assert configs.db_path is not None
     db_path = os.path.expanduser(configs.db_path)
+    configs.db_log_path = os.path.expanduser(configs.db_log_path)
+    if not os.path.isdir(configs.db_log_path):
+        os.makedirs(configs.db_log_path)
     if not os.path.isdir(db_path):
         print(
             f"Using local database at {os.path.expanduser('~/.local/share/vectorcode/chromadb/')}.",
