@@ -12,11 +12,15 @@ from vectorcode.cli_utils import (
     parse_cli_args,
 )
 
+logger = logging.getLogger(name=__name__)
+
 
 async def async_main():
     cli_args = await parse_cli_args()
     if cli_args.no_stderr:
         sys.stderr = open(os.devnull, "w")
+    logger.info("Collected CLI arguments: %s", cli_args)
+
     if cli_args.project_root is None:
         cwd = os.getcwd()
         cli_args.project_root = (
@@ -25,6 +29,8 @@ async def async_main():
             or cwd
         )
 
+    logger.info(f"Project root is set to {cli_args.project_root}")
+
     try:
         final_configs = await (
             await get_project_config(cli_args.project_root)
@@ -32,6 +38,8 @@ async def async_main():
     except IOError as e:
         traceback.print_exception(e, file=sys.stderr)
         return 1
+
+    logger.info("Final configuration has been built: %s", final_configs)
 
     match cli_args.action:
         case CliAction.check:
@@ -58,9 +66,8 @@ async def async_main():
 
     server_process = None
     if not await try_server(final_configs.host, final_configs.port):
-        print(
+        logging.warning(
             f"Host at {final_configs.host}:{final_configs.port} is unavailable. VectorCode will start its own Chromadb at a random port.",
-            file=sys.stderr,
         )
         server_process = await start_server(final_configs)
 
@@ -101,6 +108,7 @@ async def async_main():
         traceback.print_exception(e, file=sys.stderr)
     finally:
         if server_process is not None:
+            logging.info("Shutting down the bundled Chromadb instance.")
             server_process.terminate()
             await server_process.wait()
         return return_val
