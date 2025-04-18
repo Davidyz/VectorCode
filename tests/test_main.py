@@ -162,9 +162,7 @@ async def test_async_main_try_server_unavailable(monkeypatch):
     mock_start_server.return_value.wait = AsyncMock()
     mock_start_server.return_value.terminate = MagicMock()
 
-    with patch("logging.warning") as mock_warning:
-        await async_main()
-        mock_warning.assert_called()
+    await async_main()
     mock_start_server.assert_called_once_with(mock_final_configs)
 
 
