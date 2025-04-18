@@ -7,6 +7,7 @@ import traceback
 from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
+    config_logging,
     find_project_root,
     get_project_config,
     parse_cli_args,
@@ -66,7 +67,7 @@ async def async_main():
 
     server_process = None
     if not await try_server(final_configs.host, final_configs.port):
-        logging.warning(
+        logger.warning(
             f"Host at {final_configs.host}:{final_configs.port} is unavailable. VectorCode will start its own Chromadb at a random port.",
         )
         server_process = await start_server(final_configs)
@@ -108,13 +109,14 @@ async def async_main():
         traceback.print_exception(e, file=sys.stderr)
     finally:
         if server_process is not None:
-            logging.info("Shutting down the bundled Chromadb instance.")
+            logger.info("Shutting down the bundled Chromadb instance.")
             server_process.terminate()
             await server_process.wait()
         return return_val
 
 
 def main():  # pragma: nocover
+    config_logging("vectorcode")
     return asyncio.run(async_main())
 
 

@@ -17,6 +17,7 @@ dependencies = [
     "pygments",
     "transformers>=4.36.0,!=4.51.0,!=4.51.1,!=4.51.2",
     "wheel<0.46.0",
+    "colorlog",
 ]
 requires-python = ">=3.11,<3.14"
 readme = "README.md"

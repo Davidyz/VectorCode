@@ -1,8 +1,10 @@
 import argparse
 import glob
 import json
+import logging
 import os
 from dataclasses import dataclass, field, fields
+from datetime import datetime
 from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any, Optional, Sequence, Union
@@ -10,6 +12,9 @@ from typing import Any, Optional, Sequence, Union
 import shtab
 
 from vectorcode import __version__
+
+logger = logging.getLogger(name=__name__)
+
 
 PathLike = Union[str, Path]
 
@@ -481,3 +486,55 @@ async def expand_globs(
                 )
             )
     return list(result)
+
+
+def config_logging(name: str = "vectorcode"):  # pragma: nocover
+    """Configure the logging module. This should be called before a `main` function (CLI, LSP or MCP)."""
+
+    logging.root.handlers = []
+
+    level_from_env = os.environ.get("VECTORCODE_LOG_LEVEL")
+    level = None
+    if level_from_env:
+        level = logging._nameToLevel.get(level_from_env)
+        if level is None:
+            logging.warning(
+                "Invalid log level: %s. Falling back to default levels.", level_from_env
+            )
+
+    handlers = []
+    if level is not None:
+        log_dir = os.path.expanduser("~/.local/share/vectorcode/logs/")
+        os.makedirs(log_dir, exist_ok=True)
+        # File handler
+        log_file_path = os.path.join(
+            log_dir, f"{name}-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+        )
+        file_handler = logging.FileHandler(log_file_path)
+        file_handler.setLevel(level)
+        handlers.append(file_handler)
+
+    import colorlog
+
+    # Console handler
+    console_handler = colorlog.StreamHandler()
+    console_handler.setFormatter(
+        colorlog.ColoredFormatter(
+            fmt="%(log_color)s%(levelname)s%(reset)s: %(name)s : %(message)s",
+            log_colors={
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "bold_red",
+            },
+            reset=True,
+        )
+    )
+    console_handler.setLevel(level or logging.WARN)
+    handlers.append(console_handler)
+
+    logging.basicConfig(
+        handlers=handlers,
+        level=level,
+    )
