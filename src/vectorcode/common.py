@@ -78,9 +78,8 @@ async def start_server(configs: Config):
     if not os.path.isdir(configs.db_log_path):
         os.makedirs(configs.db_log_path)
     if not os.path.isdir(db_path):
-        print(
+        logger.warning(
             f"Using local database at {os.path.expanduser('~/.local/share/vectorcode/chromadb/')}.",
-            file=sys.stderr,
         )
         db_path = os.path.expanduser("~/.local/share/vectorcode/chromadb/")
     env = os.environ.copy()
