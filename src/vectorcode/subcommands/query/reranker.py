@@ -1,4 +1,5 @@
 import heapq
+import logging
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Any, DefaultDict
@@ -7,6 +8,8 @@ import numpy
 from chromadb.api.types import QueryResult
 
 from vectorcode.cli_utils import Config, QueryInclude
+
+logger = logging.getLogger(name=__name__)
 
 
 class RerankerBase:
@@ -42,7 +45,7 @@ class NaiveReranker(RerankerBase):
                     # so that vectorcode doesn't break on old collections.
                     continue
                 documents[identifier].append(distance)
-
+        logger.debug("Document scores: %s", documents)
         top_k = int(numpy.mean(tuple(len(i) for i in documents.values())))
         for key in documents.keys():
             documents[key] = heapq.nsmallest(top_k, documents[key])
@@ -80,7 +83,7 @@ class CrossEncoderReranker(RerankerBase):
                     documents[chunk_metas[rank["corpus_id"]]["path"]].append(
                         float(rank["score"])
                     )
-
+        logger.debug("Document scores: %s", documents)
         top_k = int(numpy.mean(tuple(len(i) for i in documents.values())))
         for key in documents.keys():
             documents[key] = heapq.nlargest(top_k, documents[key])
