@@ -21,6 +21,7 @@
   * [Removing a Collection](#removing-a-collection)
   * [Checking Project Setup](#checking-project-setup)
   * [Cleaning up](#cleaning-up)
+  * [Debugging and Diagnosing](#debugging-and-diagnosing)
 * [Shell Completion](#shell-completion)
 * [Hardware Acceleration](#hardware-acceleration)
 * [For Developers](#for-developers)
@@ -416,6 +417,20 @@ some_message` and then getting an empty results.
 
 For empty collections and collections for removed projects, you can use the
 `vectorcode clean` command to remove them at once.
+
+### Debugging and Diagnosing
+
+When something doesn't work as expected, you can enable logging by setting the
+`VECTORCODE_LOG_LEVEL` variable to one of `ERROR`, `WARN` (`WARNING`), `INFO` or
+`DEBUG`. For the CLI that you interact with in your shell, this will output logs
+to `STDERR` and write a log file to `~/.local/share/vectorcode/logs/`. For LSP
+and MCP servers, because `STDIO` is used for the RPC, only the log file will be
+written.
+
+For example:
+```bash
+VECTORCODE_LOG_LEVEL=INFO vectorcode vectorise file1.py file2.lua
+```
 
 ## Shell Completion
 
