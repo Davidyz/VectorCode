@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import sys
 from asyncio import Lock
@@ -10,6 +11,8 @@ from chromadb.errors import InvalidCollectionException
 from vectorcode.cli_utils import Config
 from vectorcode.common import get_client, get_collection, verify_ef
 from vectorcode.subcommands.vectorise import chunked_add, show_stats
+
+logger = logging.getLogger(name=__name__)
 
 
 async def update(configs: Config) -> int:
@@ -49,6 +52,7 @@ async def update(configs: Config) -> int:
     with tqdm.tqdm(
         total=len(files), desc="Vectorising files...", disable=configs.pipe
     ) as bar:
+        logger.info(f"Updating embeddings for {len(files)} file(s).")
         try:
             tasks = [
                 asyncio.create_task(
@@ -73,6 +77,7 @@ async def update(configs: Config) -> int:
             return 1
 
     if len(orphanes):
+        logger.info(f"Removing {len(orphanes)} orphaned files from database.")
         await collection.delete(where={"path": {"$in": list(orphanes)}})
 
     show_stats(configs, stats)

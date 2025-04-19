@@ -64,6 +64,7 @@ async def chunked_add(
         async with collection_lock:
             await collection.delete(where={"path": full_path_str})
 
+    logger.debug(f"Vectorising {file_path}")
     try:
         async with semaphore:
             chunks: list[Chunk | str] = list(
@@ -192,7 +193,7 @@ async def vectorise(configs: Config) -> int:
                 with open(spec_path) as fin:
                     spec = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
                 files = exclude_paths_by_spec((str(i) for i in files), spec)
-    else:
+    else:  # pragma: nocover
         logger.info("Ignoring exclude specs.")
 
     stats = {"add": 0, "update": 0, "removed": 0}
