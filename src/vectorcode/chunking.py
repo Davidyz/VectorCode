@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from abc import abstractmethod
@@ -13,6 +14,8 @@ from tree_sitter import Node, Point
 from tree_sitter_language_pack import get_parser
 
 from vectorcode.cli_utils import Config
+
+logger = logging.getLogger(name=__name__)
 
 
 @dataclass
@@ -50,6 +53,8 @@ class StringChunker(ChunkerBase):
         super().__init__(config)
 
     def chunk(self, data: str):
+        logger.info("Started chunking with StringChunker.")
+        logger.debug(f"{data=}")
         if self.config.chunk_size < 0:
             yield Chunk(
                 text=data,
@@ -80,6 +85,7 @@ class FileChunker(ChunkerBase):
         super().__init__(config)
 
     def chunk(self, data: TextIOWrapper) -> Generator[Chunk, None, None]:
+        logger.info("Started chunking using FileChunker.", data.name)
         lines = data.readlines()
         if len(lines) == 0:
             return
@@ -137,6 +143,10 @@ class TreeSitterChunker(ChunkerBase):
         super().__init__(config)
 
     def __chunk_node(self, node: Node, text: str) -> Generator[Chunk, None, None]:
+        if node.text is not None:
+            logger.debug(
+                f"Traversing at node {node.text.decode()} at position {node.byte_range}"
+            )
         current_chunk = ""
 
         current_start = None
@@ -225,6 +235,9 @@ class TreeSitterChunker(ChunkerBase):
         else:
             patterns.extend(self.config.chunk_filters.get("*", []))
         if len(patterns):
+            logger.debug(
+                f"Merging {len(patterns)} filter patterns for excluding chunks."
+            )
             patterns = [f"(?:{i})" for i in patterns]
             return f"(?:{'|'.join(patterns)})"
         return ""
@@ -234,10 +247,15 @@ class TreeSitterChunker(ChunkerBase):
         data: path to the file
         """
         assert os.path.isfile(data)
+        logger.info(f"Started chunking {data} with TreeSitterChunker.")
         with open(data) as fin:
             lines = fin.readlines()
             content = "".join(lines)
             if self.config.chunk_size < 0 and content:
+                logger.info(
+                    "Skipping chunking %s because document is smaller than chunk_size.",
+                    data,
+                )
                 yield Chunk(content, Point(1, 0), Point(len(lines), len(lines[-1]) - 1))
                 return
         parser = None
@@ -251,12 +269,17 @@ class TreeSitterChunker(ChunkerBase):
                     parser = get_parser(name.lower())
                     if parser is not None:
                         language = name.lower()
+                        logger.debug(
+                            "Detected %s filetype for treesitter chunking.", language
+                        )
                         break
                 except LookupError:  # pragma: nocover
                     pass
 
         if parser is None:
-            # fall back to naive chunking
+            logger.debug(
+                "Unable to pick a suitable parser. Fall back to naive chunking"
+            )
             yield from StringChunker(self.config).chunk(content)
         else:
             pattern_str = self.__build_pattern(language=language)
