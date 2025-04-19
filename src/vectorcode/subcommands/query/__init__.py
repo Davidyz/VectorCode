@@ -4,8 +4,7 @@ import os
 
 from chromadb import GetResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException, InvalidDimensionException
+from chromadb.errors import InvalidDimensionException, NotFoundError
 
 from vectorcode.chunking import StringChunker
 from vectorcode.cli_utils import Config, QueryInclude, expand_globs, expand_path
@@ -56,9 +55,9 @@ async def get_query_result_files(
             query_texts=query_chunks,
             n_results=num_query,
             include=[
-                IncludeEnum.metadatas,
-                IncludeEnum.distances,
-                IncludeEnum.documents,
+                "metadatas",
+                "distances",
+                "documents",
             ],
             where=filter or None,
         )
@@ -99,7 +98,7 @@ async def build_query_results(
             )
         elif QueryInclude.chunk in configs.include:
             chunk: GetResult = await collection.get(
-                identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
+                identifier, include=["metadatas", "documents"]
             )
             meta = chunk.get(
                 "metadatas",
@@ -152,7 +151,7 @@ async def query(configs: Config) -> int:
         collection = await get_collection(client, configs, False)
         if not verify_ef(collection, configs):
             return 1
-    except (ValueError, InvalidCollectionException):
+    except (ValueError, NotFoundError):
         logger.error(
             f"There's no existing collection for {configs.project_root}",
         )

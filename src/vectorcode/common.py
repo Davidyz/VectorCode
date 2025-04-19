@@ -23,8 +23,7 @@ logger = logging.getLogger(name=__name__)
 async def get_collections(
     client: AsyncClientAPI,
 ) -> AsyncGenerator[AsyncCollection, None]:
-    for collection_name in await client.list_collections():
-        collection = await client.get_collection(collection_name, None)
+    for collection in await client.list_collections():
         meta = collection.metadata
         if meta is None:
             continue
@@ -41,14 +40,14 @@ async def get_collections(
         yield collection
 
 
-async def try_server(host: str, port: int):
-    url = f"http://{host}:{port}/api/v1/heartbeat"
+async def try_server(host: str, port: int, use_v2: bool = True):
+    url = f"http://{host}:{port}/api/v{2 if use_v2 else 1}/heartbeat"
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(url=url)
+            response = await client.get(url=url, timeout=1)
             logger.debug(f"Chromadb server at {host}:{port} returned {response=}")
             return response.status_code == 200
-    except (httpx.ConnectError, httpx.ConnectTimeout):
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout):
         return False
 
 
