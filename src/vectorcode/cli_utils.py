@@ -506,7 +506,7 @@ def config_logging(
     level_from_env = os.environ.get("VECTORCODE_LOG_LEVEL")
     level = None
     if level_from_env:
-        level = logging._nameToLevel.get(level_from_env)
+        level = logging._nameToLevel.get(level_from_env.upper())
         if level is None:
             logging.warning(
                 "Invalid log level: %s. Falling back to default levels.", level_from_env
