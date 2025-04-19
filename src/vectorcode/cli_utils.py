@@ -401,10 +401,13 @@ async def load_config_file(path: Optional[PathLike] = None):
     if path is None:
         path = GLOBAL_CONFIG_PATH
     if os.path.isfile(path):
+        logger.debug(f"Loading config from {path}")
         with open(path) as fin:
             config = json.load(fin)
         expand_envs_in_dict(config)
         return await Config.import_from(config)
+    else:
+        logger.warning("Loading default config.")
     return Config()
 
 
@@ -416,9 +419,13 @@ async def find_project_config_dir(start_from: PathLike = "."):
         for anchor in project_root_anchors:
             to_be_checked = os.path.join(current_dir, anchor)
             if os.path.isdir(to_be_checked):
+                logger.debug(f"Found root anchor at {str(to_be_checked)}")
                 return to_be_checked
         parent = current_dir.parent
         if parent.resolve() == current_dir:
+            logger.debug(
+                f"Couldn't find project root after reaching {str(current_dir)}"
+            )
             return
         current_dir = parent.resolve()
 
