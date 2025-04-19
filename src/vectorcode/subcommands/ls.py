@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import socket
 
@@ -8,6 +9,8 @@ from chromadb.api.types import IncludeEnum
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import get_client, get_collections
+
+logger = logging.getLogger(name=__name__)
 
 
 async def get_collection_list(client: AsyncClientAPI) -> list[dict]:
@@ -35,6 +38,7 @@ async def get_collection_list(client: AsyncClientAPI) -> list[dict]:
 async def ls(configs: Config) -> int:
     client = await get_client(configs)
     result: list[dict] = await get_collection_list(client)
+    logger.info(f"Found the following collections: {result}")
 
     if configs.pipe:
         print(json.dumps(result))

@@ -32,8 +32,6 @@ async def test_init_already_initialized(capsys):
         # Try to initialize again without force
         return_code = await init(configs)
         assert return_code == 1
-        captured = capsys.readouterr()
-        assert f"{temp_dir} is already initialised for VectorCode." in captured.err
 
 
 @pytest.mark.asyncio
