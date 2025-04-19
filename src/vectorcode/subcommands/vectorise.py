@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import sys
 import uuid
@@ -22,6 +23,8 @@ from vectorcode.cli_utils import (
     expand_path,
 )
 from vectorcode.common import get_client, get_collection, verify_ef
+
+logger = logging.getLogger(name=__name__)
 
 
 def hash_str(string: str) -> str:
@@ -55,6 +58,9 @@ async def chunked_add(
         )
 
     if num_existing_chunks:
+        logger.debug(
+            "Deleting %s existing chunks for the current file.", num_existing_chunks
+        )
         async with collection_lock:
             await collection.delete(where={"path": full_path_str})
 
@@ -65,8 +71,10 @@ async def chunked_add(
             )
             if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
                 # empty file
+                logger.debug(f"Skipping {full_path_str} because it's empty.")
                 return
             chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
+            logger.debug(f"Chunked into {len(chunks)} pieces.")
             metas = []
             for chunk in chunks:
                 meta: dict[str, str | dict[str, int]] = {"path": full_path_str}
@@ -84,7 +92,7 @@ async def chunked_add(
                         metadatas=metas,
                     )
     except UnicodeDecodeError:  # pragma: nocover
-        # probably binary. skip it.
+        logger.warning(f"Failed to decode {full_path_str}.")
         return
 
     if num_existing_chunks:
@@ -128,16 +136,19 @@ def load_files_from_include(project_root: str) -> list[str]:
     include_file_path = os.path.join(project_root, ".vectorcode", "vectorcode.include")
     specs: Optional[pathspec.GitIgnoreSpec] = None
     if os.path.isfile(include_file_path):
+        logger.debug("Loading from local `vectorcode.include`.")
         with open(include_file_path) as fin:
             specs = pathspec.GitIgnoreSpec.from_lines(
                 lines=(os.path.expanduser(i) for i in fin.readlines()),
             )
     elif os.path.isfile(GLOBAL_INCLUDE_SPEC):
+        logger.debug("Loading from global `vectorcode.include`.")
         with open(GLOBAL_INCLUDE_SPEC) as fin:
             specs = pathspec.GitIgnoreSpec.from_lines(
                 lines=(os.path.expanduser(i) for i in fin.readlines()),
             )
     if specs is not None:
+        logger.info("Populating included files from loaded specs.")
         return [
             result.file
             for result in specs.check_tree_files(project_root)
@@ -177,9 +188,12 @@ async def vectorise(configs: Config) -> int:
             specs.append(GLOBAL_EXCLUDE_SPEC)
         for spec_path in specs:
             if os.path.isfile(spec_path):
+                logger.info(f"Loading ignore specs from {spec_path}.")
                 with open(spec_path) as fin:
                     spec = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
                 files = exclude_paths_by_spec((str(i) for i in files), spec)
+    else:
+        logger.info("Ignoring exclude specs.")
 
     stats = {"add": 0, "update": 0, "removed": 0}
     collection_lock = Lock()
@@ -224,6 +238,7 @@ async def vectorise(configs: Config) -> int:
             async with stats_lock:
                 stats["removed"] = len(orphans)
             if len(orphans):
+                logger.info(f"Removing {len(orphans)} orphaned files from database.")
                 await collection.delete(where={"path": {"$in": list(orphans)}})
 
     show_stats(configs=configs, stats=stats)
