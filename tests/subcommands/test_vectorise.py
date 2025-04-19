@@ -67,6 +67,69 @@ async def test_chunked_add():
     assert collection.add.call_count == 1
 
 
+@pytest.mark.asyncio
+async def test_chunked_add_with_existing():
+    file_path = "test_file.py"
+    collection = AsyncMock()
+    collection.get = AsyncMock()
+    collection.get.return_value = {"ids": ["id1"]}
+    collection_lock = asyncio.Lock()
+    stats = {"add": 0, "update": 0}
+    stats_lock = asyncio.Lock()
+    configs = Config(chunk_size=100, overlap_ratio=0.2, project_root=".")
+    max_batch_size = 50
+    semaphore = asyncio.Semaphore(1)
+
+    with patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk:
+        mock_chunk.return_value = [Chunk("chunk1", Point(1, 0), Point(1, 5)), "chunk2"]
+        await chunked_add(
+            file_path,
+            collection,
+            collection_lock,
+            stats,
+            stats_lock,
+            configs,
+            max_batch_size,
+            semaphore,
+        )
+
+    assert stats["add"] == 0
+    assert stats["update"] == 1
+    collection.add.assert_called()
+    assert collection.add.call_count == 1
+    collection.delete.assert_called
+    assert collection.delete.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_chunked_add_empty_file():
+    file_path = "test_file.py"
+    collection = AsyncMock()
+    collection_lock = asyncio.Lock()
+    stats = {"add": 0, "update": 0}
+    stats_lock = asyncio.Lock()
+    configs = Config(chunk_size=100, overlap_ratio=0.2, project_root=".")
+    max_batch_size = 50
+    semaphore = asyncio.Semaphore(1)
+
+    with patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk:
+        mock_chunk.return_value = []
+        await chunked_add(
+            file_path,
+            collection,
+            collection_lock,
+            stats,
+            stats_lock,
+            configs,
+            max_batch_size,
+            semaphore,
+        )
+
+    assert stats["add"] == 0
+    assert stats["update"] == 0
+    assert collection.add.call_count == 0
+
+
 @patch("tabulate.tabulate")
 def test_show_stats_pipe_false(mock_tabulate, capsys):
     configs = Config(pipe=False)
