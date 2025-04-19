@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import sys
 
 from chromadb import GetResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
@@ -127,7 +126,7 @@ async def build_query_results(
                         )
 
                     structured_result.append(full_result)
-            else:
+            else:  # pragma: nocover
                 logger.error(
                     "This collection doesn't support chunk-mode output because it lacks the necessary metadata. Please re-vectorise it.",
                 )
@@ -154,21 +153,17 @@ async def query(configs: Config) -> int:
         if not verify_ef(collection, configs):
             return 1
     except (ValueError, InvalidCollectionException):
-        print(
+        logger.error(
             f"There's no existing collection for {configs.project_root}",
-            file=sys.stderr,
         )
         return 1
     except InvalidDimensionException:
-        print(
+        logger.error(
             "The collection was embedded with a different embedding model.",
-            file=sys.stderr,
         )
         return 1
-    except IndexError:
-        print(
-            "Failed to get the collection. Please check your config.", file=sys.stderr
-        )
+    except IndexError:  # pragma: nocover
+        logger.error("Failed to get the collection. Please check your config.")
         return 1
 
     if not configs.pipe:
