@@ -501,7 +501,6 @@ async def test_query_invalid_file(mock_config):
         patch("vectorcode.subcommands.query.verify_ef", return_value=True),
         patch("vectorcode.subcommands.query.get_query_result_files") as mock_get_files,
         patch("os.path.isfile", return_value=False),
-        patch("sys.stderr") as mock_stderr,
     ):
         # Set up the mock file paths
         mock_get_files.return_value = ["invalid_file.py"]
@@ -511,9 +510,6 @@ async def test_query_invalid_file(mock_config):
 
         # Verify the function completed successfully despite invalid file
         assert result == 0
-
-        # Check that a warning was printed to stderr
-        assert mock_stderr.write.called
 
 
 @pytest.mark.asyncio
@@ -560,7 +556,6 @@ async def test_query_chunk_mode_no_metadata_fallback(mock_config):
         ),
         patch("vectorcode.subcommands.query.verify_ef", return_value=True),
         patch("vectorcode.subcommands.query.build_query_results") as mock_build_results,
-        patch("sys.stderr") as mock_stderr,
     ):
         mock_build_results.return_value = []  # Return empty results for simplicity
 
@@ -570,11 +565,6 @@ async def test_query_chunk_mode_no_metadata_fallback(mock_config):
 
         # Verify the metadata check call
         mock_collection.get.assert_called_once_with(where={"start": {"$gte": 0}})
-
-        # Verify the warning was printed
-        assert mock_stderr.write.call_count > 0
-        call_args, _ = mock_stderr.write.call_args_list[0]
-        assert "Falling back to `--include path document`" in call_args[0]
 
         # Verify build_query_results was called with the *modified* config
         mock_build_results.assert_called_once()

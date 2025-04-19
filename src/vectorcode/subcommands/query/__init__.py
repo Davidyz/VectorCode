@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sys
 
@@ -14,6 +15,8 @@ from vectorcode.common import (
     get_collection,
     verify_ef,
 )
+
+logger = logging.getLogger(name=__name__)
 
 
 async def get_query_result_files(
@@ -31,10 +34,11 @@ async def get_query_result_files(
         if os.path.isfile(i)
     ]
     if (await collection.count()) == 0:
-        print("Empty collection!", file=sys.stderr)
+        logger.error("Empty collection!")
         return []
     try:
         if len(configs.query_exclude):
+            logger.info(f"Excluding {len(configs.query_exclude)} files from the query.")
             filter: dict[str, dict] = {"path": {"$nin": configs.query_exclude}}
         else:
             filter = {}
@@ -48,6 +52,7 @@ async def get_query_result_files(
                     int(configs.n_result * configs.query_multiplier),
                     await collection.count(),
                 )
+                logger.info(f"Querying {num_query} chunks for reranking.")
         results = await collection.query(
             query_texts=query_chunks,
             n_results=num_query,
@@ -123,15 +128,13 @@ async def build_query_results(
 
                     structured_result.append(full_result)
             else:
-                print(
+                logger.error(
                     "This collection doesn't support chunk-mode output because it lacks the necessary metadata. Please re-vectorise it.",
-                    file=sys.stderr,
                 )
 
         else:
-            print(
+            logger.warning(
                 f"{identifier} is no longer a valid file! Please re-run vectorcode vectorise to refresh the database.",
-                file=sys.stderr,
             )
     return structured_result
 
@@ -141,9 +144,8 @@ async def query(configs: Config) -> int:
         QueryInclude.chunk in configs.include
         and QueryInclude.document in configs.include
     ):
-        print(
+        logger.error(
             "Having both chunk and document in the output is not supported!",
-            file=sys.stderr,
         )
         return 1
     client = await get_client(configs)
@@ -174,11 +176,10 @@ async def query(configs: Config) -> int:
 
     if QueryInclude.chunk in configs.include:
         if len((await collection.get(where={"start": {"$gte": 0}}))["ids"]) == 0:
-            print(
+            logger.warning(
                 """
 This collection doesn't contain line range metadata. Falling back to `--include path document`. 
 Please re-vectorise it to use `--include chunk`.""",
-                file=sys.stderr,
             )
             configs.include = [QueryInclude.path, QueryInclude.document]
 
