@@ -67,9 +67,6 @@ async def async_main():
 
     server_process = None
     if not await try_server(final_configs.host, final_configs.port):
-        logger.warning(
-            f"Host at {final_configs.host}:{final_configs.port} is unavailable. VectorCode will start its own Chromadb at a random port.",
-        )
         server_process = await start_server(final_configs)
 
     if final_configs.pipe:
@@ -107,6 +104,7 @@ async def async_main():
     except Exception as e:
         return_val = 1
         traceback.print_exception(e, file=sys.stderr)
+        logger.error(traceback.format_exc())
     finally:
         if server_process is not None:
             logger.info("Shutting down the bundled Chromadb instance.")

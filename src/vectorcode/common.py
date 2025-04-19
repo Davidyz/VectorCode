@@ -1,9 +1,11 @@
 import asyncio
 import hashlib
+import logging
 import os
 import socket
 import subprocess
 import sys
+import traceback
 from typing import AsyncGenerator
 
 import chromadb
@@ -14,6 +16,8 @@ from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 
 from vectorcode.cli_utils import Config, expand_path
+
+logger = logging.getLogger(name=__name__)
 
 
 async def get_collections(
@@ -42,6 +46,7 @@ async def try_server(host: str, port: int):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url=url)
+            logger.debug(f"Chromadb server at {host}:{port} returned {response=}")
             return response.status_code == 200
     except (httpx.ConnectError, httpx.ConnectTimeout):
         return False
@@ -82,6 +87,9 @@ async def start_server(configs: Config):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))  # OS selects a free ephemeral port
         configs.port = int(s.getsockname()[1])
+    logger.warning(
+        f"Starting bundled ChromaDB server at {configs.host}:{configs.port}."
+    )
     env.update({"ANONYMIZED_TELEMETRY": "False"})
     process = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -130,10 +138,12 @@ async def get_client(configs: Config) -> AsyncClientAPI:
 def get_collection_name(full_path: str) -> str:
     full_path = str(expand_path(full_path, absolute=True))
     hasher = hashlib.sha256()
-    hasher.update(
-        f"{os.environ.get('USER', os.environ.get('USERNAME', 'DEFAULT_USER'))}@{socket.gethostname()}:{full_path}".encode()
-    )
+    plain_collection_name = f"{os.environ.get('USER', os.environ.get('USERNAME', 'DEFAULT_USER'))}@{socket.gethostname()}:{full_path}"
+    hasher.update(plain_collection_name.encode())
     collection_id = hasher.hexdigest()[:63]
+    logger.debug(
+        f"Hashing {plain_collection_name} as the collection name for {full_path}."
+    )
     return collection_id
 
 
@@ -143,20 +153,18 @@ def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction | None
             **configs.embedding_params
         )
     except AttributeError:
-        print(
+        logger.warning(
             f"Failed to use {configs.embedding_function}. Falling back to Sentence Transformer.",
-            file=sys.stderr,
         )
         return embedding_functions.SentenceTransformerEmbeddingFunction()
     except Exception as e:
-        print(
-            f"Failed to use {configs.embedding_function} with the following error:",
-            file=sys.stderr,
-        )
         e.add_note(
             "\nFor errors caused by missing dependency, consult the documentation of pipx (or whatever package manager that you installed VectorCode with) for instructions to inject libraries into the virtual environment."
         )
-
+        logger.error(
+            f"Failed to use {configs.embedding_function} with the following error:",
+        )
+        logger.error(traceback.format_exc())
         raise
 
 
@@ -175,6 +183,7 @@ async def get_collection(
     if __COLLECTION_CACHE.get(full_path) is None:
         collection_name = get_collection_name(full_path)
         embedding_function = get_embedding_function(configs)
+
         collection_meta: dict[str, str | int] = {
             "path": full_path,
             "hostname": socket.gethostname(),
@@ -190,7 +199,9 @@ async def get_collection(
                 if not key.startswith("hnsw:"):
                     target_key = f"hnsw:{key}"
                 collection_meta[target_key] = configs.hnsw[key]
-
+        logger.debug(
+            f"Getting/Creating collection with the following metadata: {collection_meta}"
+        )
         if not make_if_missing:
             __COLLECTION_CACHE[full_path] = await client.get_collection(
                 collection_name, embedding_function
@@ -211,6 +222,9 @@ async def get_collection(
                 )
                 or not collection.metadata.get("created-by") == "VectorCode"
             ):
+                logger.error(
+                    f"Failed to use existing collection due to metadata mismatch: {collection_meta}"
+                )
                 raise IndexError(
                     "Failed to create the collection due to hash collision. Please file a bug report."
                 )
@@ -222,15 +236,13 @@ def verify_ef(collection: AsyncCollection, configs: Config):
     collection_ef = collection.metadata.get("embedding_function")
     collection_ep = collection.metadata.get("embedding_params")
     if collection_ef and collection_ef != configs.embedding_function:
-        print(f"The collection was embedded using {collection_ef}.")
-        print(
+        logger.error(f"The collection was embedded using {collection_ef}.")
+        logger.error(
             "Embeddings and query must use the same embedding function and parameters. Please double-check your config."
         )
         return False
     elif collection_ep and collection_ep != configs.embedding_params:
-        print(
-            f"The collection was embedded with a different set of configurations: {collection_ep}.",
-            file=sys.stderr,
+        logger.warning(
+            f"The collection was embedded with a different set of configurations: {collection_ep}. The result may be inaccurate.",
         )
-        print("The result may be inaccurate.", file=sys.stderr)
     return True
