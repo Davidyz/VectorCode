@@ -85,8 +85,12 @@ class Config:
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
     query_exclude: list[PathLike] = field(default_factory=list)
-    reranker: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    reranker_params: dict[str, Any] = field(default_factory=dict)
+    reranker: Optional[str] = "CrossEncoderReranker"
+    reranker_params: dict[str, Any] = field(
+        default_factory=lambda: {
+            "model_name_or_path": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        }
+    )
     check_item: Optional[str] = None
     use_absolute_path: bool = False
     include: list[QueryInclude] = field(
@@ -100,6 +104,7 @@ class Config:
         """
         Raise IOError if db_path is not valid.
         """
+        default_config = Config()
         db_path = config_dict.get("db_path")
         host = config_dict.get("host") or "localhost"
         port = config_dict.get("port") or 8000
@@ -112,25 +117,35 @@ class Config:
         return Config(
             **{
                 "embedding_function": config_dict.get(
-                    "embedding_function", "SentenceTransformerEmbeddingFunction"
+                    "embedding_function", default_config.embedding_function
                 ),
-                "embedding_params": config_dict.get("embedding_params", {}),
+                "embedding_params": config_dict.get(
+                    "embedding_params", default_config.embedding_params
+                ),
                 "host": host,
                 "port": port,
                 "db_path": db_path,
                 "db_log_path": os.path.expanduser(
-                    config_dict.get("db_log_path", "~/.local/share/vectorcode/")
+                    config_dict.get("db_log_path", default_config.db_log_path)
                 ),
-                "chunk_size": config_dict.get("chunk_size", 2500),
-                "overlap_ratio": config_dict.get("overlap_ratio", 0.2),
-                "query_multiplier": config_dict.get("query_multiplier", -1),
-                "reranker": config_dict.get(
-                    "reranker", "cross-encoder/ms-marco-MiniLM-L-6-v2"
+                "chunk_size": config_dict.get("chunk_size", default_config.chunk_size),
+                "overlap_ratio": config_dict.get(
+                    "overlap_ratio", default_config.overlap_ratio
                 ),
-                "reranker_params": config_dict.get("reranker_params", {}),
-                "db_settings": config_dict.get("db_settings", None),
-                "hnsw": config_dict.get("hnsw", {}),
-                "chunk_filters": config_dict.get("chunk_filters", {}),
+                "query_multiplier": config_dict.get(
+                    "query_multiplier", default_config.query_multiplier
+                ),
+                "reranker": config_dict.get("reranker", default_config.reranker),
+                "reranker_params": config_dict.get(
+                    "reranker_params", default_config.reranker_params
+                ),
+                "db_settings": config_dict.get(
+                    "db_settings", default_config.db_settings
+                ),
+                "hnsw": config_dict.get("hnsw", default_config.hnsw),
+                "chunk_filters": config_dict.get(
+                    "chunk_filters", default_config.chunk_filters
+                ),
             }
         )
 

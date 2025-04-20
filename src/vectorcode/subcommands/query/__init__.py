@@ -14,6 +14,7 @@ from vectorcode.common import (
     get_collection,
     verify_ef,
 )
+from vectorcode.subcommands.query.reranker import get_reranker
 
 logger = logging.getLogger(name=__name__)
 
@@ -66,17 +67,8 @@ async def get_query_result_files(
         # no results found
         return []
 
-    if not configs.reranker:
-        from .reranker import NaiveReranker
-
-        aggregated_results = NaiveReranker(configs).rerank(results)
-    else:
-        from .reranker import CrossEncoderReranker
-
-        aggregated_results = CrossEncoderReranker(
-            configs, query_chunks, configs.reranker, **configs.reranker_params
-        ).rerank(results)
-    return aggregated_results
+    reranker = get_reranker(configs)
+    return reranker.rerank(results, query_chunks)
 
 
 async def build_query_results(

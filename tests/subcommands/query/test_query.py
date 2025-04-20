@@ -62,14 +62,14 @@ def mock_config():
 @pytest.mark.asyncio
 async def test_get_query_result_files(mock_collection, mock_config):
     # Mock the reranker
-    with patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker:
+    with patch("vectorcode.subcommands.query.get_reranker") as mock_get_reranker:
         mock_reranker_instance = MagicMock()
         mock_reranker_instance.rerank.return_value = [
             "file1.py",
             "file2.py",
             "file3.py",
         ]
-        MockReranker.return_value = mock_reranker_instance
+        mock_get_reranker.return_value = mock_reranker_instance
 
         # Call the function
         result = await get_query_result_files(mock_collection, mock_config)
@@ -87,9 +87,9 @@ async def test_get_query_result_files(mock_collection, mock_config):
         assert not kwargs["where"]  # Since query_exclude is empty
 
         # Check reranker was used correctly
-        MockReranker.assert_called_once_with(mock_config)
+        mock_get_reranker.assert_called_once_with(mock_config)
         mock_reranker_instance.rerank.assert_called_once_with(
-            mock_collection.query.return_value
+            mock_collection.query.return_value, mock_config.query
         )
 
         # Check the result
