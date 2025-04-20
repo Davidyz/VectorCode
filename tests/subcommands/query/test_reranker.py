@@ -113,10 +113,7 @@ def test_naive_reranker_handles_none_path(config, query_result):
 
 
 @patch("sentence_transformers.CrossEncoder")
-def test_cross_encoder_reranker_initialization(
-    mock_cross_encoder: MagicMock, config, query_chunks
-):
-    """Test initialization of CrossEncoderReranker"""
+def test_cross_encoder_reranker_initialization(mock_cross_encoder: MagicMock, config):
     reranker = CrossEncoderReranker(config)
 
     # Verify constructor was called with correct parameters
@@ -128,8 +125,6 @@ def test_cross_encoder_reranker_initialization(
 def test_cross_encoder_reranker_rerank(
     mock_cross_encoder, config, query_result, query_chunks
 ):
-    """Test reranking with CrossEncoderReranker"""
-    # Setup mock model
     mock_model = MagicMock()
     mock_cross_encoder.return_value = mock_model
 
