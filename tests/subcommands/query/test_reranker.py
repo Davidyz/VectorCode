@@ -7,6 +7,9 @@ from vectorcode.subcommands.query.reranker import (
     CrossEncoderReranker,
     NaiveReranker,
     RerankerBase,
+    __supported_rerankers,
+    add_reranker,
+    get_available_rerankers,
     get_reranker,
 )
 
@@ -248,29 +251,25 @@ def test_get_reranker():
 
 def test_supported_rerankers_initialization():
     """Test that __supported_rerankers contains the expected default rerankers"""
-    from vectorcode.subcommands.query.reranker import __supported_rerankers
 
-    assert "CrossEncoderReranker" in __supported_rerankers
-    assert "NaiveReranker" in __supported_rerankers
-    assert len(__supported_rerankers) == 2
+    assert isinstance(
+        get_reranker(Config(reranker="CrossEncoderReranker")), CrossEncoderReranker
+    )
+    assert isinstance(get_reranker(Config(reranker="NaiveReranker")), NaiveReranker)
+    assert len(get_available_rerankers()) == 2
 
 
 def test_add_reranker_success():
     """Test successful registration of a new reranker"""
-    from vectorcode.subcommands.query.reranker import (
-        RerankerBase,
-        __supported_rerankers,
-        add_reranker,
-    )
 
-    original_count = len(__supported_rerankers)
+    original_count = len(get_available_rerankers())
 
     @add_reranker
     class TestReranker(RerankerBase):
         def rerank(self, results, query_chunks):
             return []
 
-    assert len(__supported_rerankers) == original_count + 1
+    assert len(get_available_rerankers()) == original_count + 1
     assert "TestReranker" in __supported_rerankers
     assert isinstance(get_reranker(Config(reranker="TestReranker")), TestReranker)
     __supported_rerankers.pop("TestReranker")
@@ -278,11 +277,6 @@ def test_add_reranker_success():
 
 def test_add_reranker_duplicate():
     """Test duplicate reranker registration raises error"""
-    from vectorcode.subcommands.query.reranker import (
-        RerankerBase,
-        __supported_rerankers,
-        add_reranker,
-    )
 
     # First registration should succeed
     @add_reranker
@@ -298,9 +292,6 @@ def test_add_reranker_duplicate():
 
 def test_add_reranker_invalid_baseclass():
     """Test that non-RerankerBase classes can't be registered"""
-    from vectorcode.subcommands.query.reranker import (
-        add_reranker,
-    )
 
     with pytest.raises(TypeError):
 

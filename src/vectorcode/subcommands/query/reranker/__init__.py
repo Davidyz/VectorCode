@@ -43,6 +43,10 @@ def add_reranker(cls):
         raise TypeError(error_message)
 
 
+def get_available_rerankers():
+    return list(__supported_rerankers.values())
+
+
 def get_reranker(configs: Config) -> RerankerBase:
     if configs.reranker:
         if hasattr(sys.modules[__name__], configs.reranker):
@@ -56,7 +60,7 @@ def get_reranker(configs: Config) -> RerankerBase:
 
     # TODO: replace the following with an Exception before the release of 0.6.0.
     logger.warning(
-        f""""reranker" option should be set to one of the following: {list(i for i in __all__ if i != "RerankerBase")}.
+        f""""reranker" option should be set to one of the following: {list(i.__name__ for i in get_available_rerankers())}.
 To choose a CrossEncoderReranker model, you can set the "model_name_or_path" key in the "reranker_params" option to the name/path of the model.
 To use NaiveReranker, set the "reranker" option to "NaiveReranker".
 The old configuration syntax will be DEPRECATED in v0.6.0
