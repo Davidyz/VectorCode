@@ -42,33 +42,31 @@ async def get_collections(
 
 
 async def try_server(host: str, port: int):
-    url = f"http://{host}:{port}/api/v1/heartbeat"
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url=url)
-            logger.debug(f"Chromadb server at {host}:{port} returned {response=}")
-            return response.status_code == 200
-    except (httpx.ConnectError, httpx.ConnectTimeout):
-        return False
+    for ver in ("v1", "v2"):  # v1 for legacy, v2 for latest chromadb.
+        url = f"http://{host}:{port}/api/{ver}/heartbeat"
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url=url)
+                logger.debug(f"Heartbeat {url} returned {response=}")
+                if response.status_code == 200:
+                    return True
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            pass
+    return False
 
 
 async def wait_for_server(host, port, timeout=10):
     # Poll the server until it's ready or timeout is reached
-    url = f"http://{host}:{port}/api/v1/heartbeat"
+
     start_time = asyncio.get_event_loop().time()
-    async with httpx.AsyncClient() as client:
-        while True:
-            try:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    return
-            except httpx.RequestError:
-                pass  # Server is not yet ready
+    while True:
+        if await try_server(host, port):
+            return
 
-            if asyncio.get_event_loop().time() - start_time > timeout:
-                raise TimeoutError(f"Server did not start within {timeout} seconds.")
+        if asyncio.get_event_loop().time() - start_time > timeout:
+            raise TimeoutError(f"Server did not start within {timeout} seconds.")
 
-            await asyncio.sleep(0.1)  # Wait before retrying
+        await asyncio.sleep(0.1)  # Wait before retrying
 
 
 async def start_server(configs: Config):

@@ -98,16 +98,56 @@ def test_get_embedding_function_init_exception():
 
 
 @pytest.mark.asyncio
-async def test_try_server():
-    # This test requires a server to be running, so it's difficult to make it truly isolated.
-    # For now, let's just check that it returns False when the server is not running on a common port.
-    assert not await try_server("localhost", 9999)
+async def test_try_server_versions():
+    # Test successful v1 response
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_client.return_value.__aenter__.return_value.get.return_value = (
+            mock_response
+        )
+        assert await try_server("localhost", 8300) is True
+        mock_client.return_value.__aenter__.return_value.get.assert_called_once_with(
+            url="http://localhost:8300/api/v1/heartbeat"
+        )
 
+    # Test fallback to v2 when v1 fails
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_response_v1 = MagicMock()
+        mock_response_v1.status_code = 404
+        mock_response_v2 = MagicMock()
+        mock_response_v2.status_code = 200
+        mock_client.return_value.__aenter__.return_value.get.side_effect = [
+            mock_response_v1,
+            mock_response_v2,
+        ]
+        assert await try_server("localhost", 8300) is True
+        assert mock_client.return_value.__aenter__.return_value.get.call_count == 2
 
-@pytest.mark.asyncio
-async def test_wait_for_server_timeout():
-    with pytest.raises(TimeoutError):
-        await wait_for_server("localhost", 9999, timeout=1)
+    # Test both versions fail
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_response_v1 = MagicMock()
+        mock_response_v1.status_code = 404
+        mock_response_v2 = MagicMock()
+        mock_response_v2.status_code = 500
+        mock_client.return_value.__aenter__.return_value.get.side_effect = [
+            mock_response_v1,
+            mock_response_v2,
+        ]
+        assert await try_server("localhost", 8300) is False
+
+    # Test connection error cases
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.get.side_effect = (
+            httpx.ConnectError("Cannot connect")
+        )
+        assert await try_server("localhost", 8300) is False
+
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.get.side_effect = (
+            httpx.ConnectTimeout("Connection timeout")
+        )
+        assert await try_server("localhost", 8300) is False
 
 
 @pytest.mark.asyncio
@@ -484,11 +524,29 @@ def test_get_embedding_function_fallback():
 
 
 @pytest.mark.asyncio
-async def test_wait_for_server_request_error():
-    # Mocking httpx.AsyncClient to raise a RequestError
-    with patch("httpx.AsyncClient") as mock_client:
-        mock_client.return_value.__aenter__.return_value.get.side_effect = (
-            httpx.RequestError("Simulated request error")
-        )
-        with pytest.raises(TimeoutError):
-            await wait_for_server("localhost", 9999, timeout=1)
+async def test_wait_for_server_success():
+    # Mock try_server to return True immediately
+    with patch("vectorcode.common.try_server") as mock_try_server:
+        mock_try_server.return_value = True
+
+        # Should complete immediately without timeout
+        await wait_for_server("localhost", 8000, timeout=1)
+
+        # Verify try_server was called once
+        mock_try_server.assert_called_once_with("localhost", 8000)
+
+
+@pytest.mark.asyncio
+async def test_wait_for_server_timeout():
+    # Mock try_server to always return False
+    with patch("vectorcode.common.try_server") as mock_try_server:
+        mock_try_server.return_value = False
+
+        # Should raise TimeoutError after 0.1 seconds (minimum timeout)
+        with pytest.raises(TimeoutError) as excinfo:
+            await wait_for_server("localhost", 8000, timeout=0.1)
+
+        assert "Server did not start within 0.1 seconds" in str(excinfo.value)
+
+        # Verify try_server was called multiple times (due to retries)
+        assert mock_try_server.call_count > 1
