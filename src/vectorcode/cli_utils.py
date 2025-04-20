@@ -1,4 +1,5 @@
 import argparse
+import atexit
 import glob
 import json
 import logging
@@ -523,6 +524,8 @@ def config_logging(
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(level or logging.WARN)
         handlers.append(file_handler)
+        if stdio:
+            atexit.register(lambda: print(f"Saving log to {log_file_path}."))
 
     if stdio:
         import colorlog
