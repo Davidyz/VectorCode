@@ -21,6 +21,13 @@ class CrossEncoderReranker(RerankerBase):
         super().__init__(configs)
         from sentence_transformers import CrossEncoder
 
+        if configs.reranker_params.get("model_name_or_path") is None:
+            logger.warning(
+                "'model_name_or_path' is not set. Fallback to 'cross-encoder/ms-marco-MiniLM-L-6-v2'"
+            )
+            configs.reranker_params["model_name_or_path"] = (
+                "cross-encoder/ms-marco-MiniLM-L-6-v2"
+            )
         self.model = CrossEncoder(**configs.reranker_params)
 
     def rerank(self, results, query_chunks) -> list[str]:

@@ -228,15 +228,19 @@ def test_get_reranker():
     config = Config(reranker="NaiveReranker")
     assert get_reranker(config).configs.reranker == "NaiveReranker"
 
-    config = Config(reranker="CrossEncoderReranker")
+    config = Config(reranker="CrossEncoderReranker", reranker_params={"device": "cpu"})
     reranker = get_reranker(config)
     assert reranker.configs.reranker == "CrossEncoderReranker"
 
-    config = Config(reranker="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    config = Config(
+        reranker="cross-encoder/ms-marco-MiniLM-L-6-v2",
+        reranker_params={"device": "cpu"},
+    )
     reranker = get_reranker(config)
     assert reranker.configs.reranker == "CrossEncoderReranker", (
         "configs.reranker should fallback to 'CrossEncoderReranker'"
     )
-    assert reranker.configs.reranker_params == {
-        "model_name_or_path": "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    }, "configs.reranker_params should fallback to default params."
+    assert (
+        reranker.configs.reranker_params.get("model_name_or_path")
+        == "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    ), "configs.reranker_params should fallback to default params."
