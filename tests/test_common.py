@@ -458,9 +458,6 @@ async def test_start_server():
             MockCreateProcess.assert_called_once()
             args, kwargs = MockCreateProcess.call_args
             expected_args = [
-                sys.executable,
-                "-m",
-                "chromadb.cli.cli",
                 "run",
                 "--host",
                 "localhost",
@@ -468,11 +465,13 @@ async def test_start_server():
                 str(12345),  # Check the mocked port
                 "--path",
                 temp_dir,
-                "--log-path",
-                os.path.join(str(config.db_log_path), "chroma.log"),
+                # "--log-path",
+                # os.path.join(str(config.db_log_path), "chroma.log"),
             ]
-            assert args[0] == sys.executable
-            assert tuple(args[1:]) == tuple(expected_args[1:])
+            assert os.path.isfile(args[0]) and "chroma" in args[0], (
+                f"{args[0]} should be the path to the `chroma` executable."
+            )
+            assert tuple(args[1:]) == tuple(expected_args)
             assert kwargs["stdout"] == subprocess.DEVNULL
             assert kwargs["stderr"] == sys.stderr
             assert "ANONYMIZED_TELEMETRY" in kwargs["env"]
