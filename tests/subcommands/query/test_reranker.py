@@ -55,10 +55,7 @@ def query_chunks():
     return ["query chunk 1", "query chunk 2"]
 
 
-# The RerankerBase isn't actually preventing instantiation,
-# but it will raise NotImplementedError when rerank is called
 def test_reranker_base_method_is_abstract(config):
-    """Test that RerankerBase.rerank raises NotImplementedError"""
     with pytest.raises((NotImplementedError, TypeError)):
         RerankerBase(config)
 
@@ -262,13 +259,11 @@ def test_get_reranker():
     ), "configs.reranker_params should fallback to default params."
 
 
-def test_supported_rerankers_initialization():
+def test_supported_rerankers_initialization(config, naive_reranker_conf):
     """Test that __supported_rerankers contains the expected default rerankers"""
 
-    assert isinstance(
-        get_reranker(Config(reranker="CrossEncoderReranker")), CrossEncoderReranker
-    )
-    assert isinstance(get_reranker(Config(reranker="NaiveReranker")), NaiveReranker)
+    assert isinstance(get_reranker(config), CrossEncoderReranker)
+    assert isinstance(get_reranker(naive_reranker_conf), NaiveReranker)
     assert len(get_available_rerankers()) == 2
 
 
