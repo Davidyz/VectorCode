@@ -244,3 +244,66 @@ def test_get_reranker():
         reranker.configs.reranker_params.get("model_name_or_path")
         == "cross-encoder/ms-marco-MiniLM-L-6-v2"
     ), "configs.reranker_params should fallback to default params."
+
+
+def test_supported_rerankers_initialization():
+    """Test that __supported_rerankers contains the expected default rerankers"""
+    from vectorcode.subcommands.query.reranker import __supported_rerankers
+
+    assert "CrossEncoderReranker" in __supported_rerankers
+    assert "NaiveReranker" in __supported_rerankers
+    assert len(__supported_rerankers) == 2
+
+
+def test_add_reranker_success():
+    """Test successful registration of a new reranker"""
+    from vectorcode.subcommands.query.reranker import (
+        RerankerBase,
+        __supported_rerankers,
+        add_reranker,
+    )
+
+    original_count = len(__supported_rerankers)
+
+    @add_reranker
+    class TestReranker(RerankerBase):
+        def rerank(self, results, query_chunks):
+            return []
+
+    assert len(__supported_rerankers) == original_count + 1
+    assert "TestReranker" in __supported_rerankers
+    assert isinstance(get_reranker(Config(reranker="TestReranker")), TestReranker)
+    __supported_rerankers.pop("TestReranker")
+
+
+def test_add_reranker_duplicate():
+    """Test duplicate reranker registration raises error"""
+    from vectorcode.subcommands.query.reranker import (
+        RerankerBase,
+        __supported_rerankers,
+        add_reranker,
+    )
+
+    # First registration should succeed
+    @add_reranker
+    class TestReranker(RerankerBase):
+        def rerank(self, results, query_chunks):
+            return []
+
+    # Second registration should fail
+    with pytest.raises(AttributeError):
+        add_reranker(TestReranker)
+    __supported_rerankers.pop("TestReranker")
+
+
+def test_add_reranker_invalid_baseclass():
+    """Test that non-RerankerBase classes can't be registered"""
+    from vectorcode.subcommands.query.reranker import (
+        add_reranker,
+    )
+
+    with pytest.raises(TypeError):
+
+        @add_reranker
+        class InvalidReranker:
+            pass

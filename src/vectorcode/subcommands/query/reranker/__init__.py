@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import Type
 
 from vectorcode.cli_utils import Config
 
@@ -11,11 +12,47 @@ __all__ = ["RerankerBase", "NaiveReranker", "CrossEncoderReranker"]
 
 logger = logging.getLogger(name=__name__)
 
+__supported_rerankers: dict[str, Type[RerankerBase]] = {
+    "CrossEncoderReranker": CrossEncoderReranker,
+    "NaiveReranker": NaiveReranker,
+}
+
+
+def add_reranker(cls):
+    """
+    This is a class decorator that allows you to add a custom reranker that can be
+    recognised by the `get_reranker` function.
+
+    Your reranker should inherit `RerankerBase` and be decorated by `add_reranker`:
+    ```python
+    @add_reranker
+    class CustomReranker(RerankerBase):
+        # override the methods according to your need.
+    ```
+    """
+    if issubclass(cls, RerankerBase):
+        if __supported_rerankers.get(cls.__name__):
+            error_message = f"{cls.__name__} has been registered."
+            logger.error(error_message)
+            raise AttributeError(error_message)
+        __supported_rerankers[cls.__name__] = cls
+        return cls
+    else:
+        error_message = f'{cls} should be a subclass of "RerankerBase"'
+        logger.error(error_message)
+        raise TypeError(error_message)
+
 
 def get_reranker(configs: Config) -> RerankerBase:
-    if configs.reranker and hasattr(sys.modules[__name__], configs.reranker):
-        # dynamic dispatch
-        return getattr(sys.modules[__name__], configs.reranker)(configs)
+    if configs.reranker:
+        if hasattr(sys.modules[__name__], configs.reranker):
+            # dynamic dispatch for built-in rerankers
+            return getattr(sys.modules[__name__], configs.reranker)(configs)
+
+        elif issubclass(
+            __supported_rerankers.get(configs.reranker, type(None)), RerankerBase
+        ):
+            return __supported_rerankers[configs.reranker](configs)
 
     # TODO: replace the following with an Exception before the release of 0.6.0.
     logger.warning(
