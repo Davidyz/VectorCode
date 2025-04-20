@@ -248,14 +248,25 @@ The JSON configuration file may hold the following values:
   guarantees the return of `n` documents, but with the risk of including too
   many less-relevant chunks that may affect the document selection. Default: 
   `-1` (any negative value means selecting documents based on all indexed chunks);
-- `reranker`: string, a reranking model supported by 
-  [`CrossEncoder`](https://sbert.net/docs/package_reference/cross_encoder/index.html). 
-  A list of available models is available on their documentation. The default
-  model is `"cross-encoder/ms-marco-MiniLM-L-6-v2"`. You can disable the use of
-  `CrossEncoder` by setting this option to a falsy value that is not `null`,
-  such as `false` or `""` (empty string);
+- `reranker`: string, the reranking method to use. Currently supports
+  `CrossEncoderReranker` (default, using 
+  [sentence-transformers cross-encoder](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html)
+  ) and `NaiveReranker` (sort chunks by the "distance" between the embedding
+  vectors);
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
-  passed to `CrossEncoder` class constructor;
+  passed to the reranker class constructor. For `CrossEncoderReranker`, these
+  are the options passed to the 
+  [`CrossEncoder`](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html#id1)
+  class. For example, if you want to use a non-default model, you can use the
+  following:
+  ```json
+  {
+    "reranker_params": {
+      "model_name_or_path": "your_model_here"
+    }
+  }
+  ```
+  ;
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
   for Chromadb client settings so that you can configure 
   [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
