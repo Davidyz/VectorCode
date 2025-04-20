@@ -87,10 +87,11 @@ async def start_server(configs: Config):
         f"Starting bundled ChromaDB server at {configs.host}:{configs.port}."
     )
     env.update({"ANONYMIZED_TELEMETRY": "False"})
+    exe = os.path.join(sys.prefix, "bin", "chroma")
+    if not os.path.isfile(exe):
+        exe = os.path.join(sys.prefix, "Scripts", "chroma")
     process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "chromadb.cli.cli",
+        exe,
         "run",
         "--host",
         "localhost",
@@ -98,8 +99,8 @@ async def start_server(configs: Config):
         str(configs.port),
         "--path",
         db_path,
-        "--log-path",
-        os.path.join(str(configs.db_log_path), "chroma.log"),
+        # "--log-path",
+        # os.path.join(str(configs.db_log_path), "chroma.log"),
         stdout=subprocess.DEVNULL,
         stderr=sys.stderr,
         env=env,
