@@ -86,11 +86,7 @@ class Config:
     query_multiplier: int = -1
     query_exclude: list[PathLike] = field(default_factory=list)
     reranker: Optional[str] = "CrossEncoderReranker"
-    reranker_params: dict[str, Any] = field(
-        default_factory=lambda: {
-            "model_name_or_path": "cross-encoder/ms-marco-MiniLM-L-6-v2"
-        }
-    )
+    reranker_params: dict[str, Any] = field(default_factory=lambda: {})
     check_item: Optional[str] = None
     use_absolute_path: bool = False
     include: list[QueryInclude] = field(

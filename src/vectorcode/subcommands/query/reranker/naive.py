@@ -13,6 +13,11 @@ logger = logging.getLogger(name=__name__)
 
 
 class NaiveReranker(RerankerBase):
+    """This reranker uses the distances between the embedding vectors in the database for the queries and the chunks as the measure of relevance.
+    No special configs required.
+    configs.reranker_params will be ignored.
+    """
+
     def __init__(self, configs: Config, **kwargs: Any):
         super().__init__(configs)
 

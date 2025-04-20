@@ -51,12 +51,12 @@ def get_reranker(configs: Config) -> RerankerBase:
     if configs.reranker:
         if hasattr(sys.modules[__name__], configs.reranker):
             # dynamic dispatch for built-in rerankers
-            return getattr(sys.modules[__name__], configs.reranker)(configs)
+            return getattr(sys.modules[__name__], configs.reranker).create(configs)
 
         elif issubclass(
             __supported_rerankers.get(configs.reranker, type(None)), RerankerBase
         ):
-            return __supported_rerankers[configs.reranker](configs)
+            return __supported_rerankers[configs.reranker].create(configs)
 
     # TODO: replace the following with an Exception before the release of 0.6.0.
     logger.warning(

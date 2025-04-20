@@ -59,25 +59,38 @@ def query_chunks():
 # but it will raise NotImplementedError when rerank is called
 def test_reranker_base_method_is_abstract(config):
     """Test that RerankerBase.rerank raises NotImplementedError"""
-    base_reranker = RerankerBase(config)
-    with pytest.raises(NotImplementedError):
-        base_reranker.rerank({}, [])
+    with pytest.raises((NotImplementedError, TypeError)):
+        RerankerBase(config)
 
 
-def test_naive_reranker_initialization(config):
+def test_naive_reranker_initialization(naive_reranker_conf):
     """Test initialization of NaiveReranker"""
-    reranker = NaiveReranker(config)
+    reranker = NaiveReranker(naive_reranker_conf)
     assert reranker.n_result == 3
 
 
-def test_naive_reranker_rerank(config, query_result):
+def test_reranker_create(naive_reranker_conf):
+    reranker = NaiveReranker.create(naive_reranker_conf)
+    assert isinstance(reranker, NaiveReranker)
+
+
+def test_reranker_create_fail():
+    class TestReranker(RerankerBase):
+        def __init__(self, configs, **kwargs):
+            raise Exception
+
+    with pytest.raises(Exception):
+        TestReranker.create(Config())
+
+
+def test_naive_reranker_rerank(naive_reranker_conf, query_result):
     """Test basic reranking functionality of NaiveReranker"""
-    reranker = NaiveReranker(config)
+    reranker = NaiveReranker(naive_reranker_conf)
     result = reranker.rerank(query_result, ["foo", "bar"])
 
     # Check the result is a list of paths with correct length
     assert isinstance(result, list)
-    assert len(result) <= config.n_result
+    assert len(result) <= naive_reranker_conf.n_result
 
     # Check all returned items are strings (paths)
     for path in result:

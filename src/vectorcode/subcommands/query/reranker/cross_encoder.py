@@ -13,6 +13,12 @@ logger = logging.getLogger(name=__name__)
 
 
 class CrossEncoderReranker(RerankerBase):
+    """This reranker uses [`CrossEncoder` from the sentence_transformers library](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html) for reranking.
+    Parameters in configs.params will be passed to the `CrossEncoder` class in the `sentence_transformers` library.
+    The default model is 'cross-encoder/ms-marco-MiniLM-L-6-v2'.
+    Consult sentence_transformers documentation for details on the available parameters.
+    """
+
     def __init__(
         self,
         configs: Config,
