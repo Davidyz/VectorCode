@@ -38,7 +38,5 @@ class RerankerBase(ABC):
             raise
 
     @abstractmethod
-    def rerank(
-        self, results: QueryResult, query_chunks: list[str]
-    ) -> list[str]:  # pragma: nocover
+    def rerank(self, results: QueryResult) -> list[str]:  # pragma: nocover
         raise NotImplementedError

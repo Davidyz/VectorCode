@@ -89,7 +89,7 @@ async def test_get_query_result_files(mock_collection, mock_config):
         # Check reranker was used correctly
         mock_get_reranker.assert_called_once_with(mock_config)
         mock_reranker_instance.rerank.assert_called_once_with(
-            mock_collection.query.return_value, mock_config.query
+            mock_collection.query.return_value
         )
 
         # Check the result

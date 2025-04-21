@@ -25,6 +25,9 @@ class CrossEncoderReranker(RerankerBase):
         **kwargs: Any,
     ):
         super().__init__(configs)
+        assert self.configs.query is not None, (
+            "'configs' should contain the query messages."
+        )
         from sentence_transformers import CrossEncoder
 
         if configs.reranker_params.get("model_name_or_path") is None:
@@ -36,17 +39,18 @@ class CrossEncoderReranker(RerankerBase):
             )
         self.model = CrossEncoder(**configs.reranker_params)
 
-    def rerank(self, results, query_chunks) -> list[str]:
-        self.query_chunks = query_chunks
+    def rerank(self, results) -> list[str]:
+        assert self.configs.query
+        query_chunks = self.configs.query
         assert results["metadatas"] is not None
         assert results["documents"] is not None
         documents: DefaultDict[str, list[float]] = defaultdict(list)
-        for query_chunk_idx in range(len(self.query_chunks)):
+        for query_chunk_idx in range(len(query_chunks)):
             chunk_ids = results["ids"][query_chunk_idx]
             chunk_metas = results["metadatas"][query_chunk_idx]
             chunk_docs = results["documents"][query_chunk_idx]
             ranks = self.model.rank(
-                self.query_chunks[query_chunk_idx], chunk_docs, apply_softmax=True
+                query_chunks[query_chunk_idx], chunk_docs, apply_softmax=True
             )
             for rank in ranks:
                 if QueryInclude.chunk in self.configs.include:

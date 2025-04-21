@@ -83,7 +83,7 @@ def test_reranker_create_fail():
 def test_naive_reranker_rerank(naive_reranker_conf, query_result):
     """Test basic reranking functionality of NaiveReranker"""
     reranker = NaiveReranker(naive_reranker_conf)
-    result = reranker.rerank(query_result, ["foo", "bar"])
+    result = reranker.rerank(query_result)
 
     # Check the result is a list of paths with correct length
     assert isinstance(result, list)
@@ -104,7 +104,7 @@ def test_naive_reranker_handles_none_path(config, query_result):
     ]
 
     reranker = NaiveReranker(config)
-    result = reranker.rerank(query_result_with_none, ["foo", "bar"])
+    result = reranker.rerank(query_result_with_none)
 
     # Check the None path was handled without errors
     assert isinstance(result, list)
@@ -118,6 +118,19 @@ def test_cross_encoder_reranker_initialization(mock_cross_encoder: MagicMock, co
 
     # Verify constructor was called with correct parameters
     mock_cross_encoder.assert_called_once_with(**config.reranker_params)
+    assert reranker.n_result == config.n_result
+
+
+@patch("sentence_transformers.CrossEncoder")
+def test_cross_encoder_reranker_initialization_fallback_model_name(
+    mock_cross_encoder: MagicMock, config
+):
+    expected_params = {"model_name_or_path": "cross-encoder/ms-marco-MiniLM-L-6-v2"}
+    config.reranker_params = {}
+    reranker = CrossEncoderReranker(config)
+
+    # Verify constructor was called with correct parameters
+    mock_cross_encoder.assert_called_once_with(**expected_params)
     assert reranker.n_result == config.n_result
 
 
@@ -137,7 +150,7 @@ def test_cross_encoder_reranker_rerank(
 
     reranker = CrossEncoderReranker(config)
 
-    result = reranker.rerank(query_result, query_chunks)
+    result = reranker.rerank(query_result)
 
     # Verify the model was called with correct parameters
     mock_model.rank.assert_called()
@@ -167,7 +180,7 @@ def test_naive_reranker_document_selection_logic(naive_reranker_conf):
     }
 
     reranker = NaiveReranker(naive_reranker_conf)
-    result = reranker.rerank(query_result, naive_reranker_conf.query)
+    result = reranker.rerank(query_result)
 
     # Check that files are included (exact order depends on implementation details)
     assert len(result) > 0
@@ -189,7 +202,7 @@ def test_naive_reranker_with_chunk_ids(naive_reranker_conf):
         ],
     }
     reranker = NaiveReranker(naive_reranker_conf)
-    result = reranker.rerank(query_result, naive_reranker_conf.query)
+    result = reranker.rerank(query_result)
 
     assert isinstance(result, list)
     assert len(result) <= naive_reranker_conf.n_result
@@ -224,7 +237,6 @@ def test_cross_encoder_reranker_with_chunk_ids(
             ],
             "documents": [["doc1", "doc2"], ["doc3", "doc4"]],
         },
-        config.query,
     )
 
     assert isinstance(result, list)
@@ -232,18 +244,12 @@ def test_cross_encoder_reranker_with_chunk_ids(
     assert all(id in ["id1", "id2", "id3", "id4"] for id in result)
 
 
-def test_get_reranker():
-    config = Config(reranker="NaiveReranker")
-    assert get_reranker(config).configs.reranker == "NaiveReranker"
+def test_get_reranker(config, naive_reranker_conf):
+    assert get_reranker(naive_reranker_conf).configs.reranker == "NaiveReranker"
 
-    config = Config(reranker="CrossEncoderReranker", reranker_params={"device": "cpu"})
     reranker = get_reranker(config)
     assert reranker.configs.reranker == "CrossEncoderReranker"
 
-    config = Config(
-        reranker="cross-encoder/ms-marco-MiniLM-L-6-v2",
-        reranker_params={"device": "cpu"},
-    )
     reranker = get_reranker(config)
     assert reranker.configs.reranker == "CrossEncoderReranker", (
         "configs.reranker should fallback to 'CrossEncoderReranker'"

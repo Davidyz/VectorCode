@@ -21,7 +21,7 @@ class NaiveReranker(RerankerBase):
     def __init__(self, configs: Config, **kwargs: Any):
         super().__init__(configs)
 
-    def rerank(self, results, query_chunks) -> list[str]:
+    def rerank(self, results) -> list[str]:
         assert results["metadatas"] is not None
         assert results["distances"] is not None
         documents: DefaultDict[str, list[float]] = defaultdict(list)
