@@ -1,11 +1,7 @@
-import heapq
 import logging
-from collections import defaultdict
-from typing import Any, DefaultDict
+from typing import Any
 
-import numpy
-
-from vectorcode.cli_utils import Config, QueryInclude
+from vectorcode.cli_utils import Config
 
 from .base import RerankerBase
 
@@ -25,9 +21,6 @@ class CrossEncoderReranker(RerankerBase):
         **kwargs: Any,
     ):
         super().__init__(configs)
-        assert self.configs.query is not None, (
-            "'configs' should contain the query messages."
-        )
         from sentence_transformers import CrossEncoder
 
         if configs.reranker_params.get("model_name_or_path") is None:
@@ -39,33 +32,8 @@ class CrossEncoderReranker(RerankerBase):
             )
         self.model = CrossEncoder(**configs.reranker_params)
 
-    def rerank(self, results) -> list[str]:
-        assert self.configs.query
-        query_chunks = self.configs.query
-        assert results["metadatas"] is not None
-        assert results["documents"] is not None
-        documents: DefaultDict[str, list[float]] = defaultdict(list)
-        for query_chunk_idx in range(len(query_chunks)):
-            chunk_ids = results["ids"][query_chunk_idx]
-            chunk_metas = results["metadatas"][query_chunk_idx]
-            chunk_docs = results["documents"][query_chunk_idx]
-            ranks = self.model.rank(
-                query_chunks[query_chunk_idx], chunk_docs, apply_softmax=True
-            )
-            for rank in ranks:
-                if QueryInclude.chunk in self.configs.include:
-                    documents[chunk_ids[rank["corpus_id"]]].append(float(rank["score"]))
-                else:
-                    documents[chunk_metas[rank["corpus_id"]]["path"]].append(
-                        float(rank["score"])
-                    )
-        logger.debug("Document scores: %s", documents)
-        top_k = int(numpy.mean(tuple(len(i) for i in documents.values())))
-        for key in documents.keys():
-            documents[key] = heapq.nlargest(top_k, documents[key])
-
-        return heapq.nlargest(
-            self.n_result,
-            documents.keys(),
-            key=lambda x: float(numpy.mean(documents[x])),
+    def compute_similarity(self, results: list[str], query_message: str):
+        return list(
+            float(i)
+            for i in self.model.predict([(chunk, query_message) for chunk in results])
         )

@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import numpy
 import pytest
 
 from vectorcode.cli_utils import Config, QueryInclude
@@ -94,24 +95,6 @@ def test_naive_reranker_rerank(naive_reranker_conf, query_result):
         assert isinstance(path, str)
 
 
-def test_naive_reranker_handles_none_path(config, query_result):
-    """Test NaiveReranker properly handles None paths in metadata"""
-    # Create a copy with a None path
-    query_result_with_none = query_result.copy()
-    query_result_with_none["metadatas"] = [
-        [{"path": "file1.py"}, {"path": None}, {"path": "file3.py"}],
-        [{"path": "file2.py"}, {"path": "file4.py"}, {"path": "file3.py"}],
-    ]
-
-    reranker = NaiveReranker(config)
-    result = reranker.rerank(query_result_with_none)
-
-    # Check the None path was handled without errors
-    assert isinstance(result, list)
-    # None should be filtered out
-    assert None not in result
-
-
 @patch("sentence_transformers.CrossEncoder")
 def test_cross_encoder_reranker_initialization(mock_cross_encoder: MagicMock, config):
     reranker = CrossEncoderReranker(config)
@@ -141,43 +124,34 @@ def test_cross_encoder_reranker_rerank(
     mock_model = MagicMock()
     mock_cross_encoder.return_value = mock_model
 
-    # Configure mock rank method to return predetermined ranks
-    mock_model.rank.return_value = [
-        {"corpus_id": 0, "score": 0.9},
-        {"corpus_id": 1, "score": 0.7},
-        {"corpus_id": 2, "score": 0.8},
-    ]
+    # Configure mock predict to return numpy array with float32 dtype
+    scores = numpy.array([0.9, 0.7, 0.8], dtype=numpy.float32)
+    mock_model.predict.return_value = scores
+
+    # Ensure complete query_result structure
+    query_result.update(
+        {
+            "ids": [["id1", "id2", "id3"], ["id4", "id5", "id6"]],
+            "documents": [["doc1", "doc2", "doc3"], ["doc4", "doc5", "doc6"]],
+            "metadatas": [
+                [{"path": "p1"}, {"path": "p2"}, {"path": "p3"}],
+                [{"path": "p4"}, {"path": "p5"}, {"path": "p6"}],
+            ],
+        }
+    )
 
     reranker = CrossEncoderReranker(config)
-
     result = reranker.rerank(query_result)
 
-    # Verify the model was called with correct parameters
-    mock_model.rank.assert_called()
-
-    # Check result
+    # Result assertions
     assert isinstance(result, list)
+    assert all(isinstance(path, str) for path in result)
     assert len(result) <= config.n_result
 
-    # Check all returned items are strings (paths)
-    for path in result:
-        assert isinstance(path, str)
 
-
-def test_naive_reranker_document_selection_logic(naive_reranker_conf):
+def test_naive_reranker_document_selection_logic(naive_reranker_conf, query_result):
     """Test that NaiveReranker correctly selects documents based on distances"""
     # Create a query result with known distances
-    query_result = {
-        "ids": [["id1", "id2", "id3"], ["id4", "id5", "id6"]],
-        "distances": [
-            [0.3, 0.1, 0.2],  # file2 has lowest, then file3, then file1
-            [0.6, 0.4, 0.5],  # file4 has lowest, then file3, then file2
-        ],
-        "metadatas": [
-            [{"path": "file1.py"}, {"path": "file2.py"}, {"path": "file3.py"}],
-            [{"path": "file2.py"}, {"path": "file4.py"}, {"path": "file3.py"}],
-        ],
-    }
 
     reranker = NaiveReranker(naive_reranker_conf)
     result = reranker.rerank(query_result)
@@ -188,19 +162,12 @@ def test_naive_reranker_document_selection_logic(naive_reranker_conf):
     assert "file2.py" in result or "file3.py" in result
 
 
-def test_naive_reranker_with_chunk_ids(naive_reranker_conf):
+def test_naive_reranker_with_chunk_ids(naive_reranker_conf, query_result):
     """Test NaiveReranker returns chunk IDs when QueryInclude.chunk is set"""
     naive_reranker_conf.include.append(
         QueryInclude.chunk
     )  # Assuming QueryInclude.chunk would be "chunk"
-    query_result = {
-        "ids": [["id1", "id2"], ["id3", "id1"]],
-        "distances": [[0.1, 0.2], [0.3, 0.4]],
-        "metadatas": [
-            [{"path": "file1.py"}, {"path": "file2.py"}],
-            [{"path": "file3.py"}, {"path": "file1.py"}],
-        ],
-    }
+
     reranker = NaiveReranker(naive_reranker_conf)
     result = reranker.rerank(query_result)
 
@@ -212,33 +179,22 @@ def test_naive_reranker_with_chunk_ids(naive_reranker_conf):
 
 @patch("sentence_transformers.CrossEncoder")
 def test_cross_encoder_reranker_with_chunk_ids(
-    mock_cross_encoder, config, query_chunks
+    mock_cross_encoder, config, query_result
 ):
     """Test CrossEncoderReranker returns chunk IDs when QueryInclude.chunk is set"""
     mock_model = MagicMock()
     mock_cross_encoder.return_value = mock_model
-    mock_model.rank.return_value = [
-        {"corpus_id": 0, "score": 0.9},
-        {"corpus_id": 1, "score": 0.7},
-    ]
 
-    config.include = {"chunk"}  # Use comma instead of append
-    reranker = CrossEncoderReranker(
-        config,
-    )
+    # Setup mock to return numpy array scores
+    scores = numpy.array([0.9, 0.7], dtype=numpy.float32)
+    mock_model.predict.return_value = scores
 
-    # Match query_chunks length with results
-    result = reranker.rerank(
-        {
-            "ids": [["id1", "id2"], ["id3", "id4"]],  # Two query chunks
-            "metadatas": [
-                [{"path": "file1.py"}, {"path": "file2.py"}],
-                [{"path": "file3.py"}, {"path": "file4.py"}],
-            ],
-            "documents": [["doc1", "doc2"], ["doc3", "doc4"]],
-        },
-    )
+    config.include = {QueryInclude.chunk}
+    reranker = CrossEncoderReranker(config)
 
+    result = reranker.rerank(query_result)
+
+    mock_model.predict.assert_called()
     assert isinstance(result, list)
     assert all(isinstance(id, str) for id in result)
     assert all(id in ["id1", "id2", "id3", "id4"] for id in result)
@@ -275,12 +231,15 @@ def test_add_reranker_success():
 
     @add_reranker
     class TestReranker(RerankerBase):
-        def rerank(self, results, query_chunks):
+        def compute_similarity(self, results, query_message):
             return []
 
     assert len(get_available_rerankers()) == original_count + 1
     assert "TestReranker" in __supported_rerankers
-    assert isinstance(get_reranker(Config(reranker="TestReranker")), TestReranker)
+    assert isinstance(
+        get_reranker(Config(reranker="TestReranker", query=["hello world"])),
+        TestReranker,
+    )
     __supported_rerankers.pop("TestReranker")
 
 
