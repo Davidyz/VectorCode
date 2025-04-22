@@ -94,15 +94,13 @@ async def start_server(configs: Config):
         exe,
         "run",
         "--host",
-        "localhost",
+        "127.0.0.1",
         "--port",
         str(port),
         "--path",
         db_path,
-        # "--log-path",
-        # os.path.join(str(configs.db_log_path), "chroma.log"),
-        stdout=subprocess.DEVNULL,
-        stderr=sys.stderr,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env=env,
     )
 
