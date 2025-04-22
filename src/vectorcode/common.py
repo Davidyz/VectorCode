@@ -94,20 +94,27 @@ async def start_server(configs: Config):
         exe,
         "run",
         "--host",
-        "localhost",
+        "127.0.0.1",
         "--port",
         str(configs.port),
         "--path",
         db_path,
-        # "--log-path",
-        # os.path.join(str(configs.db_log_path), "chroma.log"),
-        stdout=subprocess.DEVNULL,
-        stderr=sys.stderr,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env=env,
     )
 
-    await wait_for_server(configs.host, configs.port)
-    return process
+    try:
+        await wait_for_server("127.0.0.1", configs.port)
+        return process
+    except Exception:  # pragma: nocover
+        process.terminate()
+        logger.error("Failed to start ChromaDB!")
+        if process.stdout is not None:
+            logger.error(f"stdout: {(await process.stdout.read()).decode()}")
+        if process.stderr is not None:
+            logger.error(f"stderr: {(await process.stderr.read()).decode()}")
+        raise
 
 
 __CLIENT_CACHE: dict[tuple[str, int], AsyncClientAPI] = {}
