@@ -1,3 +1,11 @@
+local log_level = os.getenv("VECTORCODE_NVIM_LOG_LEVEL")
+local logger = require("plenary.log").new({
+  plugin = "vectorcode.nvim",
+  level = log_level,
+  use_console = log_level ~= nil and "async" or false,
+  use_file = log_level ~= nil,
+})
+
 ---@type VectorCode.Opts
 local config = {
   async_opts = {
@@ -90,6 +98,7 @@ return {
   setup = check_cli_wrap(
     ---@param opts VectorCode.Opts?
     function(opts)
+      logger.info(opts)
       opts = opts or {}
       setup_config = vim.tbl_deep_extend("force", config, opts or {})
       for k, v in pairs(setup_config.async_opts) do
@@ -107,6 +116,7 @@ return {
         end
       end
       startup_handler(setup_config)
+      logger.info("Finished processing opts:\n", setup_config)
     end
   ),
 
@@ -115,9 +125,11 @@ return {
     if setup_config.async_backend == "lsp" then
       local ok, cacher = pcall(require, "vectorcode.cacher.lsp")
       if ok and type(cacher) == "table" then
+        logger.debug("Using LSP backend for cacher.")
         return cacher
       else
         vim.notify("Falling back to default backend.", vim.log.levels.WARN, notify_opts)
+        logger.warn("Fallback to default (cmd) backend for cacher.")
         setup_config.async_backend = "default"
       end
     end
@@ -130,8 +142,10 @@ return {
         vim.log.levels.ERROR,
         notify_opts
       )
+      logger.warn("Fallback to default (cmd) backend for cacher.")
       setup_config.async_backend = "default"
     end
+    logger.debug("Defaulting to cmd backend for cacher.")
     return require("vectorcode.cacher.default")
   end,
 
@@ -156,4 +170,5 @@ return {
   check_cli_wrap = check_cli_wrap,
 
   lsp_configs = lsp_configs,
+  logger = logger,
 }
