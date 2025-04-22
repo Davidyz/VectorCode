@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 
@@ -32,8 +33,8 @@ class CrossEncoderReranker(RerankerBase):
             )
         self.model = CrossEncoder(**configs.reranker_params)
 
-    def compute_similarity(self, results: list[str], query_message: str):
-        return list(
-            float(i)
-            for i in self.model.predict([(chunk, query_message) for chunk in results])
+    async def compute_similarity(self, results: list[str], query_message: str):
+        scores = await asyncio.to_thread(
+            self.model.predict, [(chunk, query_message) for chunk in results]
         )
+        return list(float(i) for i in scores)

@@ -64,11 +64,13 @@ async def test_get_query_result_files(mock_collection, mock_config):
     # Mock the reranker
     with patch("vectorcode.subcommands.query.get_reranker") as mock_get_reranker:
         mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank.return_value = [
-            "file1.py",
-            "file2.py",
-            "file3.py",
-        ]
+        mock_reranker_instance.rerank = AsyncMock(
+            return_value=[
+                "file1.py",
+                "file2.py",
+                "file3.py",
+            ]
+        )
         mock_get_reranker.return_value = mock_reranker_instance
 
         # Call the function
@@ -103,7 +105,7 @@ async def test_get_query_result_files_include_chunk(mock_collection, mock_config
 
     with patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker:
         mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank.return_value = ["chunk1"]
+        mock_reranker_instance.rerank = AsyncMock(return_value=["chunk1"])
         MockReranker.return_value = mock_reranker_instance
 
         await get_query_result_files(mock_collection, mock_config)
@@ -188,7 +190,7 @@ async def test_get_query_result_files_with_query_exclude(mock_collection, mock_c
         mock_expand_path.return_value = "/excluded/path.py"
 
         mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank.return_value = ["file1.py", "file2.py"]
+        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
         MockReranker.return_value = mock_reranker_instance
 
         # Call the function
@@ -211,7 +213,7 @@ async def test_get_query_result_files_with_cross_encoder_reranker(
         "vectorcode.subcommands.query.reranker.CrossEncoderReranker"
     ) as MockCrossEncoder:
         mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank.return_value = ["file1.py", "file2.py"]
+        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
         MockCrossEncoder.return_value = mock_reranker_instance
 
         # Call the function
@@ -266,7 +268,7 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
         MockChunker.return_value = mock_chunker_instance
 
         mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank.return_value = ["file1.py", "file2.py"]
+        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
         MockReranker.return_value = mock_reranker_instance
 
         # Call the function
@@ -300,7 +302,7 @@ async def test_get_query_result_files_multiple_queries(mock_collection, mock_con
         MockChunker.return_value = mock_chunker_instance
 
         mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank.return_value = ["file1.py", "file2.py"]
+        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
         MockReranker.return_value = mock_reranker_instance
 
         # Call the function

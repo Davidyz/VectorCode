@@ -46,7 +46,7 @@ class RerankerBase(ABC):
             raise
 
     @abstractmethod
-    def compute_similarity(
+    async def compute_similarity(
         self, results: list[str], query_message: str
     ) -> Sequence[float]:  # pragma: nocover
         """Given a list of n results and 1 query message,
@@ -61,7 +61,7 @@ class RerankerBase(ABC):
         """
         raise NotImplementedError
 
-    def rerank(self, results: QueryResult | dict) -> list[str]:
+    async def rerank(self, results: QueryResult | dict) -> list[str]:
         self._raw_results = cast(QueryResult, results)
         query_chunks = self.configs.query
         assert query_chunks
@@ -72,7 +72,9 @@ class RerankerBase(ABC):
             chunk_ids = results["ids"][query_chunk_idx]
             chunk_metas = results["metadatas"][query_chunk_idx]
             chunk_docs = results["documents"][query_chunk_idx]
-            scores = self.compute_similarity(chunk_docs, query_chunks[query_chunk_idx])
+            scores = await self.compute_similarity(
+                chunk_docs, query_chunks[query_chunk_idx]
+            )
             for i, score in enumerate(scores):
                 if QueryInclude.chunk in self.configs.include:
                     documents[chunk_ids[i]].append(float(score))

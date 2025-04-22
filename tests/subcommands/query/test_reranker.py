@@ -81,10 +81,11 @@ def test_reranker_create_fail():
         TestReranker.create(Config())
 
 
-def test_naive_reranker_rerank(naive_reranker_conf, query_result):
+@pytest.mark.asyncio
+async def test_naive_reranker_rerank(naive_reranker_conf, query_result):
     """Test basic reranking functionality of NaiveReranker"""
     reranker = NaiveReranker(naive_reranker_conf)
-    result = reranker.rerank(query_result)
+    result = await reranker.rerank(query_result)
 
     # Check the result is a list of paths with correct length
     assert isinstance(result, list)
@@ -117,10 +118,9 @@ def test_cross_encoder_reranker_initialization_fallback_model_name(
     assert reranker.n_result == config.n_result
 
 
+@pytest.mark.asyncio
 @patch("sentence_transformers.CrossEncoder")
-def test_cross_encoder_reranker_rerank(
-    mock_cross_encoder, config, query_result, query_chunks
-):
+async def test_cross_encoder_reranker_rerank(mock_cross_encoder, config, query_result):
     mock_model = MagicMock()
     mock_cross_encoder.return_value = mock_model
 
@@ -141,7 +141,7 @@ def test_cross_encoder_reranker_rerank(
     )
 
     reranker = CrossEncoderReranker(config)
-    result = reranker.rerank(query_result)
+    result = await reranker.rerank(query_result)
 
     # Result assertions
     assert isinstance(result, list)
@@ -149,12 +149,15 @@ def test_cross_encoder_reranker_rerank(
     assert len(result) <= config.n_result
 
 
-def test_naive_reranker_document_selection_logic(naive_reranker_conf, query_result):
+@pytest.mark.asyncio
+async def test_naive_reranker_document_selection_logic(
+    naive_reranker_conf, query_result
+):
     """Test that NaiveReranker correctly selects documents based on distances"""
     # Create a query result with known distances
 
     reranker = NaiveReranker(naive_reranker_conf)
-    result = reranker.rerank(query_result)
+    result = await reranker.rerank(query_result)
 
     # Check that files are included (exact order depends on implementation details)
     assert len(result) > 0
@@ -162,14 +165,15 @@ def test_naive_reranker_document_selection_logic(naive_reranker_conf, query_resu
     assert "file2.py" in result or "file3.py" in result
 
 
-def test_naive_reranker_with_chunk_ids(naive_reranker_conf, query_result):
+@pytest.mark.asyncio
+async def test_naive_reranker_with_chunk_ids(naive_reranker_conf, query_result):
     """Test NaiveReranker returns chunk IDs when QueryInclude.chunk is set"""
     naive_reranker_conf.include.append(
         QueryInclude.chunk
     )  # Assuming QueryInclude.chunk would be "chunk"
 
     reranker = NaiveReranker(naive_reranker_conf)
-    result = reranker.rerank(query_result)
+    result = await reranker.rerank(query_result)
 
     assert isinstance(result, list)
     assert len(result) <= naive_reranker_conf.n_result
@@ -177,8 +181,9 @@ def test_naive_reranker_with_chunk_ids(naive_reranker_conf, query_result):
     assert all(id.startswith("id") for id in result)  # Verify IDs not paths
 
 
+@pytest.mark.asyncio
 @patch("sentence_transformers.CrossEncoder")
-def test_cross_encoder_reranker_with_chunk_ids(
+async def test_cross_encoder_reranker_with_chunk_ids(
     mock_cross_encoder, config, query_result
 ):
     """Test CrossEncoderReranker returns chunk IDs when QueryInclude.chunk is set"""
@@ -192,7 +197,7 @@ def test_cross_encoder_reranker_with_chunk_ids(
     config.include = {QueryInclude.chunk}
     reranker = CrossEncoderReranker(config)
 
-    result = reranker.rerank(query_result)
+    result = await reranker.rerank(query_result)
 
     mock_model.predict.assert_called()
     assert isinstance(result, list)
@@ -231,7 +236,7 @@ def test_add_reranker_success():
 
     @add_reranker
     class TestReranker(RerankerBase):
-        def compute_similarity(self, results, query_message):
+        async def compute_similarity(self, results, query_message):
             return []
 
     assert len(get_available_rerankers()) == original_count + 1
@@ -249,7 +254,7 @@ def test_add_reranker_duplicate():
     # First registration should succeed
     @add_reranker
     class TestReranker(RerankerBase):
-        def rerank(self, results, query_chunks):
+        async def compute_similarity(self, results, query_message):
             return []
 
     # Second registration should fail

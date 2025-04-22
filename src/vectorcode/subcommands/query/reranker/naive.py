@@ -17,7 +17,7 @@ class NaiveReranker(RerankerBase):
     def __init__(self, configs: Config, **kwargs: Any):
         super().__init__(configs)
 
-    def compute_similarity(
+    async def compute_similarity(
         self, results: list[str], query_message: str
     ) -> Sequence[float]:
         assert self._raw_results is not None, "Expecting raw results from the database."

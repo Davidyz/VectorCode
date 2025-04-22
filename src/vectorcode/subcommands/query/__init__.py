@@ -68,7 +68,7 @@ async def get_query_result_files(
         return []
 
     reranker = get_reranker(configs)
-    return reranker.rerank(results)
+    return await reranker.rerank(results)
 
 
 async def build_query_results(
