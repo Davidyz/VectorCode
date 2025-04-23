@@ -24,27 +24,43 @@ local config = {
   notify = true,
   timeout_ms = 5000,
   on_setup = { update = false, lsp = false },
+  sync_log_env_var = false,
 }
+
+local setup_config = vim.deepcopy(config, true)
 
 ---@return vim.lsp.ClientConfig
 local lsp_configs = function()
+  ---@type vim.lsp.ClientConfig
   local cfg =
     { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
   if vim.lsp.config ~= nil and vim.lsp.config.vectorcode_server ~= nil then
     -- nvim >= 0.11.0
     cfg = vim.tbl_deep_extend("force", cfg, vim.lsp.config.vectorcode_server)
+    logger.debug("Using vim.lsp.config.vectorcode_server for LSP config:\n", cfg)
   else
     -- nvim < 0.11.0
     local ok, lspconfig = pcall(require, "lspconfig.configs")
     if ok and lspconfig.vectorcode_server ~= nil then
       cfg = lspconfig.vectorcode_server.config_def.default_config
+      logger.debug("Using nvim-lspconfig for LSP config:\n", cfg)
     end
   end
   cfg.name = "vectorcode_server"
+  if setup_config.sync_log_env_var then
+    local level = os.getenv("VECTORCODE_NVIM_LOG_LEVEL") or nil
+    if level ~= nil then
+      level = string.upper(level)
+      if level == "TRACE" then
+        -- there's no `TRACE` in python logging
+        level = "DEBUG"
+      end
+      cfg.cmd_env["VECTORCODE_LOG_LEVEL"] = level
+    end
+  end
   return cfg
 end
 
-local setup_config = vim.deepcopy(config, true)
 local notify_opts = { title = "VectorCode" }
 
 ---@param opts {notify:boolean}?
@@ -75,6 +91,7 @@ local startup_handler = check_cli_wrap(function(configs)
       if out.code == 0 then
         local path = string.gsub(out.stdout, "^%s*(.-)%s*$", "%1")
         if path ~= "" then
+          logger.info("Running `vectorcode update` on start up.")
           require("vectorcode").update(path)
         end
       end
@@ -84,6 +101,7 @@ local startup_handler = check_cli_wrap(function(configs)
     local ok, runner = pcall(require, "vectorcode.jobrunner.lsp")
     if not ok or not type(runner) == "table" or runner == nil then
       vim.notify("Failed to start vectorcode-server.", vim.log.levels.WARN, notify_opts)
+      logger.error("Failed to start vectorcode-server.")
       return
     end
     runner.init()
@@ -98,7 +116,7 @@ return {
   setup = check_cli_wrap(
     ---@param opts VectorCode.Opts?
     function(opts)
-      logger.info(opts)
+      logger.info("Received setup opts:\n", opts)
       opts = opts or {}
       setup_config = vim.tbl_deep_extend("force", config, opts or {})
       for k, v in pairs(setup_config.async_opts) do

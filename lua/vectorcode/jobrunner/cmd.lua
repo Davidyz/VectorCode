@@ -4,6 +4,7 @@ local runner = {}
 local Job = require("plenary.job")
 ---@type {integer: Job}
 local jobs = {}
+local logger = require("vectorcode.config").logger
 
 function runner.run_async(args, callback, bufnr)
   if type(callback) == "function" then
@@ -14,7 +15,9 @@ function runner.run_async(args, callback, bufnr)
   local cmd = { "vectorcode" }
   args = require("vectorcode.jobrunner").find_root(args, bufnr)
   vim.list_extend(cmd, args)
-
+  logger.debug(
+    ("cmd jobrunner for buffer %s args: %s"):format(bufnr, vim.inspect(args))
+  )
   local job = Job:new({
     command = "vectorcode",
     args = args,
@@ -26,6 +29,7 @@ function runner.run_async(args, callback, bufnr)
         if ok then
           callback(decoded, self:stderr_result())
         else
+          logger.info("cmd runner: failed to decode result:\n", result)
           callback({ result }, self:stderr_result())
         end
       end

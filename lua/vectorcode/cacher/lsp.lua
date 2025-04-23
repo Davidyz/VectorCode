@@ -1,6 +1,8 @@
 ---@type VectorCode.CacheBackend
 local M = {}
 local vc_config = require("vectorcode.config")
+local logger = vc_config.logger
+
 local notify_opts = vc_config.notify_opts
 
 local job_runner = require("vectorcode.jobrunner.lsp")
@@ -86,6 +88,11 @@ local function async_runner(query_message, buf_nr)
   if CACHE[buf_nr] == nil or not CACHE[buf_nr].enabled or not is_lsp_running() then
     return
   end
+  local buf_name
+  vim.schedule(function()
+    buf_name = vim.api.nvim_buf_get_name(buf_nr)
+    logger.debug("Started lsp cacher job on :", buf_name)
+  end)
   assert(client_id ~= nil)
   ---@type VectorCode.Cache
   local cache = CACHE[buf_nr]
@@ -127,8 +134,14 @@ local function async_runner(query_message, buf_nr)
       kill_jobs(buf_nr)
     end
     CACHE[buf_nr].job_count = CACHE[buf_nr].job_count + 1
+
+    logger.debug("vectorcode lsp cacher job args: ", args)
     local request_id = job_runner.run_async(args, function(result, err)
       CACHE[buf_nr].retrieval = result or CACHE[buf_nr].retrieval or {}
+      logger.debug("vectorcode ", buf_name, " lsp cacher results: ", result)
+      if err then
+        logger.debug("vectorcode ", buf_name, " lsp cacher error: ", err)
+      end
     end, buf_nr)
 
     if request_id ~= nil then
@@ -159,8 +172,21 @@ M.register_buffer = vc_config.check_cli_wrap(
     if bufnr == 0 or bufnr == nil then
       bufnr = vim.api.nvim_get_current_buf()
     end
+
+    logger.info(
+      ("Registering buffer %s %s for lsp cacher."):format(
+        bufnr,
+        vim.api.nvim_buf_get_name(bufnr)
+      )
+    )
     if M.buf_is_registered(bufnr) then
       opts = vim.tbl_deep_extend("force", CACHE[bufnr].options, opts or {})
+      logger.debug(
+        ("Updated `lsp` cacher opts for buffer %s:\n%s"):format(
+          bufnr,
+          vim.inspect(opts)
+        )
+      )
     end
     opts =
       vim.tbl_deep_extend("force", vc_config.get_user_config().async_opts, opts or {})
@@ -222,6 +248,9 @@ M.deregister_buffer = vc_config.check_cli_wrap(
     if bufnr == nil or bufnr == 0 then
       bufnr = vim.api.nvim_get_current_buf()
     end
+    logger.info(
+      ("Deregistering buffer %s %s"):format(bufnr, vim.api.nvim_buf_get_name(bufnr))
+    )
     if M.buf_is_registered(bufnr) then
       kill_jobs(bufnr)
       vim.api.nvim_del_augroup_by_name(("VectorCodeCacheGroup%d"):format(bufnr))
@@ -276,13 +305,11 @@ M.query_from_cache = vc_config.check_cli_wrap(
         opts or {}
       )
       result = CACHE[bufnr].retrieval or {}
+      local message = ("Retrieved %d documents from cache."):format(#result)
+      logger.info(("vectorcode cmd cacher for buf %s: %s"):format(bufnr, message))
       if opts.notify then
         vim.schedule(function()
-          vim.notify(
-            ("Retrieved %d documents from cache."):format(#result),
-            vim.log.levels.INFO,
-            notify_opts
-          )
+          vim.notify(message, vim.log.levels.INFO, notify_opts)
         end)
       end
     end

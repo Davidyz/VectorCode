@@ -32,6 +32,7 @@
     * [`cacher_backend.buf_job_count(bufnr?)`](#cacher_backendbuf_job_countbufnr)
     * [`cacher_backend.make_prompt_component(bufnr?, component_cb?)`](#cacher_backendmake_prompt_componentbufnr-component_cb)
     * [Built-in Query Callbacks](#built-in-query-callbacks)
+* [Debugging and Logging](#debugging-and-logging)
 
 <!-- mtoc-end -->
 
@@ -154,6 +155,7 @@ require("vectorcode").setup({
     update = false, -- set to true to enable update when `setup` is called.
     lsp = false,
   }
+  sync_log_env_var = false,
 })
 ```
 
@@ -180,6 +182,12 @@ The following are the available options for the parameter of this function:
   - `lsp`: if `true`, the plugin will try to start the LSP server on startup so
     that you won't need to wait for the server loading when making your first 
     request.
+- `sync_log_env_var`: `boolean`. If true, this plugin will automatically set the
+  `VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
+  within your neovim session when logging is turned on for this plugin. Use at 
+  caution because the CLI write all logs to stderr, which _may_ make this plugin 
+  VERY verbose. See [Debugging and Logging](#debugging-and-logging) for details
+  on how to turn on logging.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the top-level
@@ -444,3 +452,10 @@ constructor for you to play around with it, but you can easily build your own!
   that fetches `max_num` unique items from the `:changes` list. This will also
   fallback to `make_surrounding_lines_cb(-1)`. The default value for `max_num`
   is 50.
+
+## Debugging and Logging
+
+You can enable logging by setting `VECTORCODE_NVIM_LOG_LEVEL` environment
+variable to a 
+[supported log level](https://github.com/nvim-lua/plenary.nvim/blob/857c5ac632080dba10aae49dba902ce3abf91b35/lua/plenary/log.lua#L44). 
+The log file will be written to `stdpath("log")` or `stdpath("cache")`.

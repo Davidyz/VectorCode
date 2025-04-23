@@ -28,6 +28,7 @@
 ---@field async_opts VectorCode.RegisterOpts Default options to use for registering a new buffer for async cache.
 ---@field on_setup VectorCode.OnSetup
 ---@field async_backend "default"|"lsp"
+---@field sync_log_env_var boolean Whether to automatically set `VECTORCODE_LOG_LEVEL` when `VECTORCODE_NVIM_LOG_LEVEL` is detected. !! WARNING: THIS MAY RESULT IN EXCESSIVE LOG MESSAGES DUE TO STDERR BEING POPULATED BY CLI LOGS
 
 ---Options for the registration of an async cache for a buffer.
 ---@class VectorCode.RegisterOpts: VectorCode.QueryOpts

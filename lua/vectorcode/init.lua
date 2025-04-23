@@ -1,6 +1,9 @@
 local M = {}
 
 local vc_config = require("vectorcode.config")
+
+local logger = vc_config.logger
+
 local get_config = vc_config.get_user_config
 
 local notify_opts = vc_config.notify_opts
@@ -15,6 +18,7 @@ M.query = vc_config.check_cli_wrap(
   ---@param callback fun(result:VectorCode.Result[])? Use the result async style.
   ---@return VectorCode.Result[]? An array of results.
   function(query_message, opts, callback)
+    logger.info("vectorcode.query: ", query_message, opts, callback)
     opts = vim.tbl_deep_extend("force", vc_config.get_query_opts(), opts or {})
     if opts.n_query == 0 then
       if opts.notify then
@@ -45,8 +49,10 @@ M.query = vc_config.check_cli_wrap(
       vim.list_extend(args, { "--exclude", vim.api.nvim_buf_get_name(0) })
     end
 
+    logger.debug("vectorcode.query cmd args: ", args)
     local decoded_response = {}
     local job = vim.system(args, { text = true }, function(out)
+      logger.debug("vectorcode.query cmd output: ", out)
       local raw_response
       if out.code == 124 and out.signal == 9 then
         -- killed due to timeout
@@ -77,6 +83,7 @@ M.query = vc_config.check_cli_wrap(
         if type(callback) == "function" then
           callback(decoded_response)
         end
+        logger.info("vectorcode.query result:\n", decoded_response)
       end
     end)
 
@@ -95,6 +102,7 @@ M.vectorise = vc_config.check_cli_wrap(
   ---@param files string|string[] Files to vectorise.
   ---@param project_root string? Add the `--project_root` flag and the passed argument to the command.
   function(files, project_root)
+    logger.info("vectorcode.vectorise: ", files, project_root)
     local args = { "--pipe", "vectorise" }
     if project_root ~= nil then
       vim.list_extend(args, { "--project_root", project_root })
@@ -130,6 +138,7 @@ M.vectorise = vc_config.check_cli_wrap(
         )
       end)
     end
+    logger.debug("vectorcode.vectorise cmd args: ", args)
     require("plenary.job")
       :new({
         command = "vectorcode",
@@ -158,6 +167,7 @@ M.vectorise = vc_config.check_cli_wrap(
 
 ---@param project_root string?
 M.update = vc_config.check_cli_wrap(function(project_root)
+  logger.info("vectorcode.update: ", project_root)
   local args = { "vectorcode", "update" }
   if
     type(project_root) == "string"
@@ -165,7 +175,9 @@ M.update = vc_config.check_cli_wrap(function(project_root)
   then
     vim.list_extend(args, { "--project_root", project_root })
   end
+  logger.debug("vectorcode.update cmd args: ", args)
   vim.system(args, { stdout = nil, stderr = nil }, function(out)
+    logger.debug("vectorcode.update cmd out:\n", out)
     if get_config().notify then
       vim.schedule(function()
         if out.code == 0 then

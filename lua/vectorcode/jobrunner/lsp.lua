@@ -13,6 +13,7 @@ local CLIENT = nil
 
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
+local logger = vc_config.logger
 
 --- Returns the Client ID if applicable, or `nil` if the language server fails to start
 ---@param ok_to_fail boolean
@@ -31,12 +32,10 @@ function jobrunner.init(ok_to_fail)
   else
     -- failed to start server
     if vc_config.get_user_config().notify or not ok_to_fail then
+      local message = "Failed to start vectorcode-server due some error."
+      logger.error(message)
       vim.schedule(function()
-        vim.notify(
-          "Failed to start vectorcode-server due some error.",
-          vim.log.levels.ERROR,
-          notify_opts
-        )
+        vim.notify(message, vim.log.levels.ERROR, notify_opts)
       end)
     end
     return nil
@@ -70,7 +69,6 @@ end
 function jobrunner.run_async(args, callback, bufnr)
   assert(jobrunner.init(false))
   assert(bufnr ~= nil)
-
   if not CLIENT.attached_buffers[bufnr] then
     if vim.lsp.buf_attach_client(bufnr, CLIENT.id) then
       local uri = vim.uri_from_bufnr(bufnr)
@@ -84,10 +82,17 @@ function jobrunner.run_async(args, callback, bufnr)
         },
       })
     else
-      vim.notify("Failed to attach lsp client")
+      local message = "Failed to attach lsp client"
+      vim.schedule(function()
+        vim.notify(message)
+      end)
+      logger.warn(message)
     end
   end
   args = require("vectorcode.jobrunner").find_root(args, bufnr)
+  logger.debug(
+    ("lsp jobrunner for buffer %s args: %s"):format(bufnr, vim.inspect(args))
+  )
   local _, id = CLIENT:request(
     vim.lsp.protocol.Methods.workspace_executeCommand,
     { command = "vectorcode", arguments = args },
@@ -98,6 +103,10 @@ function jobrunner.run_async(args, callback, bufnr)
           err_message = { err.message }
         end
         vim.schedule_wrap(callback)(result, err_message)
+        logger.debug("lsp jobrunner result:\n", result)
+        if err_message then
+          logger.info("lsp jobrunner error:\n", err)
+        end
       end
     end,
     bufnr
