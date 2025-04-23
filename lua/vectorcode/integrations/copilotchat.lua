@@ -6,6 +6,7 @@
 
 local async = require("plenary.async")
 local vc_config = require("vectorcode.config")
+local logger = vc_config.logger
 local notify_opts = vc_config.notify_opts
 local check_cli_wrap = vc_config.check_cli_wrap
 local job_runner = nil
@@ -47,6 +48,7 @@ local make_context_provider = check_cli_wrap(function(opts)
     max_num = 5,
     use_lsp = vc_config.get_user_config().async_backend == "lsp",
   }, opts or {})
+  logger.info("Creating CopilotChat context provider with the following opts:\n", opts)
 
   local utils = require("CopilotChat.utils")
 
@@ -86,7 +88,7 @@ local make_context_provider = check_cli_wrap(function(opts)
       if try_root ~= nil then
         vim.list_extend(args, { "--project_root", try_root })
       end
-
+      logger.info("CopilotChat ctx provider called with the following args: ", args)
       local result, err = run_job(args, opts.use_lsp, source.bufnr)
       if utils.empty(result) and err then
         error(utils.make_string(err))
