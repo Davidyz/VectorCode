@@ -12,6 +12,7 @@
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
 local notify_opts = vc_config.notify_opts
+local logger = vc_config.logger
 
 local tool_result_source = "VectorCodeToolResult"
 
@@ -33,6 +34,7 @@ local function initialise_runner(use_lsp)
     end
     if job_runner == nil then
       job_runner = require("vectorcode.jobrunner.cmd")
+      logger.info("Using cmd runner for CodeCompanion tool.")
       if use_lsp then
         vim.schedule_wrap(vim.notify)(
           "Failed to initialise the LSP runner. Falling back to cmd runner.",
@@ -40,6 +42,8 @@ local function initialise_runner(use_lsp)
           notify_opts
         )
       end
+    else
+      logger.info("Using LSP runner for CodeCompanion tool.")
     end
   end
 end
@@ -63,6 +67,7 @@ local make_tool = check_cli_wrap(function(opts)
     ls_on_start = false,
     no_duplicate = true,
   }, opts or {})
+  logger.info("Creating CodeCompanion tool with the following args:\n", opts)
   local capping_message = ""
   if opts.max_num > 0 then
     capping_message = ("  - Request for at most %d documents"):format(opts.max_num)
@@ -76,6 +81,7 @@ local make_tool = check_cli_wrap(function(opts)
       ---@param input table
       ---@return nil|{ status: string, msg: string }
       function(agent, action, input, cb)
+        logger.info("CodeCompanion tool called with the following arguments:\n", action)
         initialise_runner(opts.use_lsp)
         assert(job_runner ~= nil)
         assert(
@@ -122,7 +128,10 @@ local make_tool = check_cli_wrap(function(opts)
               vim.list_extend(args, existing_files)
             end
           end
-
+          logger.info(
+            "CodeCompanion query tool called the runner with the following args: ",
+            args
+          )
           job_runner.run_async(args, function(result, error)
             vim.schedule(function()
               if opts.auto_submit[action.command] then
@@ -301,6 +310,12 @@ Remember:
       ---@param cmd table
       ---@param stderr table|string
       error = function(agent, cmd, stderr)
+        logger.error(
+          ("CodeCompanion tool with command %s thrown with the following error: %s"):format(
+            vim.inspect(cmd),
+            vim.inspect(stderr)
+          )
+        )
         stderr = flatten_table_to_string(stderr)
         agent.chat:add_message({
           role = "user",
@@ -315,6 +330,12 @@ Remember:
       ---@param stdout table
       success = function(agent, cmd, stdout)
         stdout = stdout[1]
+        logger.info(
+          ("CodeCompanion tool with command %s finished with the following results: %s"):format(
+            vim.inspect(cmd),
+            vim.inspect(stdout)
+          )
+        )
         if cmd.command == "query" then
           agent.chat.ui:unlock_buf()
           for i, file in pairs(stdout) do
