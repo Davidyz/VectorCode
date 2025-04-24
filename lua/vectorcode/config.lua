@@ -11,6 +11,8 @@ local logger = require("plenary.log").new({
   use_file = log_level ~= nil,
 })
 
+local cacher = nil
+
 ---@type VectorCode.Opts
 local config = {
   async_opts = {
@@ -145,10 +147,14 @@ return {
 
   ---@return VectorCode.CacheBackend
   get_cacher_backend = function()
+    if cacher ~= nil then
+      return cacher
+    end
     if setup_config.async_backend == "lsp" then
-      local ok, cacher = pcall(require, "vectorcode.cacher.lsp")
-      if ok and type(cacher) == "table" then
+      local ok, lsp_cacher = pcall(require, "vectorcode.cacher.lsp")
+      if ok and type(lsp_cacher) == "table" then
         logger.debug("Using LSP backend for cacher.")
+        cacher = lsp_cacher
         return cacher
       else
         vim.notify("Falling back to default backend.", vim.log.levels.WARN, notify_opts)
@@ -169,7 +175,8 @@ return {
       setup_config.async_backend = "default"
     end
     logger.debug("Defaulting to cmd backend for cacher.")
-    return require("vectorcode.cacher.default")
+    cacher = require("vectorcode.cacher.default")
+    return cacher
   end,
 
   ---@return VectorCode.Opts

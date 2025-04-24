@@ -306,7 +306,7 @@ M.query_from_cache = vc_config.check_cli_wrap(
       )
       result = CACHE[bufnr].retrieval or {}
       local message = ("Retrieved %d documents from cache."):format(#result)
-      logger.info(("vectorcode cmd cacher for buf %s: %s"):format(bufnr, message))
+      logger.trace(("vectorcode cmd cacher for buf %s: %s"):format(bufnr, message))
       if opts.notify then
         vim.schedule(function()
           vim.notify(message, vim.log.levels.INFO, notify_opts)

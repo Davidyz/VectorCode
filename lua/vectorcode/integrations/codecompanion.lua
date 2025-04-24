@@ -331,10 +331,7 @@ Remember:
       success = function(agent, cmd, stdout)
         stdout = stdout[1]
         logger.info(
-          ("CodeCompanion tool with command %s finished with the following results: %s"):format(
-            vim.inspect(cmd),
-            vim.inspect(stdout)
-          )
+          ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
         )
         if cmd.command == "query" then
           agent.chat.ui:unlock_buf()

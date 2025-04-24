@@ -18,6 +18,7 @@ function runner.run_async(args, callback, bufnr)
   logger.debug(
     ("cmd jobrunner for buffer %s args: %s"):format(bufnr, vim.inspect(args))
   )
+  ---@diagnostic disable-next-line: missing-fields
   local job = Job:new({
     command = "vectorcode",
     args = args,
@@ -27,9 +28,17 @@ function runner.run_async(args, callback, bufnr)
       local ok, decoded = pcall(vim.json.decode, table.concat(result, ""))
       if callback ~= nil then
         if ok then
+          logger.debug(
+            "cmd jobrunner result:\n",
+            vim.tbl_map(function(item)
+              item.document = nil
+              item.chunk = nil
+              return item
+            end, vim.deepcopy(result))
+          )
           callback(decoded, self:stderr_result())
         else
-          logger.info("cmd runner: failed to decode result:\n", result)
+          logger.warn("cmd runner: failed to decode result:\n", result)
           callback({ result }, self:stderr_result())
         end
       end
