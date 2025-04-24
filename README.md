@@ -57,6 +57,11 @@ and chat plugin available on VSCode and JetBrain products.
 - For the setup and usage of the command-line tool, see [the CLI documentation](./docs/cli.md);
 - For neovim users, after you've gone through the CLI documentation, please refer to 
   [the neovim plugin documentation](./docs/neovim.md) for further instructions.
+- Additional resources:
+  - the [wiki](https://github.com/Davidyz/VectorCode/wiki) for extra tricks and
+    tips that will help you get the most out of VectorCode;
+  - the [discussions](https://github.com/Davidyz/VectorCode/discussions) where
+    you can ask general questions and share your cool usages about VectorCode.
 
 If you're trying to contribute to this project, take a look at [the contribution
 guide](./docs/CONTRIBUTING.md), which contains information about some basic
