@@ -1,4 +1,9 @@
 local log_level = os.getenv("VECTORCODE_NVIM_LOG_LEVEL")
+if log_level == nil then
+  log_level = "error"
+else
+  log_level = log_level:lower()
+end
 local logger = require("plenary.log").new({
   plugin = "vectorcode.nvim",
   level = log_level,
