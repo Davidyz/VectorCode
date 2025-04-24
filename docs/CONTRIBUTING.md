@@ -20,9 +20,17 @@ run tests, and `make coverage` to generate a coverage report. The testing and
 coverage report are also in the CI configuration, but it might still help to run
 them locally before you open the PR.
 
+You may also find it helpful to 
+[enable logging](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 
+for the CLI when developing new features or working on fixes.
+
 # Neovim Plugin
 
 At the moment, there isn't much to cover on here. As long as the code is 
 formatted (stylua) and appropriately type-annotated, you're good. I do have 
 plans to write some tests, but before that happens, formatting and type 
 annotations are the only things that you need to take special care of.
+
+You may find it useful to 
+[enable logging](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 
+when you're poking around the codebase.

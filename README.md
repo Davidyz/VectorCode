@@ -4,7 +4,7 @@
 [![Test and Coverage](https://github.com/Davidyz/VectorCode/actions/workflows/test_and_cov.yml/badge.svg)](https://github.com/Davidyz/VectorCode/actions/workflows/test_and_cov.yml)
 [![pypi](https://img.shields.io/pypi/v/vectorcode.svg)](https://pypi.org/project/vectorcode/)
 
-VectorCode is a code repository indexing tool. It helps you write better prompt
+VectorCode is a code repository indexing tool. It helps you build better prompt
 for your coding LLMs by indexing and providing information about the code
 repository you're working on. This repository also contains the corresponding
 neovim plugin because that's what I used to write this tool.
