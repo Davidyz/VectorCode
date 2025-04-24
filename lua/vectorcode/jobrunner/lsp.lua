@@ -104,7 +104,7 @@ function jobrunner.run_async(args, callback, bufnr)
         end
         vim.schedule_wrap(callback)(result, err_message)
         logger.debug("lsp jobrunner result:\n", result)
-        if err_message then
+        if err then
           logger.info("lsp jobrunner error:\n", err)
         end
       end
