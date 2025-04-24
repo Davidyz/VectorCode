@@ -458,4 +458,5 @@ constructor for you to play around with it, but you can easily build your own!
 You can enable logging by setting `VECTORCODE_NVIM_LOG_LEVEL` environment
 variable to a 
 [supported log level](https://github.com/nvim-lua/plenary.nvim/blob/857c5ac632080dba10aae49dba902ce3abf91b35/lua/plenary/log.lua#L44). 
-The log file will be written to `stdpath("log")` or `stdpath("cache")`.
+The log file will be written to `stdpath("log")` or `stdpath("cache")`. On
+Linux, this is usually `~/.local/state/nvim/`.

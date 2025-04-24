@@ -2,6 +2,9 @@ name: panvimdoc
 
 on: [push]
 
+permissions:
+  contents: write
+
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -24,3 +27,7 @@ jobs:
           docmappingprojectname: true # Use project name in tag when writing mapping docs
           shiftheadinglevelby: 0 # Shift heading levels by specified number
           incrementheadinglevelby: 0 # Increment heading levels by specified number
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Auto generate docs"
+          branch: ${{ github.head_ref }}
