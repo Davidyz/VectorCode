@@ -1,4 +1,4 @@
-*VectorCode.txt*                For                 Last change: 2025 March 31
+*VectorCode.txt*A code repository indexing tool to supercharge your LLM experience.
 
 ==============================================================================
 Table of Contents                               *VectorCode-table-of-contents*
@@ -9,6 +9,7 @@ Table of Contents                               *VectorCode-table-of-contents*
   - User Command                       |VectorCode-neovim-plugin-user-command|
   - Configuration                     |VectorCode-neovim-plugin-configuration|
   - API Usage                             |VectorCode-neovim-plugin-api-usage|
+  - Debugging and Logging     |VectorCode-neovim-plugin-debugging-and-logging|
 
 ==============================================================================
 1. NeoVim Plugin                                    *VectorCode-neovim-plugin*
@@ -41,6 +42,7 @@ Table of Contents                               *VectorCode-table-of-contents*
         - |VectorCode-`cacher_backend.buf_job_count(bufnr?)`|
         - |VectorCode-`cacher_backend.make_prompt_component(bufnr?,-component_cb?)`|
         - |VectorCode-built-in-query-callbacks|
+- |VectorCode-debugging-and-logging|
 
 
 INSTALLATION                           *VectorCode-neovim-plugin-installation*
@@ -176,27 +178,33 @@ This function initialises the VectorCode client and sets up some default
         update = false, -- set to true to enable update when `setup` is called.
         lsp = false,
       }
+      sync_log_env_var = false,
     })
 <
 
 The following are the available options for the parameter of this function: -
-`n_query`: number of retrieved documents. A large number gives a higher chance
-of including the right file, but with the risk of saturating the context window
-and getting truncated. Default: `1`; - `notify`: whether to show notifications
-when a query is completed. Default: `true`; - `timeout_ms`: timeout in
+`n_query`number of retrieved documents. A large number gives a higher chance of
+including the right file, but with the risk of saturating the context window
+and getting truncated. Default: `1`; - `notify`whether to show notifications
+when a query is completed. Default: `true`; - `timeout_ms`timeout in
 milliseconds for the query operation. Applies to synchronous API only. Default:
-`5000` (5 seconds); - `exclude_this`: whether to exclude the file you’re
+`5000` (5 seconds); - `exclude_this`whether to exclude the file you’re
 editing. Setting this to `false` may lead to an outdated version of the current
 file being sent to the LLM as the prompt, and can lead to generations with
-outdated information; - `async_opts`: default options used when registering
+outdated information; - `async_opts`default options used when registering
 buffers. See |VectorCode-`register_buffer(bufnr?,-opts?)`| for details; -
-`async_backend`: the async backend to use, currently either `"default"` or
-`"lsp"`. Default: `"default"`; - `on_setup`: some actions that can be
-registered to run when `setup` is called. Supported keys: - `update`: if
-`true`, the plugin will run `vectorcode update` on startup to update the
-embeddings; - `lsp`: if `true`, the plugin will try to start the LSP server on
-startup so that you won’t need to wait for the server loading when making
-your first request.
+`async_backend`the async backend to use, currently either `"default"` or
+`"lsp"`. Default: `"default"`; - `on_setup`some actions that can be registered
+to run when `setup` is called. Supported keys: - `update`if `true`, the plugin
+will run `vectorcode update` on startup to update the embeddings; - `lsp`if
+`true`, the plugin will try to start the LSP server on startup so that you
+won’t need to wait for the server loading when making your first request. -
+`sync_log_env_var``boolean`. If true, this plugin will automatically set the
+`VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
+within your neovim session when logging is turned on for this plugin. Use at
+caution because the CLI write all logs to stderr, which _may_ make this plugin
+VERY verbose. See |VectorCode-debugging-and-logging| for details on how to turn
+on logging.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the
@@ -232,8 +240,8 @@ This function queries VectorCode and returns an array of results.
     })
 <
 
-- `query_message`: string or a list of strings, the query messages;
-- `opts`: The following are the available options for this function (see |VectorCode-`setup(opts?)`| for details):
+- `query_message`string or a list of strings, the query messages;
+- `opts`The following are the available options for this function (see |VectorCode-`setup(opts?)`| for details):
 
 >lua
     {
@@ -244,7 +252,7 @@ This function queries VectorCode and returns an array of results.
     }
 <
 
-- `callback`: a callback function that takes the result of the retrieval as the
+- `callback`a callback function that takes the result of the retrieval as the
     only parameter. If this is set, the `query` function will be non-blocking and
     runs in an async manner. In this case, it doesn’t return any value and
     retrieval results can only be accessed by this callback function.
@@ -288,7 +296,7 @@ project. See the CLI manual for details <./cli.md>.
     require("vectorcode").check()
 <
 
-The following are the available options for this function: - `check_item`: Only
+The following are the available options for this function: - `check_item`Only
 supports `"config"` at the moment. Checks if a project-local config is present.
 Return value: `true` if passed, `false` if failed.
 
@@ -372,27 +380,27 @@ This function registers a buffer to be cached by VectorCode.
     })
 <
 
-The following are the available options for this function: - `bufnr`: buffer
-number. Default: current buffer; - `opts`: accepts a lua table with the
-following keys: - `project_root`: a string of the path that overrides the
-detected project root. Default: `nil`. This is mostly intended to use with the
+The following are the available options for this function: - `bufnr`buffer
+number. Default: current buffer; - `opts`accepts a lua table with the following
+keys: - `project_root`a string of the path that overrides the detected project
+root. Default: `nil`. This is mostly intended to use with the
 |VectorCode-user-command|, and you probably should not use this directly in
 your config. **If you’re using the LSP backend and did not specify this
 value, it will be automatically detected based on .vectorcode or .git. If this
-fails, LSP backend will not work**; - `exclude_this`: whether to exclude the
-file you’re editing. Default: `true`; - `n_query`: number of retrieved
-documents. Default: `1`; - `debounce`: debounce time in milliseconds. Default:
-`10`; - `notify`: whether to show notifications when a query is completed.
-Default: `false`; - `query_cb`: `fun(bufnr: integer):string|string[]`, a
-callback function that accepts the buffer ID and returns the query message(s).
-Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See
-|VectorCode-this-section| for a list of built-in query callbacks; - `events`:
-list of autocommand events that triggers the query. Default: `{"BufWritePost",
-"InsertEnter", "BufReadPost"}`; - `run_on_register`: whether to run the query
-when the buffer is registered. Default: `false`; - `single_job`: boolean. If
-this is set to `true`, there will only be one running job for each buffer, and
-when a new job is triggered, the last-running job will be cancelled. Default:
-`false`.
+fails, LSP backend will not work**; - `exclude_this`whether to exclude the file
+you’re editing. Default: `true`; - `n_query`number of retrieved documents.
+Default: `1`; - `debounce`debounce time in milliseconds. Default: `10`; -
+`notify`whether to show notifications when a query is completed. Default:
+`false`; - `query_cb``fun(bufnr: integer):string|string[]`, a callback function
+that accepts the buffer ID and returns the query message(s). Default:
+`require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See
+|VectorCode-this-section| for a list of built-in query callbacks; -
+`events`list of autocommand events that triggers the query. Default:
+`{"BufWritePost", "InsertEnter", "BufReadPost"}`; - `run_on_register`whether to
+run the query when the buffer is registered. Default: `false`; -
+`single_job`boolean. If this is set to `true`, there will only be one running
+job for each buffer, and when a new job is triggered, the last-running job will
+be cancelled. Default: `false`.
 
 
 CACHER_BACKEND.QUERY_FROM_CACHE(BUFNR?)
@@ -403,10 +411,10 @@ This function queries VectorCode from cache.
     local query_results = cacher_backend.query_from_cache(0, {notify=false})
 <
 
-The following are the available options for this function: - `bufnr`: buffer
-number. Default: current buffer; - `opts`: accepts a lua table with the
-following keys: - `notify`: boolean, whether to show notifications when a query
-is completed. Default: `false`;
+The following are the available options for this function: - `bufnr`buffer
+number. Default: current buffer; - `opts`accepts a lua table with the following
+keys: - `notify`boolean, whether to show notifications when a query is
+completed. Default: `false`;
 
 Return value: an array of results. Each item of the array is in the format of
 `{path="path/to/your/code.lua", document="document content"}`.
@@ -425,18 +433,17 @@ project.
     )
 <
 
-The following are the available options for this function: - `check_item`: any
+The following are the available options for this function: - `check_item`any
 check that works with `vectorcode check` command. If not set, it defaults to
-`"config"`; - `on_success`: a callback function that is called when the check
-passes; - `on_failure`: a callback function that is called when the check
-fails.
+`"config"`; - `on_success`a callback function that is called when the check
+passes; - `on_failure`a callback function that is called when the check fails.
 
 
 CACHER_BACKEND.BUF_IS_REGISTERED(BUFNR?)
 
 This function checks if a buffer has been registered with VectorCode.
 
-The following are the available options for this function: - `bufnr`: buffer
+The following are the available options for this function: - `bufnr`buffer
 number. Default: current buffer. Return value: `true` if registered, `false`
 otherwise.
 
@@ -448,7 +455,7 @@ slightly different from `buf_is_registered`, because it does not guarantee
 VectorCode is actively caching the content of the buffer. It is the same as
 `buf_is_registered && not is_paused`.
 
-The following are the available options for this function: - `bufnr`: buffer
+The following are the available options for this function: - `bufnr`buffer
 number. Default: current buffer. Return value: `true` if enabled, `false`
 otherwise.
 
@@ -460,8 +467,8 @@ Returns the number of running jobs in the background.
 
 CACHER_BACKEND.MAKE_PROMPT_COMPONENT(BUFNR?, COMPONENT_CB?)
 
-Compile the retrieval results into a string. Parameters: - `bufnr`: buffer
-number. Default: current buffer; - `component_cb`: a callback function that
+Compile the retrieval results into a string. Parameters: - `bufnr`buffer
+number. Default: current buffer; - `component_cb`a callback function that
 formats each retrieval result, so that you can customise the control token,
 etc. for the component. The default is the following:
 
@@ -471,8 +478,8 @@ etc. for the component. The default is the following:
     end
 <
 
-`make_prompt_component` returns a table with 2 keys: - `count`: number of
-retrieved documents; - `content`: The retrieval results concatenated together
+`make_prompt_component` returns a table with 2 keys: - `count`number of
+retrieved documents; - `content`The retrieval results concatenated together
 into a string. Each result is formatted by `component_cb`.
 
 
@@ -483,18 +490,27 @@ takes the buffer ID as the only parameter, and return a string or a list of
 strings. The `vectorcode.utils` module provides the following callback
 constructor for you to play around with it, but you can easily build your own!
 
-- `require("vectorcode.utils").make_surrounding_lines_cb(line_count)`: returns a
+- `require("vectorcode.utils").make_surrounding_lines_cb(line_count)`returns a
     callback that uses `line_count` lines around the cursor as the query. When
     `line_count` is negative, it uses the full buffer;
-- `require("vectorcode.utils").make_lsp_document_symbol_cb()`: returns a
+- `require("vectorcode.utils").make_lsp_document_symbol_cb()`returns a
     callback which uses the `textDocument/documentSymbol` method to retrieve a
     list of symbols in the current document. This will fallback to
     `make_surrounding_lines_cb(-1)` when there’s no LSP that supports the
     `documentSymbol` method;
-- `require("vectorcode.utils").make_changes_cb(max_num)`: returns a callback
+- `require("vectorcode.utils").make_changes_cb(max_num)`returns a callback
     that fetches `max_num` unique items from the `:changes` list. This will also
     fallback to `make_surrounding_lines_cb(-1)`. The default value for `max_num`
     is 50.
+
+
+DEBUGGING AND LOGGING         *VectorCode-neovim-plugin-debugging-and-logging*
+
+You can enable logging by setting `VECTORCODE_NVIM_LOG_LEVEL` environment
+variable to a supported log level
+<https://github.com/nvim-lua/plenary.nvim/blob/857c5ac632080dba10aae49dba902ce3abf91b35/lua/plenary/log.lua#L44>.
+The log file will be written to `stdpath("log")` or `stdpath("cache")`. On
+Linux, this is usually `~/.local/state/nvim/`.
 
 Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
 
