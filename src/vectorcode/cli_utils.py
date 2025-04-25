@@ -338,61 +338,37 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
     if main_args.action is None:
         main_args = main_parser.parse_args(["--help"])
 
-    files = []
-    query = None
-    recursive = False
-    include_hidden = False
-    number_of_result = 1
-    force = False
-    chunk_size = -1
-    overlap_ratio = 0.2
-    query_multiplier = -1
-    query_exclude = []
-    query_include = ["path", "document"]
-    check_item = None
-    absolute = False
+    configs_items: dict[str, Any] = {
+        "no_stderr": main_args.no_stderr,
+        "action": CliAction(main_args.action),
+        "project_root": main_args.project_root,
+        "pipe": main_args.pipe,
+    }
+
     match main_args.action:
         case "vectorise":
-            files = main_args.file_paths
-            recursive = main_args.recursive
-            include_hidden = main_args.include_hidden
-            force = main_args.force
-            chunk_size = main_args.chunk_size
-            overlap_ratio = main_args.overlap
+            configs_items["files"] = main_args.file_paths
+            configs_items["recursive"] = main_args.recursive
+            configs_items["include_hidden"] = main_args.include_hidden
+            configs_items["force"] = main_args.force
+            configs_items["chunk_size"] = main_args.chunk_size
+            configs_items["overlap_ratio"] = main_args.overlap
         case "query":
-            query = main_args.query
-            number_of_result = main_args.number
-            query_multiplier = main_args.multiplier
-            query_exclude = main_args.exclude
-            absolute = main_args.absolute
-            query_include = main_args.include
+            configs_items["query"] = main_args.query
+            configs_items["n_result"] = main_args.number
+            configs_items["query_multiplier"] = main_args.multiplier
+            configs_items["query_exclude"] = main_args.exclude
+            configs_items["use_absolute_path"] = main_args.absolute
+            configs_items["include"] = [QueryInclude(i) for i in main_args.include]
         case "check":
-            check_item = main_args.check_item
+            configs_items["check_item"] = main_args.check_item
         case "init":
-            force = main_args.force
+            configs_items["force"] = main_args.force
         case "chunks":
-            files = main_args.file_paths
-            chunk_size = main_args.chunk_size
-            overlap_ratio = main_args.overlap
-    return Config(
-        no_stderr=main_args.no_stderr,
-        action=CliAction(main_args.action),
-        files=files,
-        project_root=main_args.project_root,
-        query=query,
-        recursive=recursive,
-        include_hidden=include_hidden,
-        n_result=number_of_result,
-        pipe=main_args.pipe,
-        force=force,
-        chunk_size=chunk_size,
-        overlap_ratio=overlap_ratio,
-        query_multiplier=query_multiplier,
-        query_exclude=query_exclude,
-        check_item=check_item,
-        use_absolute_path=absolute,
-        include=[QueryInclude(i) for i in query_include],
-    )
+            configs_items["files"] = main_args.file_paths
+            configs_items["chunk_size"] = main_args.chunk_size
+            configs_items["overlap_ratio"] = main_args.overlap
+    return Config(**configs_items)
 
 
 def expand_envs_in_dict(d: dict):
