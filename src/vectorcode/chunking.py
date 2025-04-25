@@ -147,7 +147,7 @@ class TreeSitterChunker(ChunkerBase):
     ) -> Generator[Chunk, None, None]:
         if node.text is not None:
             logger.debug(
-                f"Traversing at node {node.text.decode(encoding=self.config.encoding)} at position {node.byte_range}"
+                f"Traversing at node {node.text.decode()} at position {node.byte_range}"
             )
         current_chunk: str = ""
 
@@ -155,7 +155,7 @@ class TreeSitterChunker(ChunkerBase):
 
         for child in node.children:
             child_bytes = text_bytes[child.start_byte : child.end_byte]
-            child_text = child_bytes.decode(self.config.encoding)
+            child_text = child_bytes.decode()
             child_length = len(child_text)
 
             if child_length > self.config.chunk_size:
@@ -180,14 +180,14 @@ class TreeSitterChunker(ChunkerBase):
 
             elif not current_chunk:
                 # Start new chunk
-                current_chunk = child_bytes.decode(self.config.encoding)
+                current_chunk = child_bytes.decode()
                 current_start = Point(
                     row=child.start_point.row + 1, column=child.start_point.column
                 )
 
             elif len(current_chunk) + child_length <= self.config.chunk_size:
                 # Add to current chunk
-                current_chunk += child_bytes.decode(encoding=self.config.encoding)
+                current_chunk += child_bytes.decode()
 
             else:
                 # Yield current chunk and start new one
@@ -202,7 +202,7 @@ class TreeSitterChunker(ChunkerBase):
                         else current_start.column + len(current_chunk) - 1,
                     ),
                 )
-                current_chunk = child_bytes.decode(encoding=self.config.encoding)
+                current_chunk = child_bytes.decode()
                 current_start = Point(
                     row=child.start_point.row + 1, column=child.start_point.column
                 )
@@ -286,7 +286,7 @@ class TreeSitterChunker(ChunkerBase):
             yield from StringChunker(self.config).chunk(content)
         else:
             pattern_str = self.__build_pattern(language=language)
-            content_bytes = content.encode(encoding=self.config.encoding)
+            content_bytes = content.encode()
             tree = parser.parse(content_bytes)
             chunks_gen = self.__chunk_node(tree.root_node, content_bytes)
             if pattern_str:
