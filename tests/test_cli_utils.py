@@ -344,6 +344,17 @@ async def test_parse_cli_args_vectorise():
 
 
 @pytest.mark.asyncio
+async def test_parse_cli_args_vectorise_encoding():
+    with patch(
+        "sys.argv", ["vectorcode", "vectorise", "file1.txt", "--encoding", "gbk"]
+    ):
+        config = await parse_cli_args()
+        assert config.action == CliAction.vectorise
+        assert config.files == ["file1.txt"]
+        assert config.encoding == "gbk"
+
+
+@pytest.mark.asyncio
 async def test_parse_cli_args_vectorise_recursive_dir():
     with patch("sys.argv", ["vectorcode", "vectorise", "-r", "."]):
         config = await parse_cli_args()

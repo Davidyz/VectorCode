@@ -182,6 +182,12 @@ def get_cli_parser():
         default=-1,
         help="Size of chunks (-1 for no chunking).",
     )
+    chunking_parser.add_argument(
+        "--encoding",
+        type=str,
+        default="utf8",
+        help="Encoding used by the files. See https://docs.python.org/3/library/codecs.html#standard-encodings for supported encodings.",
+    )
     shared_parser.add_argument(
         "--project_root",
         default=None,
@@ -355,6 +361,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["force"] = main_args.force
             configs_items["chunk_size"] = main_args.chunk_size
             configs_items["overlap_ratio"] = main_args.overlap
+            configs_items["encoding"] = main_args.encoding
         case "query":
             configs_items["query"] = main_args.query
             configs_items["n_result"] = main_args.number
@@ -362,6 +369,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["query_exclude"] = main_args.exclude
             configs_items["use_absolute_path"] = main_args.absolute
             configs_items["include"] = [QueryInclude(i) for i in main_args.include]
+            configs_items["encoding"] = main_args.encoding
         case "check":
             configs_items["check_item"] = main_args.check_item
         case "init":
@@ -370,6 +378,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["files"] = main_args.file_paths
             configs_items["chunk_size"] = main_args.chunk_size
             configs_items["overlap_ratio"] = main_args.overlap
+            configs_items["encoding"] = main_args.encoding
     return Config(**configs_items)
 
 
