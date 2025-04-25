@@ -94,6 +94,7 @@ class Config:
     )
     hnsw: dict[str, str | int] = field(default_factory=dict)
     chunk_filters: dict[str, list[str]] = field(default_factory=dict)
+    encoding: str = "utf8"
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -142,6 +143,7 @@ class Config:
                 "chunk_filters": config_dict.get(
                     "chunk_filters", default_config.chunk_filters
                 ),
+                "encoding": config_dict.get("encoding", default_config.encoding),
             }
         )
 
