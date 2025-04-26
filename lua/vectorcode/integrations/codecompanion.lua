@@ -51,6 +51,10 @@ end
 ---@param opts VectorCode.CodeCompanion.ToolOpts?
 ---@return CodeCompanion.Agent.Tool
 local make_tool = check_cli_wrap(function(opts)
+  local has = require("codecompanion").has
+  if has ~= nil and not has("xml-tools") then
+    error("VectorCode doesn't support the new tool format yet.")
+  end
   if opts == nil or opts.use_lsp == nil then
     opts = vim.tbl_deep_extend(
       "force",
