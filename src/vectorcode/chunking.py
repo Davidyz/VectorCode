@@ -245,22 +245,37 @@ class TreeSitterChunker(ChunkerBase):
             return f"(?:{'|'.join(patterns)})"
         return ""
 
+    def __load_file_lines(self, path: str) -> list[str]:
+        assert os.path.isfile(path), f"{path} is not a valid file!"
+        logger.info(f"Started chunking {path} with TreeSitterChunker.")
+        encoding = self.config.encoding
+        if encoding == "_auto":
+            from charset_normalizer import from_path
+
+            match = from_path(path).best()
+            if match is None:  # pragma: nocover
+                raise UnicodeError(f"Failed to detect the encoding for {path}!")
+            logger.info(f"Automatically selected {encoding} for decoding {path}.")
+            encoding = match.encoding
+        else:
+            logger.debug(f"Decoding {path} with {encoding=}.")
+        with open(path, encoding=encoding) as fin:
+            lines = fin.readlines()
+        return lines
+
     def chunk(self, data: str) -> Generator[Chunk, None, None]:
         """
         data: path to the file
         """
-        assert os.path.isfile(data)
-        logger.info(f"Started chunking {data} with TreeSitterChunker.")
-        with open(data, encoding=self.config.encoding) as fin:
-            lines = fin.readlines()
-            content = "".join(lines)
-            if self.config.chunk_size < 0 and content:
-                logger.info(
-                    "Skipping chunking %s because document is smaller than chunk_size.",
-                    data,
-                )
-                yield Chunk(content, Point(1, 0), Point(len(lines), len(lines[-1]) - 1))
-                return
+        lines = self.__load_file_lines(data)
+        content = "".join(lines)
+        if self.config.chunk_size < 0 and content:
+            logger.info(
+                "Skipping chunking %s because document is smaller than chunk_size.",
+                data,
+            )
+            yield Chunk(content, Point(1, 0), Point(len(lines), len(lines[-1]) - 1))
+            return
         parser = None
         language = None
         lexer = self.__guess_type(data, content)

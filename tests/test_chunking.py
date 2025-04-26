@@ -182,6 +182,29 @@ def bar():
     os.remove(test_file)
 
 
+def test_treesitter_chunker_python_auto_encoding():
+    """Test TreeSitterChunker with a sample file using tempfile."""
+    chunker = TreeSitterChunker(Config(chunk_size=30, encoding="_auto"))
+
+    test_content = r"""
+def 测试():
+    return "foo"
+
+def bar():
+    return "bar"
+    """
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", delete=False, suffix=".py", encoding="utf-16"
+    ) as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(str(i) for i in chunker.chunk(test_file))
+    assert chunks == ['def 测试():\n    return "foo"', 'def bar():\n    return "bar"']
+    os.remove(test_file)
+
+
 def test_treesitter_chunker_filter():
     chunker = TreeSitterChunker(
         Config(chunk_size=30, chunk_filters={"python": [".*foo.*"]})

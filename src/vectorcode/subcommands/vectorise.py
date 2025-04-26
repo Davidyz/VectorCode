@@ -92,7 +92,7 @@ async def chunked_add(
                         documents=[str(i) for i in inserted_chunks],
                         metadatas=metas,
                     )
-    except UnicodeDecodeError:  # pragma: nocover
+    except (UnicodeDecodeError, UnicodeError):  # pragma: nocover
         logger.warning(f"Failed to decode {full_path_str}.")
         return
 

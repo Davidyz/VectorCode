@@ -186,7 +186,7 @@ def get_cli_parser():
         "--encoding",
         type=str,
         default="utf8",
-        help="Encoding used by the files. See https://docs.python.org/3/library/codecs.html#standard-encodings for supported encodings.",
+        help="Encoding used by the files. See https://docs.python.org/3/library/codecs.html#standard-encodings for supported encodings. Use `_auto` for automatic encoding detection.",
     )
     shared_parser.add_argument(
         "--project_root",

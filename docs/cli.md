@@ -295,6 +295,13 @@ The JSON configuration file may hold the following values:
     "*": ["^[^a-zA-Z0-9]+$"],
   }
   ```
+- `encoding`: string, alternative encoding used for this project. By default
+  this project uses utf8. When this is set, VectorCode will decode files with the
+  specified encoding, unless you choose to override this with the `--encoding`
+  command line flag. You can also set this to `_auto`, which uses
+  [charset-normalizer](https://charset-normalizer.readthedocs.io/en/latest/index.html)
+  to automatically detect the encoding, but this is not very accurate,
+  especially on small files.
 
 ### Vectorising Your Code
 
