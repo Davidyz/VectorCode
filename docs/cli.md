@@ -636,6 +636,10 @@ is available in the shell as `vectorcode-mcp-server`, and make sure you're using
 a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode) 
 via the `host` and `port` options. 
 
+The MCP server entry point (`vectorcode-mcp-server`) provides some CLI options
+that you can use to customise the default behaviour of the server. To view the
+supported options, run `vectorcode-mcp-server -h` in your shell.
+
 ### Writing Prompts
 
 If you want to integrate VectorCode in your LLM application, you may want to

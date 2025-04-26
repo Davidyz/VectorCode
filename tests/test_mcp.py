@@ -1,10 +1,17 @@
+from argparse import ArgumentParser
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp import McpError
 
 from vectorcode.cli_utils import Config
-from vectorcode.mcp_main import list_collections, mcp_server, query_tool
+from vectorcode.mcp_main import (
+    get_arg_parser,
+    list_collections,
+    mcp_server,
+    parse_cli_args,
+    query_tool,
+)
 
 
 @pytest.mark.asyncio
@@ -44,11 +51,11 @@ async def test_list_collections_no_metadata():
         mock_collection2 = AsyncMock()
         mock_collection2.metadata = None
 
-        async def async_generator():
+        async def async_generator(cli):
             yield mock_collection1
             yield mock_collection2
 
-        mock_get_collections.return_value = async_generator()
+        mock_get_collections.side_effect = async_generator
 
         result = await list_collections()
         assert result == ["path1"]
@@ -182,3 +189,50 @@ async def test_mcp_server():
         await mcp_server()
 
         assert mock_add_tool.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_ls_on_start():
+    with (
+        patch(
+            "vectorcode.mcp_main.find_project_config_dir"
+        ) as mock_find_project_config_dir,
+        patch("vectorcode.mcp_main.load_config_file") as mock_load_config_file,
+        patch("vectorcode.mcp_main.get_client") as mock_get_client,
+        patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
+        patch(
+            "vectorcode.mcp_main.get_collections", spec=AsyncMock
+        ) as mock_get_collections,
+        patch("mcp.server.fastmcp.FastMCP.add_tool") as mock_add_tool,
+    ):
+        from vectorcode.mcp_main import mcp_config
+
+        mcp_config.ls_on_start = True
+        mock_find_project_config_dir.return_value = "/path/to/config"
+        mock_load_config_file.return_value = Config(project_root="/path/to/project")
+        mock_client = AsyncMock()
+        mock_get_client.return_value = mock_client
+        mock_collection = AsyncMock()
+        mock_collection.metadata = {"path": "/path/to/project"}
+        mock_get_collection.return_value = mock_collection
+
+        async def new_get_collections(clients):
+            yield mock_collection
+
+        mock_get_collections.side_effect = new_get_collections
+
+        await mcp_server()
+
+        assert mock_add_tool.call_count == 2
+        mock_get_collections.assert_called()
+
+
+def test_arg_parser():
+    assert isinstance(get_arg_parser(), ArgumentParser)
+
+
+def test_args_parsing():
+    args = ["--number", "15", "--ls-on-start"]
+    parsed = parse_cli_args(args)
+    assert parsed.n_results == 15
+    assert parsed.ls_on_start

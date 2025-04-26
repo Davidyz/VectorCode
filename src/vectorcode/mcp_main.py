@@ -1,7 +1,9 @@
+import argparse
 import asyncio
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -31,7 +33,33 @@ from vectorcode.subcommands.prompt import prompt_strings
 from vectorcode.subcommands.query import get_query_result_files
 
 logger = logging.getLogger(name=__name__)
-mcp = FastMCP("VectorCode", instructions="\n".join(prompt_strings))
+
+
+@dataclass
+class MCPConfig:
+    n_results: int = 10
+    ls_on_start: bool = False
+
+
+mcp_config = MCPConfig()
+
+
+def get_arg_parser():
+    parser = argparse.ArgumentParser(prog="vectorcode-mcp-server")
+    parser.add_argument(
+        "--number",
+        "-n",
+        type=int,
+        default=10,
+        help="Default number of files to retrieve.",
+    )
+    parser.add_argument(
+        "--ls-on-start",
+        action="store_true",
+        default=False,
+        help="Whether to include the output of `vectorcode ls` in the tool description.",
+    )
+    return parser
 
 
 default_config: Optional[Config] = None
@@ -114,6 +142,7 @@ async def query_tool(
 
 async def mcp_server():
     global default_config, default_client, default_collection
+
     local_config_dir = await find_project_config_dir(".")
 
     if local_config_dir is not None:
@@ -128,9 +157,23 @@ async def mcp_server():
         try:
             default_collection = await get_collection(default_client, default_config)
             logger.info("Collection initialised for %s.", project_root)
-        except InvalidCollectionException:
+        except InvalidCollectionException:  # pragma: nocover
             default_collection = None
 
+    default_instructions = "\n".join(prompt_strings)
+    if default_client is None:
+        if mcp_config.ls_on_start:  # pragma: nocover
+            logger.warning(
+                "Failed to initialise a chromadb client. Ignoring --ls-on-start flag."
+            )
+    else:
+        if mcp_config.ls_on_start:
+            logger.info("Adding available collections to the server instructions.")
+            default_instructions += "\nYou have access to the following collections:\n"
+            for name in await list_collections():
+                default_instructions += f"<collection>{name}</collection>"
+
+    mcp = FastMCP("VectorCode", instructions=default_instructions)
     mcp.add_tool(
         fn=list_collections,
         name="ls",
@@ -140,14 +183,21 @@ async def mcp_server():
     mcp.add_tool(
         fn=query_tool,
         name="query",
-        description="""
+        description=f"""
 Use VectorCode to perform vector similarity search on repositories and return a list of relevant file paths and contents. 
 Make sure `project_root` is one of the values from the `ls` tool. 
+Unless the user requested otherwise, start your retrievals by {mcp_config.n_results} files.
 The result contains the relative paths for the files and their corresponding contents.
 """,
     )
 
     return mcp
+
+
+def parse_cli_args(args: Optional[list[str]] = None) -> MCPConfig:
+    parser = get_arg_parser()
+    parsed_args = parser.parse_args(args or sys.argv)
+    return MCPConfig(n_results=parsed_args.number, ls_on_start=parsed_args.ls_on_start)
 
 
 async def run_server():  # pragma: nocover
@@ -157,7 +207,12 @@ async def run_server():  # pragma: nocover
 
 
 def main():  # pragma: nocover
+    global mcp_config
     config_logging("vectorcode-mcp-server", stdio=False)
+    mcp_config = parse_cli_args()
+    assert mcp_config.n_results > 0 and mcp_config.n_results % 1 == 0, (
+        "--number must be used with a positive integer!"
+    )
     return asyncio.run(run_server())
 
 
