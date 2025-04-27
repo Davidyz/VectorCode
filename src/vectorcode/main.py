@@ -62,6 +62,10 @@ async def async_main():
             from vectorcode.subcommands import chunks
 
             return_val = await chunks(final_configs)
+        case CliAction.hooks:
+            from vectorcode.subcommands import hooks
+
+            return await hooks(cli_args)
 
     from vectorcode.common import start_server, try_server
 

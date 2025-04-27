@@ -1,0 +1,434 @@
+import stat
+from pathlib import Path
+from unittest.mock import MagicMock, call, mock_open, patch
+
+import pytest
+
+from vectorcode.cli_utils import Config
+from vectorcode.subcommands.hooks import HookFile, __lines_are_empty, hooks, load_hooks
+
+
+@pytest.fixture(scope="function")
+def mock_hook_path() -> Path:
+    return Path("/fake/git/repo/.git/hooks/pre-commit")
+
+
+@pytest.fixture(autouse=True, scope="function")
+def reset_hook_contents():
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+
+    original_hooks_path = __GLOBAL_HOOKS_PATH
+    original_contents = hook_contents.copy()
+    hook_contents.clear()
+
+    __GLOBAL_HOOKS_PATH = Path("/tmp/fake/global/hooks")
+    yield
+
+    hook_contents = original_contents
+    __GLOBAL_HOOKS_PATH = original_hooks_path
+
+
+def test_lines_are_empty():
+    assert __lines_are_empty([])
+    assert __lines_are_empty([""])
+    assert __lines_are_empty([" ", "\t"])
+    assert not __lines_are_empty([" hello ", "\tworld"])
+
+
+@patch("vectorcode.subcommands.hooks.glob")
+@patch("vectorcode.subcommands.open", new_callable=mock_open)
+def test_load_hooks_no_files(mock_open_func, mock_glob):
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+
+    mock_glob.glob.return_value = []
+    expected_glob_path = str(__GLOBAL_HOOKS_PATH / "*")
+
+    load_hooks()
+
+    assert not hook_contents
+    mock_glob.glob.assert_called_once_with(expected_glob_path)
+    mock_open_func.assert_not_called()
+
+
+@patch("vectorcode.subcommands.hooks.glob")
+@patch(
+    "vectorcode.subcommands.hooks.open",
+    new_callable=mock_open,
+    read_data="Hook line 1\nLine 2",
+)
+def test_load_hooks_one_file(mock_open_func, mock_glob):
+    """Test load_hooks with a single valid hook file."""
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+
+    hook_file_path = str(__GLOBAL_HOOKS_PATH / "pre-commit")
+    mock_glob.glob.return_value = [hook_file_path]
+    expected_glob_path = str(__GLOBAL_HOOKS_PATH / "*")
+
+    load_hooks()
+
+    assert "pre-commit" in hook_contents
+    assert hook_contents["pre-commit"] == ["Hook line 1\n", "Line 2"]
+    mock_glob.glob.assert_called_once_with(expected_glob_path)
+    mock_open_func.assert_called_once_with(hook_file_path)
+
+
+@patch("vectorcode.subcommands.hooks.glob")
+@patch("vectorcode.subcommands.hooks.open", new_callable=mock_open)
+def test_load_hooks_multiple_files(mock_open_func, mock_glob):
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+
+    """Test load_hooks with multiple hook files."""
+
+    hook_file_path1 = str(__GLOBAL_HOOKS_PATH / "pre-commit")
+    hook_file_path2 = str(__GLOBAL_HOOKS_PATH / "post-commit.sh")
+    mock_glob.glob.return_value = [hook_file_path1, hook_file_path2]
+    expected_glob_path = str(__GLOBAL_HOOKS_PATH / "*")
+
+    mock_open_func.side_effect = [
+        mock_open(read_data="Pre-commit content\n").return_value,
+        mock_open(read_data="Post-commit content\n").return_value,
+    ]
+
+    load_hooks()
+
+    assert len(hook_contents) == 2
+    assert "pre-commit" in hook_contents
+    assert "post-commit" in hook_contents
+    assert hook_contents["pre-commit"] == ["Pre-commit content\n"]
+    assert hook_contents["post-commit"] == ["Post-commit content\n"]
+    mock_glob.glob.assert_called_once_with(expected_glob_path)
+    assert mock_open_func.call_count == 2
+    mock_open_func.assert_any_call(hook_file_path1)
+    mock_open_func.assert_any_call(hook_file_path2)
+
+
+@patch("vectorcode.subcommands.hooks.glob")
+@patch("vectorcode.subcommands.hooks.open", new_callable=mock_open, read_data="")
+def test_load_hooks_empty_file(mock_open_func, mock_glob):
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+
+    """Test load_hooks with an empty hook file."""
+
+    hook_file_path = str(__GLOBAL_HOOKS_PATH / "empty-hook")
+    mock_glob.glob.return_value = [hook_file_path]
+    expected_glob_path = str(__GLOBAL_HOOKS_PATH / "*")
+
+    load_hooks()
+
+    assert not hook_contents
+    mock_glob.glob.assert_called_once_with(expected_glob_path)
+    mock_open_func.assert_called_once_with(hook_file_path)
+
+
+@patch("vectorcode.subcommands.hooks.glob")
+@patch(
+    "vectorcode.subcommands.hooks.open", new_callable=mock_open, read_data="\n   \n\t\n"
+)
+def test_load_hooks_whitespace_file(mock_open_func, mock_glob):
+    """Test load_hooks with a hook file containing only whitespace."""
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+
+    hook_file_path = str(__GLOBAL_HOOKS_PATH / "whitespace-hook")
+    mock_glob.glob.return_value = [hook_file_path]
+    expected_glob_path = str(__GLOBAL_HOOKS_PATH / "*")
+
+    load_hooks()
+
+    assert not hook_contents
+    mock_glob.glob.assert_called_once_with(expected_glob_path)
+    mock_open_func.assert_called_once_with(hook_file_path)
+
+
+@patch("vectorcode.subcommands.hooks.os.path.isfile")
+@patch(
+    "vectorcode.subcommands.hooks.open",
+    new_callable=mock_open,
+    read_data="Existing line 1\nExisting line 2",
+)
+def test_hookfile_init_existing_file(mock_open_func, mock_isfile, mock_hook_path):
+    """Test HookFile initialization when the hook file exists."""
+    mock_isfile.return_value = True
+
+    hook_file = HookFile(mock_hook_path)
+
+    mock_isfile.assert_called_once_with(mock_hook_path)
+    mock_open_func.assert_called_once_with(mock_hook_path)
+    assert hook_file.path == mock_hook_path
+    assert hook_file.lines == ["Existing line 1\n", "Existing line 2"]
+
+
+@patch("vectorcode.subcommands.hooks.os.path.isfile")
+@patch("vectorcode.subcommands.hooks.open", new_callable=mock_open)
+def test_hookfile_init_non_existent_file(mock_open_func, mock_isfile, mock_hook_path):
+    """Test HookFile initialization when the hook file does not exist."""
+    mock_isfile.return_value = False
+
+    hook_file = HookFile(mock_hook_path)
+
+    mock_isfile.assert_called_once_with(mock_hook_path)
+    mock_open_func.assert_not_called()
+    assert hook_file.path == mock_hook_path
+    assert hook_file.lines == []
+
+
+@pytest.mark.parametrize(
+    "lines, expected",
+    [
+        ([], False),
+        (["Some content"], False),
+        ([HookFile.prefix + "\n"], False),
+        ([HookFile.suffix + "\n"], False),
+        ([HookFile.prefix + "\n", HookFile.suffix + "\n"], True),
+        (
+            [
+                "Line 1\n",
+                HookFile.prefix + "\n",
+                "hook line\n",
+                HookFile.suffix + "\n",
+                "Line 5",
+            ],
+            True,
+        ),
+        ([HookFile.suffix + "\n", HookFile.prefix + "\n"], False),
+        (
+            ["  " + HookFile.prefix + "  \n", "\t" + HookFile.suffix + "\t\n"],
+            True,
+        ),
+        (
+            [
+                HookFile.prefix + "\n",
+                "content",
+                HookFile.prefix + "\n",
+                HookFile.suffix + "\n",
+                HookFile.suffix + "\n",
+            ],
+            True,
+        ),
+    ],
+    ids=[
+        "empty",
+        "no_markers",
+        "only_prefix",
+        "only_suffix",
+        "basic_markers",
+        "markers_within_content",
+        "wrong_order",
+        "whitespace_around_markers",
+        "multiple_markers",
+    ],
+)
+@patch("vectorcode.subcommands.hooks.os.path.isfile", return_value=True)
+@patch("vectorcode.subcommands.hooks.open", new_callable=mock_open)
+def test_hookfile_has_vectorcode_hooks(
+    mock_open_func, mock_isfile, lines, expected, mock_hook_path
+):
+    """Test HookFile.has_vectorcode_hooks with various line contents."""
+
+    hook_file = HookFile(mock_hook_path)
+    hook_file.lines = lines
+
+    assert hook_file.has_vectorcode_hooks() == expected
+
+
+@patch("vectorcode.subcommands.hooks.platform.system")
+@patch("vectorcode.subcommands.hooks.os.chmod")
+@patch("vectorcode.subcommands.hooks.os.stat")
+@patch("vectorcode.subcommands.hooks.os.path.isfile")
+@patch("vectorcode.subcommands.hooks.open", new_callable=mock_open)
+def test_hookfile_inject_hook_new_file(
+    mock_open_func, mock_isfile, mock_stat, mock_chmod, mock_platform, mock_hook_path
+):
+    """Test injecting hook into a new (non-existent) file."""
+    mock_isfile.return_value = False
+    mock_platform.return_value = "Linux"
+
+    mock_stat_result = MagicMock()
+    mock_stat_result.st_mode = 0o644
+    mock_stat.return_value = mock_stat_result
+
+    hook_file = HookFile(mock_hook_path)
+    new_content = ["echo 'hello'"]
+
+    hook_file.inject_hook(new_content)
+
+    expected_lines = [
+        HookFile.prefix + "\n",
+        "echo 'hello'\n",
+        HookFile.suffix + "\n",
+    ]
+    mock_open_func.assert_called_once_with(mock_hook_path, "w")
+    handle = mock_open_func()
+    handle.writelines.assert_called_once_with(expected_lines)
+
+    mock_stat.assert_called_once_with(mock_hook_path)
+    expected_mode = 0o644 | stat.S_IXUSR
+    mock_chmod.assert_called_once_with(mock_hook_path, mode=expected_mode)
+
+
+@patch("vectorcode.subcommands.hooks.platform.system")
+@patch("vectorcode.subcommands.hooks.os.chmod")
+@patch("vectorcode.subcommands.hooks.os.stat")
+@patch("vectorcode.subcommands.hooks.os.path.isfile")
+@patch(
+    "vectorcode.subcommands.hooks.open",
+    new_callable=mock_open,
+    read_data="Existing line 1\n",
+)
+def test_hookfile_inject_hook_existing_file_no_vc_hooks(
+    mock_open_func, mock_isfile, mock_stat, mock_chmod, mock_platform, mock_hook_path
+):
+    """Test injecting hook into an existing file without VectorCode hooks."""
+    mock_isfile.return_value = True
+    mock_platform.return_value = "Windows"
+
+    mock_stat_result = MagicMock()
+    mock_stat_result.st_mode = 0o644
+    mock_stat.return_value = mock_stat_result
+
+    hook_file = HookFile(mock_hook_path)
+    initial_lines = ["Existing line 1\n"]
+    assert hook_file.lines == initial_lines
+
+    new_content = ["new hook line 1", "new hook line 2\n"]
+
+    hook_file.inject_hook(new_content)
+
+    expected_lines = initial_lines + [
+        HookFile.prefix + "\n",
+        "new hook line 1\n",
+        "new hook line 2\n",
+        HookFile.suffix + "\n",
+    ]
+
+    assert mock_open_func.call_count == 2
+    mock_open_func.assert_any_call(mock_hook_path)
+    mock_open_func.assert_any_call(mock_hook_path, "w")
+
+    handle = mock_open_func()
+    handle.writelines.assert_called_once_with(expected_lines)
+
+    mock_stat.assert_not_called()
+    mock_chmod.assert_not_called()
+
+
+@patch("vectorcode.subcommands.hooks.platform.system")
+@patch("vectorcode.subcommands.hooks.os.chmod")
+@patch("vectorcode.subcommands.hooks.os.stat")
+@patch("vectorcode.subcommands.hooks.os.path.isfile")
+@patch("vectorcode.subcommands.hooks.open", new_callable=mock_open)
+def test_hookfile_inject_hook_existing_file_with_vc_hooks(
+    mock_open_func, mock_isfile, mock_stat, mock_chmod, mock_platform, mock_hook_path
+):
+    """Test injecting hook into an existing file that ALREADY has VectorCode hooks."""
+    initial_content = [
+        "Some line\n",
+        HookFile.prefix + "\n",
+        "existing hook content\n",
+        HookFile.suffix + "\n",
+        "Another line\n",
+    ]
+
+    read_handle_mock = mock_open(read_data="".join(initial_content)).return_value
+    write_handle_mock = mock_open().return_value
+
+    mock_open_func.side_effect = [
+        read_handle_mock,
+        write_handle_mock,
+    ]
+
+    mock_isfile.return_value = True
+    mock_platform.return_value = "Linux"
+
+    mock_stat_result = MagicMock()
+    mock_stat_result.st_mode = 0o755
+    mock_stat.return_value = mock_stat_result
+
+    hook_file = HookFile(mock_hook_path)
+    assert hook_file.lines == initial_content
+
+    new_content = ["this should not be added"]
+    hook_file.inject_hook(new_content)
+
+    assert hook_file.has_vectorcode_hooks() is True
+
+    assert mock_open_func.call_count == 2
+    mock_open_func.assert_has_calls(
+        [
+            call(mock_hook_path),
+            call(mock_hook_path, "w"),
+        ]
+    )
+
+    write_handle_mock.writelines.assert_called_once_with(initial_content)
+
+    mock_stat.assert_called_once_with(mock_hook_path)
+    expected_mode = 0o755 | stat.S_IXUSR
+    mock_chmod.assert_called_once_with(mock_hook_path, mode=expected_mode)
+
+
+@pytest.mark.asyncio
+@patch("vectorcode.subcommands.hooks.find_project_root", return_value=None)
+@patch("vectorcode.subcommands.hooks.load_hooks")
+async def test_hooks_orchestration_no_git_repo(mock_load_hooks, mock_find_project_root):
+    """Test hooks orchestration: handles no git repo found."""
+    mock_config = Config(project_root="/some/path")
+
+    return_code = await hooks(mock_config)
+
+    mock_find_project_root.assert_called_once_with("/some/path", ".git")
+    mock_load_hooks.assert_not_called()
+    assert return_code == 1
+
+
+@pytest.mark.asyncio
+@patch("vectorcode.subcommands.hooks.find_project_root", return_value="/fake/git/repo")
+@patch("vectorcode.subcommands.hooks.load_hooks")
+@patch("vectorcode.subcommands.hooks.HookFile")
+@patch.dict("vectorcode.subcommands.hooks.hook_contents", {}, clear=True)
+async def test_hooks_orchestration_no_hooks_defined(
+    mock_HookFile, mock_load_hooks, mock_find_project_root
+):
+    """Test hooks orchestration: handles git repo found but no hooks loaded."""
+    mock_config = Config(project_root="/fake/project")
+
+    return_code = await hooks(mock_config)
+
+    mock_find_project_root.assert_called_once_with("/fake/project", ".git")
+    mock_load_hooks.assert_called_once()
+    mock_HookFile.assert_not_called()
+    assert return_code == 0
+
+
+@pytest.mark.asyncio
+@patch("vectorcode.subcommands.hooks.find_project_root", return_value="/fake/git/repo")
+@patch("vectorcode.subcommands.hooks.load_hooks")
+@patch("vectorcode.subcommands.hooks.HookFile")
+async def test_hooks_orchestration_with_hooks(
+    mock_HookFile, mock_load_hooks, mock_find_project_root
+):
+    """Test hooks orchestration: handles git repo and loaded hooks."""
+
+    mock_config = Config(project_root="/fake/project")
+    defined_hooks = {
+        "pre-commit": ["line1"],
+        "post-commit": ["lineA", "lineB"],
+    }
+
+    mock_hook_instance = MagicMock()
+    mock_HookFile.return_value = mock_hook_instance
+
+    with patch.dict(
+        "vectorcode.subcommands.hooks.hook_contents", defined_hooks, clear=True
+    ):
+        return_code = await hooks(mock_config)
+
+        mock_find_project_root.assert_called_once_with("/fake/project", ".git")
+        mock_load_hooks.assert_called_once()
+
+        assert mock_HookFile.call_count == len(defined_hooks)
+        assert mock_hook_instance.inject_hook.call_count == len(defined_hooks)
+
+        mock_hook_instance.inject_hook.assert_any_call(defined_hooks["pre-commit"])
+        mock_hook_instance.inject_hook.assert_any_call(defined_hooks["post-commit"])
+
+        assert return_code == 0

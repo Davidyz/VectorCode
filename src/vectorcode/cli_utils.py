@@ -59,6 +59,7 @@ class CliAction(Enum):
     clean = "clean"
     prompts = "prompts"
     chunks = "chunks"
+    hooks = "hooks"
 
 
 @dataclass
@@ -283,6 +284,7 @@ def get_cli_parser():
     )
 
     subparsers.add_parser("drop", parents=[shared_parser], help="Remove a collection.")
+    subparsers.add_parser("hooks", parents=[shared_parser], help="Inject git hooks.")
 
     init_parser = subparsers.add_parser(
         "init",
