@@ -18,6 +18,14 @@ __supported_rerankers: dict[str, Type[RerankerBase]] = {
 }
 
 
+class RerankerError(Exception):
+    pass
+
+
+class RerankerInitialisationError(RerankerError):
+    pass
+
+
 def add_reranker(cls):
     """
     This is a class decorator that allows you to add a custom reranker that can be
@@ -69,8 +77,5 @@ The old configuration syntax will be DEPRECATED in v0.6.0
     if not configs.reranker:
         return NaiveReranker(configs)
     else:
-        configs.reranker_params.update({"model_name_or_path": configs.reranker})
-        configs.reranker = "CrossEncoderReranker"
-        return CrossEncoderReranker(
-            configs,
-        )
+        logger.error(f"{configs.reranker} is not a valid reranker type!")
+        raise RerankerInitialisationError()

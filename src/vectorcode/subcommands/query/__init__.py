@@ -14,7 +14,10 @@ from vectorcode.common import (
     get_collection,
     verify_ef,
 )
-from vectorcode.subcommands.query.reranker import get_reranker
+from vectorcode.subcommands.query.reranker import (
+    RerankerError,
+    get_reranker,
+)
 
 logger = logging.getLogger(name=__name__)
 
@@ -170,7 +173,11 @@ Please re-vectorise it to use `--include chunk`.""",
             )
             configs.include = [QueryInclude.path, QueryInclude.document]
 
-    structured_result = await build_query_results(collection, configs)
+    try:
+        structured_result = await build_query_results(collection, configs)
+    except RerankerError:  # pragma: nocover
+        # error logs should be handled where they're raised
+        return 1
 
     if configs.pipe:
         print(json.dumps(structured_result))

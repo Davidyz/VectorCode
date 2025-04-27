@@ -12,6 +12,9 @@ from vectorcode.subcommands.query import (
     get_query_result_files,
     query,
 )
+from vectorcode.subcommands.query.reranker import (
+    RerankerError,
+)
 
 
 @pytest.fixture
@@ -203,9 +206,7 @@ async def test_get_query_result_files_with_query_exclude(mock_collection, mock_c
 
 
 @pytest.mark.asyncio
-async def test_get_query_result_files_with_cross_encoder_reranker(
-    mock_collection, mock_config
-):
+async def test_get_query_reranker_initialisation_error(mock_collection, mock_config):
     # Configure to use CrossEncoder reranker
     mock_config.reranker = "cross-encoder/model-name"
 
@@ -216,13 +217,9 @@ async def test_get_query_result_files_with_cross_encoder_reranker(
         mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
         MockCrossEncoder.return_value = mock_reranker_instance
 
-        # Call the function
-        result = await get_query_result_files(mock_collection, mock_config)
-
-        # Check CrossEncoder was used correctly
-        MockCrossEncoder.assert_called_once()
-        # Check the result
-        assert result == ["file1.py", "file2.py"]
+        with pytest.raises(RerankerError):
+            # Call the function
+            await get_query_result_files(mock_collection, mock_config)
 
 
 @pytest.mark.asyncio
