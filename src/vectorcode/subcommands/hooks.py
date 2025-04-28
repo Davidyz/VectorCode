@@ -57,13 +57,18 @@ class HookFile:
             with open(self.path) as fin:
                 self.lines.extend(fin.readlines())
 
-    def has_vectorcode_hooks(self) -> bool:
+    def has_vectorcode_hooks(self, force: bool = False) -> bool:
         for start, start_line in enumerate(self.lines):
             if self.prefix_pattern.match(start_line) is None:
                 continue
 
             for end in range(start + 1, len(self.lines)):
                 if self.suffix_pattern.match(self.lines[end]) is not None:
+                    if force:
+                        logger.debug("`force` cleaning existing VectorCode hooks...")
+                        new_lines = self.lines[:start] + self.lines[end + 1 :]
+                        self.lines[:] = new_lines
+                        return False
                     logger.debug(
                         f"Found vectorcode hook block between line {start} and {end} in {self.path}:\n{''.join(self.lines[start + 1 : end])}"
                     )
@@ -71,8 +76,8 @@ class HookFile:
 
         return False
 
-    def inject_hook(self, content: list[str]):
-        if len(self.lines) == 0 or not self.has_vectorcode_hooks():
+    def inject_hook(self, content: list[str], force: bool = False):
+        if len(self.lines) == 0 or not self.has_vectorcode_hooks(force):
             self.lines.append(self.prefix + "\n")
             self.lines.extend(i if i.endswith("\n") else i + "\n" for i in content)
             self.lines.append(self.suffix + "\n")
@@ -94,6 +99,7 @@ async def hooks(configs: Config) -> int:
     for hook in __HOOK_CONTENTS.keys():
         hook_file_path = os.path.join(git_root, ".git", "hooks", hook)
         logger.info(f"Writing {hook} hook into {hook_file_path}.")
+        print(f"Processing {hook} hook...")
         hook_obj = HookFile(hook_file_path, git_dir=git_root)
-        hook_obj.inject_hook(__HOOK_CONTENTS[hook])
+        hook_obj.inject_hook(__HOOK_CONTENTS[hook], configs.force)
     return 0

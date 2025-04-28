@@ -417,14 +417,16 @@ async def test_hooks_orchestration_default_hooks(
                 [
                     "diff_files=$(git diff --cached --name-only)",
                     '[ -z "$diff_files" ] || vectorcode vectorise $diff_files',
-                ]
+                ],
+                False,
             ),
             call("/fake/git/repo/.git/hooks/post-checkout", git_dir="/fake/git/repo"),
             call().inject_hook(
                 [
                     'files=$(git diff --name-only "$1" "$2")',
                     '[ -z "$files" ] || vectorcode vectorise $files',
-                ]
+                ],
+                False,
             ),
         ],
         any_order=True,
@@ -461,7 +463,152 @@ async def test_hooks_orchestration_with_hooks(
         assert mock_HookFile.call_count == len(defined_hooks)
         assert mock_hook_instance.inject_hook.call_count == len(defined_hooks)
 
-        mock_hook_instance.inject_hook.assert_any_call(defined_hooks["pre-commit"])
-        mock_hook_instance.inject_hook.assert_any_call(defined_hooks["post-commit"])
+        mock_hook_instance.inject_hook.assert_any_call(
+            defined_hooks["pre-commit"], False
+        )
+        mock_hook_instance.inject_hook.assert_any_call(
+            defined_hooks["post-commit"], False
+        )
 
         assert return_code == 0
+
+
+@patch("vectorcode.subcommands.hooks.os.path.isfile", return_value=True)
+@patch(
+    "vectorcode.subcommands.hooks.open",
+    new_callable=mock_open,
+)
+def test_hookfile_has_vectorcode_hooks_force_removes_block(
+    mock_open_func, mock_isfile, mock_hook_path
+):
+    """Test that has_vectorcode_hooks with force=True removes the existing block."""
+    initial_lines = [
+        "Line 1\n",
+        HookFile.prefix + "\n",
+        "old hook line\n",
+        HookFile.suffix + "\n",
+        "Line 5\n",
+    ]
+    expected_lines_after = [
+        "Line 1\n",
+        "Line 5\n",
+    ]
+
+    # Mock reading the initial content
+    mock_open_func.side_effect = [
+        mock_open(read_data="".join(initial_lines)).return_value
+    ]
+
+    hook_file = HookFile(mock_hook_path)
+    assert hook_file.lines == initial_lines  # Ensure lines were read
+
+    # Call with force=True
+    found = hook_file.has_vectorcode_hooks(force=True)
+
+    assert found is False  # Should return False because it modifies in place
+    assert hook_file.lines == expected_lines_after  # Check if block was removed
+
+
+@patch("vectorcode.subcommands.hooks.platform.system")
+@patch("vectorcode.subcommands.hooks.os.chmod")
+@patch("vectorcode.subcommands.hooks.os.stat")
+@patch("vectorcode.subcommands.hooks.os.path.isfile")
+@patch("vectorcode.subcommands.hooks.open", new_callable=mock_open)
+def test_hookfile_inject_hook_force_overwrites_existing(
+    mock_open_func, mock_isfile, mock_stat, mock_chmod, mock_platform, mock_hook_path
+):
+    """Test inject_hook with force=True correctly overwrites an existing hook block."""
+    initial_content = [
+        "Some line\n",
+        f"  {HookFile.prefix}  \n",  # With whitespace
+        "existing hook content\n",
+        f"\t{HookFile.suffix}\t\n",  # With whitespace
+        "Another line\n",
+    ]
+    new_hook_content = ["new hook line 1", "new hook line 2\n"]
+
+    # Mock the sequence: read initial, then write final
+    read_handle_mock = mock_open(read_data="".join(initial_content)).return_value
+    write_handle_mock = mock_open().return_value
+    mock_open_func.side_effect = [
+        read_handle_mock,  # Initial read in HookFile.__init__
+        write_handle_mock,  # Write in inject_hook
+    ]
+
+    mock_isfile.return_value = True
+    mock_platform.return_value = "Linux"  # To trigger chmod
+
+    mock_stat_result = MagicMock()
+    mock_stat_result.st_mode = 0o644
+    mock_stat.return_value = mock_stat_result
+
+    hook_file = HookFile(mock_hook_path)
+    assert hook_file.lines == initial_content  # Verify initial state
+
+    # Inject with force=True
+    hook_file.inject_hook(new_hook_content, force=True)
+
+    # Verify the final content written to the file
+    expected_lines_written = [
+        "Some line\n",
+        "Another line\n",  # Existing block removed
+        HookFile.prefix + "\n",  # New block added
+        "new hook line 1\n",
+        "new hook line 2\n",
+        HookFile.suffix + "\n",
+    ]
+
+    # Check calls
+    assert mock_open_func.call_count == 2  # Read + Write
+    mock_open_func.assert_has_calls(
+        [
+            call(mock_hook_path),  # Initial read
+            call(mock_hook_path, "w"),  # Write
+        ]
+    )
+    write_handle_mock.writelines.assert_called_once_with(expected_lines_written)
+
+    # Check permissions were set
+    mock_stat.assert_called_once_with(mock_hook_path)
+    expected_mode = 0o644 | stat.S_IXUSR
+    mock_chmod.assert_called_once_with(mock_hook_path, mode=expected_mode)
+
+
+@pytest.mark.asyncio
+@patch("vectorcode.subcommands.hooks.find_project_root", return_value="/fake/git/repo")
+@patch("vectorcode.subcommands.hooks.load_hooks")
+@patch("vectorcode.subcommands.hooks.HookFile")
+async def test_hooks_orchestration_force_true(
+    mock_HookFile, mock_load_hooks, mock_find_project_root
+):
+    """Test hooks orchestration passes force=True to HookFile.inject_hook."""
+    from vectorcode.subcommands.hooks import __HOOK_CONTENTS
+
+    # Ensure there's some hook content defined for the test
+    defined_hooks = {"pre-commit": ["echo pre-commit"]}
+    __HOOK_CONTENTS.clear()
+    __HOOK_CONTENTS.update(defined_hooks)
+
+    mock_config = Config(project_root="/fake/project", force=True)  # Set force=True
+
+    # Mock the HookFile instance and its methods
+    mock_hook_instance = MagicMock()
+    mock_HookFile.return_value = mock_hook_instance
+
+    return_code = await hooks(mock_config)
+
+    # Assertions
+    mock_find_project_root.assert_called_once_with("/fake/project", ".git")
+    mock_load_hooks.assert_called_once()
+
+    # Check HookFile was instantiated correctly
+    expected_hook_path = "/fake/git/repo/.git/hooks/pre-commit"
+    mock_HookFile.assert_called_once_with(expected_hook_path, git_dir="/fake/git/repo")
+
+    # Crucially, check inject_hook was called with force=True
+    mock_hook_instance.inject_hook.assert_called_once_with(
+        defined_hooks["pre-commit"],
+        True,  # force=True passed here
+    )
+
+    assert return_code == 0

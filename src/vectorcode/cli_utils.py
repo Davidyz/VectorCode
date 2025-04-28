@@ -284,7 +284,16 @@ def get_cli_parser():
     )
 
     subparsers.add_parser("drop", parents=[shared_parser], help="Remove a collection.")
-    subparsers.add_parser("hooks", parents=[shared_parser], help="Inject git hooks.")
+    hooks_parser = subparsers.add_parser(
+        "hooks", parents=[shared_parser], help="Inject git hooks."
+    )
+    hooks_parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        default=False,
+        help="Override existing VectorCode hooks.",
+    )
 
     init_parser = subparsers.add_parser(
         "init",
@@ -381,6 +390,8 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["chunk_size"] = main_args.chunk_size
             configs_items["overlap_ratio"] = main_args.overlap
             configs_items["encoding"] = main_args.encoding
+        case "hooks":
+            configs_items["force"] = main_args.force
     return Config(**configs_items)
 
 
