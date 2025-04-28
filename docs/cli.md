@@ -16,6 +16,7 @@
   * [Configuring VectorCode](#configuring-vectorcode)
   * [Vectorising Your Code](#vectorising-your-code)
     * [File Specs](#file-specs)
+    * [Git Hooks](#git-hooks)
   * [Making a Query](#making-a-query)
   * [Listing All Collections](#listing-all-collections)
   * [Removing a Collection](#removing-a-collection)
@@ -352,6 +353,35 @@ These specs can be useful if you want to automatically update the embeddings
 on certain conditions. See 
 [the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
 for an example to use it with git hooks.
+
+#### Git Hooks
+
+To keep the embeddings up-to-date, you may find it useful to set up some git
+hooks. The CLI provides a subcommand, `vectorcode hooks`, that helps you manage
+hooks when working with a git repository. You can put some custom hooks in
+`~/.config/vectorcode/hooks/` and the `vectorcode hooks` command will pick them
+up and append them to your existing hooks, or create new hook scripts if they
+don't exist yet. The hook files should be named the same as they would be under
+the `.git/hooks` directory. For example, a pre-commit hook would be named 
+`~/.config/vectorcode/hooks/pre-commit`. By default, there are 2 pre-defined
+hooks:
+```bash
+# pre-commit hook that vectorise changed files before you commit.
+diff_files=$(git diff --cached --name-only)
+[ -z "$diff_files" ] || vectorcode vectorise $diff_files
+```
+```bash
+# post-checkout hook that vectorise changed files when you checkout to a
+# different branch/tag/commit
+files=$(git diff --name-only "$1" "$2")
+[ -z "$files" ] || vectorcode vectorise $files
+```
+When you run `vectorcode hooks` in a git repo, these 2 hooks will be added to
+your `.git/hooks/`. Hooks that are managed by VectorCode will be wrapped by 
+`# VECTORCODE_HOOK_START` and `# VECTORCODE_HOOK_END` comment lines. They help 
+VectorCode determine whether hooks have been added, so don't delete the markers 
+unless you know what you're doing. To remove the hooks, simply delete the lines
+wrapped by these 2 comment strings.
 
 ### Making a Query
 
