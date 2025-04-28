@@ -15,7 +15,16 @@ __GLOBAL_HOOKS_PATH = Path(GLOBAL_CONFIG_PATH).parent / "hooks"
 
 # Keys: name of the hooks, ie. `pre-commit`
 # Values: lines of the hooks.
-hook_contents: dict[str, list[str]] = {}
+__HOOK_CONTENTS: dict[str, list[str]] = {
+    "pre-commit": [
+        "diff_files=$(git diff --cached --name-only)",
+        '[ -z "$diff_files" ] || vectorcode vectorise $diff_files',
+    ],
+    "post-checkout": [
+        'files=$(git diff --name-only "$1" "$2")',
+        '[ -z "$files" ] || vectorcode vectorise $files',
+    ],
+}
 
 
 def __lines_are_empty(lines: list[str]) -> bool:
@@ -26,12 +35,13 @@ def __lines_are_empty(lines: list[str]) -> bool:
 
 
 def load_hooks():
+    global __HOOK_CONTENTS
     for file in glob.glob(str(__GLOBAL_HOOKS_PATH / "*")):
         hook_name = Path(file).stem
         with open(file) as fin:
             lines = fin.readlines()
             if not __lines_are_empty(lines):
-                hook_contents[hook_name] = lines
+                __HOOK_CONTENTS[hook_name] = lines
 
 
 class HookFile:
@@ -81,9 +91,9 @@ async def hooks(configs: Config) -> int:
         logger.error(f"{project_root} is not inside a git repo directory!")
         return 1
     load_hooks()
-    for hook in hook_contents.keys():
+    for hook in __HOOK_CONTENTS.keys():
         hook_file_path = os.path.join(git_root, ".git", "hooks", hook)
         logger.info(f"Writing {hook} hook into {hook_file_path}.")
         hook_obj = HookFile(hook_file_path, git_dir=git_root)
-        hook_obj.inject_hook(hook_contents[hook])
+        hook_obj.inject_hook(__HOOK_CONTENTS[hook])
     return 0

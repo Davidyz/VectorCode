@@ -15,16 +15,16 @@ def mock_hook_path() -> Path:
 
 @pytest.fixture(autouse=True, scope="function")
 def reset_hook_contents():
-    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, __HOOK_CONTENTS
 
     original_hooks_path = __GLOBAL_HOOKS_PATH
-    original_contents = hook_contents.copy()
-    hook_contents.clear()
+    original_contents = __HOOK_CONTENTS.copy()
+    __HOOK_CONTENTS.clear()
 
     __GLOBAL_HOOKS_PATH = Path("/tmp/fake/global/hooks")
     yield
 
-    hook_contents = original_contents
+    __HOOK_CONTENTS = original_contents
     __GLOBAL_HOOKS_PATH = original_hooks_path
 
 
@@ -38,14 +38,13 @@ def test_lines_are_empty():
 @patch("vectorcode.subcommands.hooks.glob")
 @patch("vectorcode.subcommands.open", new_callable=mock_open)
 def test_load_hooks_no_files(mock_open_func, mock_glob):
-    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH
 
     mock_glob.glob.return_value = []
     expected_glob_path = str(__GLOBAL_HOOKS_PATH / "*")
 
     load_hooks()
 
-    assert not hook_contents
     mock_glob.glob.assert_called_once_with(expected_glob_path)
     mock_open_func.assert_not_called()
 
@@ -58,16 +57,16 @@ def test_load_hooks_no_files(mock_open_func, mock_glob):
 )
 def test_load_hooks_one_file(mock_open_func, mock_glob):
     """Test load_hooks with a single valid hook file."""
-    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, __HOOK_CONTENTS
 
-    hook_file_path = str(__GLOBAL_HOOKS_PATH / "pre-commit")
+    hook_file_path = str(__GLOBAL_HOOKS_PATH / "test-hook")
     mock_glob.glob.return_value = [hook_file_path]
     expected_glob_path = str(__GLOBAL_HOOKS_PATH / "*")
 
     load_hooks()
 
-    assert "pre-commit" in hook_contents
-    assert hook_contents["pre-commit"] == ["Hook line 1\n", "Line 2"]
+    assert "test-hook" in __HOOK_CONTENTS
+    assert __HOOK_CONTENTS["test-hook"] == ["Hook line 1\n", "Line 2"]
     mock_glob.glob.assert_called_once_with(expected_glob_path)
     mock_open_func.assert_called_once_with(hook_file_path)
 
@@ -75,7 +74,7 @@ def test_load_hooks_one_file(mock_open_func, mock_glob):
 @patch("vectorcode.subcommands.hooks.glob")
 @patch("vectorcode.subcommands.hooks.open", new_callable=mock_open)
 def test_load_hooks_multiple_files(mock_open_func, mock_glob):
-    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, __HOOK_CONTENTS
 
     """Test load_hooks with multiple hook files."""
 
@@ -91,11 +90,11 @@ def test_load_hooks_multiple_files(mock_open_func, mock_glob):
 
     load_hooks()
 
-    assert len(hook_contents) == 2
-    assert "pre-commit" in hook_contents
-    assert "post-commit" in hook_contents
-    assert hook_contents["pre-commit"] == ["Pre-commit content\n"]
-    assert hook_contents["post-commit"] == ["Post-commit content\n"]
+    assert len(__HOOK_CONTENTS) == 2
+    assert "pre-commit" in __HOOK_CONTENTS
+    assert "post-commit" in __HOOK_CONTENTS
+    assert __HOOK_CONTENTS["pre-commit"] == ["Pre-commit content\n"]
+    assert __HOOK_CONTENTS["post-commit"] == ["Post-commit content\n"]
     mock_glob.glob.assert_called_once_with(expected_glob_path)
     assert mock_open_func.call_count == 2
     mock_open_func.assert_any_call(hook_file_path1)
@@ -105,7 +104,7 @@ def test_load_hooks_multiple_files(mock_open_func, mock_glob):
 @patch("vectorcode.subcommands.hooks.glob")
 @patch("vectorcode.subcommands.hooks.open", new_callable=mock_open, read_data="")
 def test_load_hooks_empty_file(mock_open_func, mock_glob):
-    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, __HOOK_CONTENTS
 
     """Test load_hooks with an empty hook file."""
 
@@ -115,7 +114,7 @@ def test_load_hooks_empty_file(mock_open_func, mock_glob):
 
     load_hooks()
 
-    assert not hook_contents
+    assert not __HOOK_CONTENTS
     mock_glob.glob.assert_called_once_with(expected_glob_path)
     mock_open_func.assert_called_once_with(hook_file_path)
 
@@ -126,7 +125,7 @@ def test_load_hooks_empty_file(mock_open_func, mock_glob):
 )
 def test_load_hooks_whitespace_file(mock_open_func, mock_glob):
     """Test load_hooks with a hook file containing only whitespace."""
-    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, hook_contents
+    from vectorcode.subcommands.hooks import __GLOBAL_HOOKS_PATH, __HOOK_CONTENTS
 
     hook_file_path = str(__GLOBAL_HOOKS_PATH / "whitespace-hook")
     mock_glob.glob.return_value = [hook_file_path]
@@ -134,7 +133,7 @@ def test_load_hooks_whitespace_file(mock_open_func, mock_glob):
 
     load_hooks()
 
-    assert not hook_contents
+    assert not __HOOK_CONTENTS
     mock_glob.glob.assert_called_once_with(expected_glob_path)
     mock_open_func.assert_called_once_with(hook_file_path)
 
@@ -384,18 +383,52 @@ async def test_hooks_orchestration_no_git_repo(mock_load_hooks, mock_find_projec
 @patch("vectorcode.subcommands.hooks.find_project_root", return_value="/fake/git/repo")
 @patch("vectorcode.subcommands.hooks.load_hooks")
 @patch("vectorcode.subcommands.hooks.HookFile")
-@patch.dict("vectorcode.subcommands.hooks.hook_contents", {}, clear=True)
-async def test_hooks_orchestration_no_hooks_defined(
+async def test_hooks_orchestration_default_hooks(
     mock_HookFile, mock_load_hooks, mock_find_project_root
 ):
     """Test hooks orchestration: handles git repo found but no hooks loaded."""
-    mock_config = Config(project_root="/fake/project")
+    from vectorcode.subcommands.hooks import __HOOK_CONTENTS
+
+    __HOOK_CONTENTS.clear()
+    __HOOK_CONTENTS.update(
+        {
+            "pre-commit": [
+                "diff_files=$(git diff --cached --name-only)",
+                '[ -z "$diff_files" ] || vectorcode vectorise $diff_files',
+            ],
+            "post-checkout": [
+                'files=$(git diff --name-only "$1" "$2")',
+                '[ -z "$files" ] || vectorcode vectorise $files',
+            ],
+        }
+    )
+
+    project_root = "/fake/project"
+    mock_config = Config(project_root=project_root)
 
     return_code = await hooks(mock_config)
 
-    mock_find_project_root.assert_called_once_with("/fake/project", ".git")
+    mock_find_project_root.assert_called_once_with(project_root, ".git")
     mock_load_hooks.assert_called_once()
-    mock_HookFile.assert_not_called()
+    mock_HookFile.assert_has_calls(
+        [
+            call("/fake/git/repo/.git/hooks/pre-commit", git_dir="/fake/git/repo"),
+            call().inject_hook(
+                [
+                    "diff_files=$(git diff --cached --name-only)",
+                    '[ -z "$diff_files" ] || vectorcode vectorise $diff_files',
+                ]
+            ),
+            call("/fake/git/repo/.git/hooks/post-checkout", git_dir="/fake/git/repo"),
+            call().inject_hook(
+                [
+                    'files=$(git diff --name-only "$1" "$2")',
+                    '[ -z "$files" ] || vectorcode vectorise $files',
+                ]
+            ),
+        ],
+        any_order=True,
+    )
     assert return_code == 0
 
 
@@ -418,7 +451,7 @@ async def test_hooks_orchestration_with_hooks(
     mock_HookFile.return_value = mock_hook_instance
 
     with patch.dict(
-        "vectorcode.subcommands.hooks.hook_contents", defined_hooks, clear=True
+        "vectorcode.subcommands.hooks.__HOOK_CONTENTS", defined_hooks, clear=True
     ):
         return_code = await hooks(mock_config)
 
