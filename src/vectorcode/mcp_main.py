@@ -196,7 +196,7 @@ The result contains the relative paths for the files and their corresponding con
 
 def parse_cli_args(args: Optional[list[str]] = None) -> MCPConfig:
     parser = get_arg_parser()
-    parsed_args = parser.parse_args(args or sys.argv)
+    parsed_args = parser.parse_args(args or sys.argv[1:])
     return MCPConfig(n_results=parsed_args.number, ls_on_start=parsed_args.ls_on_start)
 
 
