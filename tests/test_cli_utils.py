@@ -10,6 +10,7 @@ from vectorcode.cli_utils import (
     CliAction,
     Config,
     QueryInclude,
+    cleanup_path,
     expand_envs_in_dict,
     expand_globs,
     expand_path,
@@ -489,3 +490,13 @@ async def test_hnsw_config_merge():
     assert merged_config.port == 8001
     assert merged_config.hnsw["space"] == "ip"
     assert merged_config.hnsw["ef_construction"] == 200
+
+
+def test_cleanup_path():
+    home = os.environ.get("HOME")
+    if home is None:
+        return
+    assert cleanup_path(os.path.join(home, "test_path")) == os.path.join(
+        "~", "test_path"
+    )
+    assert cleanup_path("/etc/dir") == "/etc/dir"

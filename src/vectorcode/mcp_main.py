@@ -23,6 +23,7 @@ except ModuleNotFoundError:  # pragma: nocover
 
 from vectorcode.cli_utils import (
     Config,
+    cleanup_path,
     config_logging,
     find_project_config_dir,
     get_project_config,
@@ -76,7 +77,7 @@ async def list_collections() -> list[str]:
         client = await get_client(await load_config_file())
     async for col in get_collections(client):
         if col.metadata is not None:
-            names.append(str(col.metadata.get("path")))
+            names.append(cleanup_path(str(col.metadata.get("path"))))
     logger.info("Retrieved the following collections: %s", names)
     return names
 
@@ -92,6 +93,7 @@ async def query_tool(
     logger.info(
         f"query tool called with the following args: {n_query=}, {query_messages=}, {project_root=}"
     )
+    project_root = os.path.expanduser(project_root)
     if not os.path.isdir(project_root):
         logger.error("Invalid project root: %s", project_root)
         raise McpError(

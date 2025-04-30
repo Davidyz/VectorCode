@@ -7,7 +7,7 @@ import tabulate
 from chromadb.api import AsyncClientAPI
 from chromadb.api.types import IncludeEnum
 
-from vectorcode.cli_utils import Config
+from vectorcode.cli_utils import Config, cleanup_path
 from vectorcode.common import get_client, get_collections
 
 logger = logging.getLogger(name=__name__)
@@ -23,7 +23,7 @@ async def get_collection_list(client: AsyncClientAPI) -> list[dict]:
         )
         result.append(
             {
-                "project-root": meta["path"],
+                "project-root": cleanup_path(meta["path"]),
                 "user": meta.get("username"),
                 "hostname": socket.gethostname(),
                 "collection_name": collection.name,

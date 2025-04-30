@@ -8,7 +8,13 @@ from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
 
 from vectorcode.chunking import StringChunker
-from vectorcode.cli_utils import Config, QueryInclude, expand_globs, expand_path
+from vectorcode.cli_utils import (
+    Config,
+    QueryInclude,
+    cleanup_path,
+    expand_globs,
+    expand_path,
+)
 from vectorcode.common import (
     get_client,
     get_collection,
@@ -130,6 +136,9 @@ async def build_query_results(
             logger.warning(
                 f"{identifier} is no longer a valid file! Please re-run vectorcode vectorise to refresh the database.",
             )
+    for result in structured_result:
+        if result.get("path") is not None:
+            result["path"] = cleanup_path(result["path"])
     return structured_result
 
 

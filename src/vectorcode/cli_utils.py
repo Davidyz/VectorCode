@@ -508,6 +508,12 @@ async def expand_globs(
     return list(result)
 
 
+def cleanup_path(path: str):
+    if os.path.isabs(path) and os.environ.get("HOME") is not None:
+        return path.replace(os.environ["HOME"], "~")
+    return path
+
+
 def config_logging(
     name: str = "vectorcode", stdio: bool = True, log_file: bool = False
 ):  # pragma: nocover
