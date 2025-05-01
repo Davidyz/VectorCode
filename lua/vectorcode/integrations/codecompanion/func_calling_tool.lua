@@ -195,15 +195,18 @@ return check_cli_wrap(function(opts)
       if opts.ls_on_start then
         job_runner = cc_common.initialise_runner(opts.use_lsp)
         if job_runner ~= nil then
-          vim.list_extend(guidelines, {
-            "  - The following projects are indexed by VectorCode and are available for you to search in:",
-          })
-          vim.list_extend(
-            guidelines,
-            vim.tbl_map(function(s)
-              return string.format("    - %s", s["project-root"])
-            end, job_runner.run({ "ls", "--pipe" }, -1, 0))
-          )
+          local projects = job_runner.run({ "ls", "--pipe" }, -1, 0)
+          if vim.islist(projects) and #projects > 0 then
+            vim.list_extend(guidelines, {
+              "  - The following projects are indexed by VectorCode and are available for you to search in:",
+            })
+            vim.list_extend(
+              guidelines,
+              vim.tbl_map(function(s)
+                return string.format("    - %s", s["project-root"])
+              end, projects)
+            )
+          end
         end
       end
       local root = vim.fs.root(0, { ".vectorcode", ".git" })

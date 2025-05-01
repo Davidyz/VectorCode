@@ -28,24 +28,28 @@ function runner.run_async(args, callback, bufnr)
       local ok, decoded = pcall(vim.json.decode, table.concat(result, ""))
       if callback ~= nil then
         if ok then
-          logger.debug(
-            "cmd jobrunner result:\n",
-            vim.tbl_map(function(item)
-              item.document = nil
-              item.chunk = nil
-              return item
-            end, vim.deepcopy(result))
-          )
-          callback(decoded, self:stderr_result())
+          callback(decoded or {}, self:stderr_result())
+          if vim.islist(result) then
+            logger.debug(
+              "cmd jobrunner result:\n",
+              vim.tbl_map(function(item)
+                if type(item) == "table" then
+                  item.document = nil
+                  item.chunk = nil
+                end
+                return item
+              end, vim.deepcopy(result))
+            )
+          end
         else
-          logger.warn("cmd runner: failed to decode result:\n", result)
           callback({ result }, self:stderr_result())
+          logger.warn("cmd runner: failed to decode result:\n", result)
         end
       end
     end,
   })
-  jobs[job.pid] = job
   job:start()
+  jobs[job.pid] = job
   return tonumber(job.pid)
 end
 
@@ -59,7 +63,9 @@ function runner.run(args, timeout_ms, bufnr)
     err = error
   end, bufnr)
   if pid ~= nil then
-    jobs[pid]:wait(timeout_ms)
+    vim.wait(timeout_ms, function()
+      return res ~= nil or err ~= nil
+    end)
     jobs[pid] = nil
     return res, err
   else
