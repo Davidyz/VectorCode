@@ -31,7 +31,8 @@ class CrossEncoderReranker(RerankerBase):
             configs.reranker_params["model_name_or_path"] = (
                 "cross-encoder/ms-marco-MiniLM-L-6-v2"
             )
-        self.model = CrossEncoder(**configs.reranker_params)
+        model_name = configs.reranker_params.pop("model_name_or_path")
+        self.model = CrossEncoder(model_name, **configs.reranker_params)
 
     async def compute_similarity(self, results: list[str], query_message: str):
         scores = await asyncio.to_thread(

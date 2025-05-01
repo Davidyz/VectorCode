@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import numpy
@@ -98,10 +99,10 @@ async def test_naive_reranker_rerank(naive_reranker_conf, query_result):
 
 @patch("sentence_transformers.CrossEncoder")
 def test_cross_encoder_reranker_initialization(mock_cross_encoder: MagicMock, config):
+    model_name = config.reranker_params["model_name_or_path"]
     reranker = CrossEncoderReranker(config)
-
     # Verify constructor was called with correct parameters
-    mock_cross_encoder.assert_called_once_with(**config.reranker_params)
+    mock_cross_encoder.assert_called_once_with(model_name, **config.reranker_params)
     assert reranker.n_result == config.n_result
 
 
@@ -109,12 +110,11 @@ def test_cross_encoder_reranker_initialization(mock_cross_encoder: MagicMock, co
 def test_cross_encoder_reranker_initialization_fallback_model_name(
     mock_cross_encoder: MagicMock, config
 ):
-    expected_params = {"model_name_or_path": "cross-encoder/ms-marco-MiniLM-L-6-v2"}
     config.reranker_params = {}
     reranker = CrossEncoderReranker(config)
 
     # Verify constructor was called with correct parameters
-    mock_cross_encoder.assert_called_once_with(**expected_params)
+    mock_cross_encoder.assert_called_once_with("cross-encoder/ms-marco-MiniLM-L-6-v2")
     assert reranker.n_result == config.n_result
 
 
@@ -211,14 +211,10 @@ def test_get_reranker(config, naive_reranker_conf):
     reranker = get_reranker(config)
     assert reranker.configs.reranker == "CrossEncoderReranker"
 
-    reranker = get_reranker(config)
+    reranker = cast(CrossEncoderReranker, get_reranker(config))
     assert reranker.configs.reranker == "CrossEncoderReranker", (
         "configs.reranker should fallback to 'CrossEncoderReranker'"
     )
-    assert (
-        reranker.configs.reranker_params.get("model_name_or_path")
-        == "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    ), "configs.reranker_params should fallback to default params."
 
 
 def test_supported_rerankers_initialization(config, naive_reranker_conf):
