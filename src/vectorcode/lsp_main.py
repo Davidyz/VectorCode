@@ -19,6 +19,7 @@ from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
     Config,
+    cleanup_path,
     config_logging,
     find_project_root,
     load_config_file,
@@ -114,7 +115,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 progress_token,
                 types.WorkDoneProgressBegin(
                     "VectorCode",
-                    message="Retrieving from VectorCode",
+                    message=f"Querying {cleanup_path(str(final_configs.project_root))}",
                 ),
             )
             final_results = []
