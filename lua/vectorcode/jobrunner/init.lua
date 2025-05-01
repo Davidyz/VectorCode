@@ -37,4 +37,22 @@ return {
     end
     return args
   end,
+
+  --- Return the project root found in a `args` list
+  ---@param args string[]
+  ---@param bufnr integer
+  ---@return string?
+  extract_root = function(args, bufnr)
+    local result
+    for i, v in pairs(args) do
+      if v == "--project_root" then
+        result = args[i + 1]
+        break
+      end
+    end
+    if result == nil then
+      result = utils.find_root(bufnr)
+    end
+    return result
+  end,
 }

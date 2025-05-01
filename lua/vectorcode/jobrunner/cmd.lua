@@ -1,6 +1,13 @@
 ---@type VectorCode.JobRunner
 local runner = {}
 
+local has_fidget, fidget = pcall(require, "fidget")
+local jobrunner = require("vectorcode.jobrunner")
+local f_progress
+if has_fidget then
+  f_progress = fidget.progress
+end
+
 local Job = require("plenary.job")
 ---@type {integer: Job}
 local jobs = {}
@@ -18,11 +25,21 @@ function runner.run_async(args, callback, bufnr)
   logger.debug(
     ("cmd jobrunner for buffer %s args: %s"):format(bufnr, vim.inspect(args))
   )
+  local handle
+  if has_fidget then
+    handle = f_progress.handle.create({
+      title = "VectorCode",
+      message = string.format("Querying %s", jobrunner.extract_root(args, bufnr)),
+    })
+  end
   ---@diagnostic disable-next-line: missing-fields
   local job = Job:new({
     command = "vectorcode",
     args = args,
     on_exit = function(self, _, _)
+      if handle ~= nil then
+        handle:finish()
+      end
       jobs[self.pid] = nil
       local result = self:result()
       local ok, decoded = pcall(vim.json.decode, table.concat(result, ""))
