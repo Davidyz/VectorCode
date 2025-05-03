@@ -38,7 +38,11 @@
 
 ## Installation
 
-After 0.1.3, the CLI supports Python 3.11~3.13. The recommended way of
+> The CLI supports Python 3.11~3.13. You may also need a fairly recent c++/rust
+compiler because the core components of the vector database (ChromaDB) contains
+c++ and rust code.
+
+The recommended way of
 installation is through [`pipx`](https://pipx.pypa.io/stable/), which will
 create a virtual environment for the package itself that doesn't mess up with
 your system Python or project-local virtual environments.
