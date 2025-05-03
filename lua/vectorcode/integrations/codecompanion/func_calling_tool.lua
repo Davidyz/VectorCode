@@ -243,7 +243,7 @@ return check_cli_wrap(function(opts)
         stderr = cc_common.flatten_table_to_string(stderr)
         agent.chat:add_tool_output(
           self,
-          string.format("VectorCode tool failed with error:\n", stderr)
+          string.format("**VectorCode Tool**: Failed with error:\n", stderr)
         )
       end,
       ---@param agent CodeCompanion.Agent
@@ -264,7 +264,7 @@ return check_cli_wrap(function(opts)
             if i <= max_result then
               if i == 1 then
                 user_message =
-                  string.format("Retrieved %s files from VectorCode.", max_result)
+                  string.format("**VectorCode Tool**: Retrieved %s files", max_result)
               else
                 user_message = ""
               end
