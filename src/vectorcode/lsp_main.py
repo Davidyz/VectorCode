@@ -22,7 +22,7 @@ from vectorcode.cli_utils import (
     cleanup_path,
     config_logging,
     find_project_root,
-    load_config_file,
+    get_project_config,
     parse_cli_args,
 )
 from vectorcode.common import get_client, get_collection, try_server
@@ -37,10 +37,7 @@ logger = logging.getLogger(__name__)
 async def make_caches(project_root: str):
     assert os.path.isabs(project_root)
     if cached_project_configs.get(project_root) is None:
-        config_file = os.path.join(project_root, ".vectorcode", "config.json")
-        if not os.path.isfile(config_file):
-            config_file = None
-        cached_project_configs[project_root] = await load_config_file(config_file)
+        cached_project_configs[project_root] = await get_project_config(project_root)
     config = cached_project_configs[project_root]
     config.project_root = project_root
     host, port = config.host, config.port

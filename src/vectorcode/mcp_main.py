@@ -151,9 +151,7 @@ async def mcp_server():
         logger.info("Found project config: %s", local_config_dir)
         project_root = str(Path(local_config_dir).parent.resolve())
 
-        default_config = await load_config_file(
-            os.path.join(project_root, ".vectorcode", "config.json")
-        )
+        default_config = await get_project_config(project_root)
         default_config.project_root = project_root
         default_client = await get_client(default_config)
         try:

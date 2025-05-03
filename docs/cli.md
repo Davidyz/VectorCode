@@ -202,6 +202,14 @@ default global configuration will be used. If `.git/` does not exist, VectorCode
 falls back to using the current working directory as the _project root_.
 
 ### Configuring VectorCode
+Since 0.6.4, VectorCode adapted a [json5 parser](https://github.com/dpranke/pyjson5) 
+for loading configuration. VectorCode will now look for `config.json5` in
+configuration directories, and if it doesn't find one, it'll look for
+`config.json` too. Regardless of the filename extension, the json5 syntax will
+be accepted. This allows you to leave trailing comma in the config file, as well
+as writing comments (`//`). This can be very useful if you're experimenting with
+the configs.
+
 The JSON configuration file may hold the following values:
 - `embedding_function`: string, one of the embedding functions supported by [Chromadb](https://www.trychroma.com/) 
   (find more [here](https://docs.trychroma.com/docs/embeddings/embedding-functions) and 

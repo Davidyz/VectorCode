@@ -1,7 +1,6 @@
 import argparse
 import atexit
 import glob
-import json
 import logging
 import os
 import sys
@@ -11,6 +10,7 @@ from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any, Optional, Sequence, Union
 
+import json5
 import shtab
 
 from vectorcode import __version__
@@ -415,9 +415,17 @@ async def load_config_file(path: Optional[PathLike] = None):
     if os.path.isfile(path):
         logger.debug(f"Loading config from {path}")
         with open(path) as fin:
-            config = json.load(fin)
-        expand_envs_in_dict(config)
-        return await Config.import_from(config)
+            content = fin.read()
+        if content:
+            config = json5.loads(content)
+            if isinstance(config, dict):
+                expand_envs_in_dict(config)
+                return await Config.import_from(config)
+            else:
+                logger.error("Invalid configuration format!")
+                raise ValueError("Invalid configuration format!")
+        else:
+            logger.debug("Skipping empty json file.")
     else:
         logger.warning("Loading default config.")
     return Config()
@@ -464,10 +472,14 @@ async def get_project_config(project_root: PathLike) -> Config:
     """
     if not os.path.isabs(project_root):
         project_root = os.path.abspath(project_root)
-    local_config_path = os.path.join(project_root, ".vectorcode", "config.json")
-    if os.path.isfile(os.path.join(project_root, ".vectorcode", "config.json")):
-        config = await load_config_file(local_config_path)
-    else:
+    exts = ("json5", "json")
+    config = None
+    for ext in exts:
+        local_config_path = os.path.join(project_root, ".vectorcode", f"config.{ext}")
+        if os.path.isfile(local_config_path):
+            config = await load_config_file(local_config_path)
+            break
+    if config is None:
         config = await load_config_file()
     config.project_root = project_root
     return config

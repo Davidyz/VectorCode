@@ -48,8 +48,8 @@ async def test_make_caches(tmp_path):
 
     with (
         patch(
-            "vectorcode.lsp_main.load_config_file", new_callable=AsyncMock
-        ) as mock_load_config_file,
+            "vectorcode.lsp_main.get_project_config", new_callable=AsyncMock
+        ) as mock_get_project_config,
         patch(
             "vectorcode.lsp_main.try_server", new_callable=AsyncMock
         ) as mock_try_server,
@@ -57,7 +57,7 @@ async def test_make_caches(tmp_path):
         mock_try_server.return_value = True
         await make_caches(project_root)
 
-        mock_load_config_file.assert_called_once()
+        mock_get_project_config.assert_called_once_with(project_root)
         assert project_root in cached_project_configs
 
 
@@ -69,7 +69,7 @@ async def test_make_caches_server_unavailable(tmp_path):
     config_file.write_text('{"host": "test_host", "port": 9999}')
 
     with (
-        patch("vectorcode.lsp_main.load_config_file", new_callable=AsyncMock),
+        patch("vectorcode.lsp_main.get_project_config", new_callable=AsyncMock),
         patch(
             "vectorcode.lsp_main.try_server", new_callable=AsyncMock
         ) as mock_try_server,

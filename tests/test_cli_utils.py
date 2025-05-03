@@ -1,4 +1,3 @@
-import json
 import os
 import tempfile
 from typing import Any, Dict
@@ -201,7 +200,18 @@ async def test_load_config_file_invalid_json():
         with open(config_path, "w") as f:
             f.write("invalid json")
 
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(ValueError):
+            await load_config_file(config_path)
+
+
+@pytest.mark.asyncio
+async def test_load_config_file_invalid_config():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config_path = os.path.join(temp_dir, "config.json")
+        with open(config_path, "w") as f:
+            f.write('"hello world"')
+
+        with pytest.raises(ValueError):
             await load_config_file(config_path)
 
 
@@ -225,8 +235,7 @@ async def test_load_config_file_empty_file():
         with open(config_path, "w") as f:
             f.write("")
 
-        with pytest.raises(json.JSONDecodeError):
-            await load_config_file(config_path)
+        assert await load_config_file(config_path) == Config()
 
 
 @pytest.mark.asyncio
@@ -399,8 +408,22 @@ async def test_get_project_config_local_config(tmp_path):
     assert config.host == "test_host"
     assert config.port == 9999
 
-    # Clean up the temporary directory
-    # shutil.rmtree(tmp_path)  # Use tmp_path fixture, no need to remove manually
+
+@pytest.mark.asyncio
+async def test_get_project_config_local_config_json5(tmp_path):
+    # Create a temporary directory and a .vectorcode subdirectory
+    project_root = tmp_path / "project"
+    vectorcode_dir = project_root / ".vectorcode"
+    vectorcode_dir.mkdir(parents=True)
+
+    # Create a config.json file inside .vectorcode with some custom settings
+    config_file = vectorcode_dir / "config.json5"
+    config_file.write_text('{"host": "test_host", "port": 9999}')
+
+    # Call get_project_config and check if it returns the custom settings
+    config = await get_project_config(project_root)
+    assert config.host == "test_host"
+    assert config.port == 9999
 
 
 def test_find_project_root_file_input(tmp_path):
