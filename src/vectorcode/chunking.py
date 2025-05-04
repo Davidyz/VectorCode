@@ -150,7 +150,7 @@ class TreeSitterChunker(ChunkerBase):
                 f"Traversing at node {node.text.decode()} at position {node.byte_range}"
             )
         current_chunk: str = ""
-
+        prev_node = None
         current_start = None
 
         for child in node.children:
@@ -184,10 +184,19 @@ class TreeSitterChunker(ChunkerBase):
                 current_start = Point(
                     row=child.start_point.row + 1, column=child.start_point.column
                 )
+                prev_node = child
 
-            elif len(current_chunk) + child_length <= self.config.chunk_size:
+            elif len(current_chunk) + child_length + 1 <= self.config.chunk_size:
                 # Add to current chunk
+                if prev_node:
+                    if prev_node.end_point.row != child.start_point.row:
+                        current_chunk += "\n"
+                    else:
+                        current_chunk += " " * (
+                            child.start_point.column - prev_node.end_point.column
+                        )
                 current_chunk += child_bytes.decode()
+                prev_node = child
 
             else:
                 # Yield current chunk and start new one

@@ -250,7 +250,7 @@ def bar():
 
 
 def test_treesitter_chunker_filter_wildcard():
-    chunker = TreeSitterChunker(Config(chunk_size=30, chunk_filters={"*": [".*foo.*"]}))
+    chunker = TreeSitterChunker(Config(chunk_size=35, chunk_filters={"*": [".*foo.*"]}))
 
     test_content = r"""
 def foo():
@@ -283,12 +283,12 @@ end
         test_file = tmp_file.name
 
     chunks = list(str(i) for i in chunker.chunk(test_file))
-    assert chunks == ['functionbar()return "bar"end']
+    assert chunks == ['function bar()\n  return "bar"\nend']
     os.remove(test_file)
 
 
 def test_treesitter_chunker_lua():
-    chunker = TreeSitterChunker(Config(chunk_size=30))
+    chunker = TreeSitterChunker(Config(chunk_size=35))
     test_content = r"""
 function foo()
   return "foo"
@@ -304,7 +304,10 @@ end
         test_file = tmp_file.name
 
     chunks = list(str(i) for i in chunker.chunk(test_file))
-    assert chunks == ['functionfoo()return "foo"end', 'functionbar()return "bar"end']
+    assert chunks == [
+        'function foo()\n  return "foo"\nend',
+        'function bar()\n  return "bar"\nend',
+    ]
 
     os.remove(test_file)
 
@@ -403,7 +406,7 @@ def bar():
     assert len(chunks) >= 2  # Should have at least 2 chunks
 
     # First chunk should contain the function definition start
-    assert "deffoo():" in chunks[0].text
+    assert "def foo():" in chunks[0].text
     assert chunks[0].start == Point(1, 0)
 
     # Last chunk should contain the final return statement
