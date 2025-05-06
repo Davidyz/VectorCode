@@ -50,4 +50,8 @@ attach the relevant config here:
  - OS: Linux, MacOS, Windows...
 
 **Additional context**
-Add any other context about the problem here.
+Add any other context about the problem here. Please attach 
+[CLI logs](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 
+or 
+[nvim plugin logs](https://github.com/Davidyz/VectorCode/blob/main/docs/neovim.md#debugging-and-logging) 
+if applicable.
