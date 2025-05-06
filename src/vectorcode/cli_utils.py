@@ -97,6 +97,8 @@ class Config:
     chunk_filters: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
     hooks: bool = False
+    rewriter: Optional[str] = None
+    rewriter_params: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -146,6 +148,10 @@ class Config:
                     "chunk_filters", default_config.chunk_filters
                 ),
                 "encoding": config_dict.get("encoding", default_config.encoding),
+                "rewriter": config_dict.get("rewriter"),
+                "rewriter_params": config_dict.get(
+                    "rewriter_params", default_config.rewriter_params
+                ),
             }
         )
 
