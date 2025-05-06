@@ -1,5 +1,4 @@
 import logging
-from typing import override
 
 import openai
 from openai.types.chat import ChatCompletion
@@ -49,7 +48,6 @@ Anti-Goals:
     No hallucinations.
 """
 
-    @override
     async def rewrite(self, original_query: list[str]):
         comp: ChatCompletion = self.client.beta.chat.completions.parse(
             messages=[

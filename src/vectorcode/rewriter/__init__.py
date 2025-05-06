@@ -11,7 +11,7 @@ logger = logging.getLogger(name=__name__)
 __all__ = ["RewriterBase", "OpenAIRewriter"]
 
 
-class RewriterError(Exception):
+class RewriterError(Exception):  # pragma: nocover
     pass
 
 
@@ -21,8 +21,9 @@ def get_rewriter(configs: Config) -> Optional[RewriterBase]:
         return None
     if configs.rewriter == "RewriterBase":
         raise RewriterError("RewriterBase is not a valid rewriter!")
-    rewriter_cls = getattr(sys.modules[__name__], configs.rewriter)
-    if issubclass(rewriter_cls, RewriterBase):
-        logger.info(f"Loaded {configs.rewriter}")
-        return rewriter_cls(configs)
+    if hasattr(sys.modules[__name__], configs.rewriter):
+        rewriter_cls = getattr(sys.modules[__name__], configs.rewriter)
+        if issubclass(rewriter_cls, RewriterBase):
+            logger.info(f"Loaded {configs.rewriter}")
+            return rewriter_cls(configs)
     raise RewriterError(f"Failed to find {configs.rewriter}!")
