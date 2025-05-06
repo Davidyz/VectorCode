@@ -64,7 +64,6 @@ Anti-Goals:
             return original_query
         choice = comp.choices[0].message
         if choice and choice.parsed:
-            print(choice.parsed)
             logger.debug(f"Rewritten queries to: {choice.parsed}")
             return choice.parsed.keywords
         else:
