@@ -20,6 +20,7 @@ from vectorcode.common import (
     get_collection,
     verify_ef,
 )
+from vectorcode.rewriter import OpenAIRewriter
 from vectorcode.subcommands.query.reranker import (
     RerankerError,
     get_reranker,
@@ -33,6 +34,8 @@ async def get_query_result_files(
 ) -> list[str]:
     query_chunks = []
     if configs.query:
+        if configs.rewriter:
+            configs.query = await OpenAIRewriter(configs).rewrite(configs.query)
         chunker = StringChunker(configs)
         for q in configs.query:
             query_chunks.extend(str(i) for i in chunker.chunk(q))
