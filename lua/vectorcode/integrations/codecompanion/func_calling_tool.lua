@@ -71,6 +71,7 @@ return check_cli_wrap(function(opts)
           end
           vim.list_extend(args, action.options.query)
           if action.options.project_root ~= nil then
+            action.options.project_root = vim.fs.normalize(action.options.project_root)
             if
               vim.uv.fs_stat(action.options.project_root) ~= nil
               and vim.uv.fs_stat(action.options.project_root).type == "directory"
