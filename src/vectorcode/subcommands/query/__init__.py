@@ -28,15 +28,20 @@ from vectorcode.subcommands.query.reranker import (
 logger = logging.getLogger(name=__name__)
 
 
+def _get_rewriter(configs: Config):  # pragma: nocover
+    # a wrapper around `get_rewriter` for unittesting and lazy import
+    from vectorcode.rewriter import get_rewriter
+
+    return get_rewriter(configs)
+
+
 async def get_query_result_files(
     collection: AsyncCollection, configs: Config
 ) -> list[str]:
     query_chunks = []
     if configs.query:
         if configs.use_rewriter:
-            from vectorcode.rewriter import get_rewriter  # lazy import
-
-            rewriter = get_rewriter(configs)
+            rewriter = _get_rewriter(configs)
             if rewriter is not None:
                 configs.query = await rewriter.rewrite(configs.query)
         chunker = StringChunker(configs)
