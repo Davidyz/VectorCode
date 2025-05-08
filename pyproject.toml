@@ -20,6 +20,7 @@ dependencies = [
     "colorlog",
     "charset-normalizer>=3.4.1",
     "json5",
+    "openai",
 ]
 requires-python = ">=3.11,<3.14"
 readme = "README.md"
@@ -68,7 +69,6 @@ dev = [
     "pytest-asyncio>=0.25.3",
     "debugpy>=1.8.12",
     "coredumpy>=0.4.1",
-    "openai>=1.77.0",
 ]
 
 [project.optional-dependencies]

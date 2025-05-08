@@ -45,7 +45,7 @@ Rules:
         
         Omit langauge-specific keywords (e.g., "async def foo():" → "foo")
 
-        Do not include standard libraries the query.
+        Do not include standard libraries in the query.
 
     For Docs/Code:
 
