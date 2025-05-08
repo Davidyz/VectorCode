@@ -25,5 +25,5 @@ def get_rewriter(configs: Config) -> Optional[RewriterBase]:
         rewriter_cls = getattr(sys.modules[__name__], configs.rewriter)
         if issubclass(rewriter_cls, RewriterBase):
             logger.info(f"Loaded {configs.rewriter}")
-            return rewriter_cls(configs)
+            return rewriter_cls.create(configs)
     raise RewriterError(f"Failed to find {configs.rewriter}!")

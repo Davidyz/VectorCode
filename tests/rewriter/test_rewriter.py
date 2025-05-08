@@ -21,7 +21,7 @@ def test_get_openai_rewriter():
         patch("vectorcode.rewriter.issubclass") as mock_issubclass,
     ):
         mock_rewriter = MagicMock()
-        mock_openai_cls.return_value = mock_rewriter
+        mock_openai_cls.create.return_value = mock_rewriter
         mock_issubclass.return_value = True
         assert get_rewriter(Config(rewriter="OpenAIRewriter")) == mock_rewriter
 

@@ -17,6 +17,16 @@ class _NewQuery(BaseModel):
 
 
 class OpenAIRewriter(RewriterBase):
+    """
+    OpenAIRewriter class is an adapter for openai-compatible API services that provides
+    structured output support. The `rewriter_params` dictionary accepts 3 keys:
+        - `client_kwargs`: dictionary, containing arguments that are passed to `openai.Client`.
+          See https://github.com/openai/openai-python/blob/67997a4ec1ebcdf8e740afb0d0b2e37897657bde/src/openai/_client.py#L80;
+        - `completion_kwargs`: dictionary, containing arguments that are passed to `openai.Client.beta.chat.completions.parse`.
+          See https://github.com/openai/openai-python/blob/main/helpers.md#structured-outputs-parsing-helpers.
+        - `system_prompt`: string, the system prompt that contains the guidelines for rewriting the query.
+    """
+
     def __init__(self, config: Config) -> None:
         super().__init__(config)
         self.client = openai.Client(
@@ -65,7 +75,7 @@ Anti-Goals:
             )
             if comp is None or len(comp.choices) == 0:
                 logger.info(
-                    "Recieved no rewritten query. Fallingback to original_query."
+                    "Received no rewritten query. Fallingback to original_query."
                 )
                 return original_query
             choice = comp.choices[0].message
