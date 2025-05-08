@@ -2,7 +2,7 @@ import logging
 
 import openai
 from openai.types.chat import ChatCompletion
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from vectorcode.cli_utils import Config
 from vectorcode.rewriter.base import RewriterBase
@@ -22,7 +22,9 @@ class OpenAIRewriter(RewriterBase):
         self.client = openai.Client(
             **self.config.rewriter_params.get("client_kwargs", {})
         )
-        self.system_prompt = """
+        self.system_prompt = self.config.rewriter_params.get(
+            "system_prompt",
+            """
 Role:
         You are a code-aware rewriter that improves technical queries/docs for retrieval. Never assume a programming language unless the input explicitly includes syntax, APIs, or error messages from one.
 Rules:
@@ -32,6 +34,8 @@ Rules:
         Fix unambiguous typos (e.g., "Pytoch" → "PyTorch").
         
         Omit langauge-specific keywords (e.g., "async def foo():" → "foo")
+
+        Do not include standard libraries the query.
 
     For Docs/Code:
 
@@ -46,26 +50,35 @@ Anti-Goals:
     No code changes.
 
     No hallucinations.
-"""
+""",
+        )
 
     async def rewrite(self, original_query: list[str]):
-        comp: ChatCompletion = self.client.beta.chat.completions.parse(
-            messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": " ".join(original_query)},
-            ],
-            response_format=_NewQuery,
-            **self.config.rewriter_params.get("completion_kwargs", {}),
-        )
-        if comp is None or len(comp.choices) == 0:
-            logger.info("Recieved no rewritten query. Fallingback to original_query.")
-            return original_query
-        choice = comp.choices[0].message
-        if choice and choice.parsed:
-            logger.debug(f"Rewritten queries to: {choice.parsed}")
-            return choice.parsed.keywords
-        else:
+        try:
+            comp: ChatCompletion = self.client.beta.chat.completions.parse(
+                messages=[
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": " ".join(original_query)},
+                ],
+                response_format=_NewQuery,
+                **self.config.rewriter_params.get("completion_kwargs", {}),
+            )
+            if comp is None or len(comp.choices) == 0:
+                logger.info(
+                    "Recieved no rewritten query. Fallingback to original_query."
+                )
+                return original_query
+            choice = comp.choices[0].message
+            if choice and choice.parsed:
+                logger.debug(f"Rewritten queries to: {choice.parsed}")
+                return choice.parsed.keywords
+            else:
+                logger.warning(
+                    f"Failed to parse structured output: {choice.refusal}. Fallingback to original_query."
+                )
+                return original_query
+        except ValidationError:
             logger.warning(
-                f"Failed to parse structured output: {choice.refusal}. Fallingback to original_query."
+                "Failed to parse structured output. Fallingback to original_query."
             )
             return original_query
