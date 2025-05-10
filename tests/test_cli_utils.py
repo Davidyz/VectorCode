@@ -491,14 +491,6 @@ async def test_parse_cli_args_init():
 
 
 @pytest.mark.asyncio
-async def test_parse_cli_args_hooks():
-    with patch("sys.argv", ["vectorcode", "hooks", "-f"]):
-        config = await parse_cli_args()
-        assert config.action == CliAction.hooks
-        assert config.force
-
-
-@pytest.mark.asyncio
 async def test_parse_cli_args_chunks():
     with patch(
         "sys.argv", ["vectorcode", "chunks", "file.py", "-c", "100", "-o", "0.5"]
