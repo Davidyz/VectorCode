@@ -62,14 +62,6 @@ async def async_main():
             from vectorcode.subcommands import chunks
 
             return await chunks(final_configs)
-        case CliAction.hooks:
-            logger.warning(
-                "`vectorcode hooks` has been deprecated and will be removed in 0.7.0."
-            )
-            logger.warning("Please use `vectorcode init --hooks`.")
-            from vectorcode.subcommands import hooks
-
-            return await hooks(cli_args)
 
     from vectorcode.common import start_server, try_server
 
