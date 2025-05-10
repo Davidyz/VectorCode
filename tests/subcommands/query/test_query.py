@@ -570,3 +570,35 @@ async def test_query_chunk_mode_no_metadata_fallback(mock_config):
         args, _ = mock_build_results.call_args
         _, called_config = args
         assert called_config.include == [QueryInclude.path, QueryInclude.document]
+
+
+@pytest.mark.asyncio
+async def test_get_query_result_files_with_rewriter(mock_collection, mock_config):
+    mock_config.query = ["test query"]
+    mock_config.use_rewriter = True
+
+    with patch("vectorcode.subcommands.query._get_rewriter") as mock_get_rewriter:
+        mock_rewriter_instance = AsyncMock()
+        mock_rewriter_instance.rewrite = AsyncMock(return_value="rewritten test query")
+        mock_get_rewriter.return_value = mock_rewriter_instance
+
+        mock_collection.query.return_value = {
+            "ids": [["id1", "id2", "id3"]],
+            "distances": [[0.1, 0.2, 0.3]],
+            "metadatas": [
+                [{"path": "file1.py"}, {"path": "file2.py"}, {"path": "file3.py"}]
+            ],
+            "documents": [["content1", "content2", "content3"]],
+        }
+
+        mock_reranker_instance = AsyncMock()
+        mock_reranker_instance.rerank = AsyncMock(
+            return_value=["file1.py", "file2.py", "file3.py"]
+        )
+        with patch("vectorcode.subcommands.query.get_reranker") as mock_get_reranker:
+            mock_get_reranker.return_value = mock_reranker_instance
+
+            result = await get_query_result_files(mock_collection, mock_config)
+
+            mock_rewriter_instance.rewrite.assert_called_once_with(["test query"])
+            assert result == ["file1.py", "file2.py", "file3.py"]
