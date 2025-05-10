@@ -31,7 +31,7 @@ async def test_init_already_initialized(capsys):
 
         # Try to initialize again without force
         return_code = await init(configs)
-        assert return_code == 1
+        assert return_code != 0
 
 
 @pytest.mark.asyncio

@@ -94,21 +94,27 @@ class HookFile:
 async def init(configs: Config) -> int:
     assert configs.project_root is not None
     project_config_dir = os.path.join(str(configs.project_root), ".vectorcode")
+    is_initialised = 0
     if os.path.isdir(project_config_dir) and not configs.force:
         logger.warning(
             f"{configs.project_root} is already initialised for VectorCode.",
         )
-        return 1
+        is_initialised = 1
+    else:
+        os.makedirs(project_config_dir, exist_ok=True)
+        for item in ("config.json", "vectorcode.include", "vectorcode.exclude"):
+            local_file_path = os.path.join(project_config_dir, item)
+            global_file_path = os.path.join(
+                os.path.expanduser("~"), ".config", "vectorcode", item
+            )
+            if os.path.isfile(global_file_path):
+                logger.debug(f"Copying global {item} to {project_config_dir}")
+                shutil.copyfile(global_file_path, local_file_path)
 
-    os.makedirs(project_config_dir, exist_ok=True)
-    for item in ("config.json", "vectorcode.include", "vectorcode.exclude"):
-        local_file_path = os.path.join(project_config_dir, item)
-        global_file_path = os.path.join(
-            os.path.expanduser("~"), ".config", "vectorcode", item
+        print(f"VectorCode project root has been initialised at {configs.project_root}")
+        print(
+            "Note: The collection in the database will not be created until you vectorise a file."
         )
-        if os.path.isfile(global_file_path):
-            logger.debug(f"Copying global {item} to {project_config_dir}")
-            shutil.copyfile(global_file_path, local_file_path)
 
     git_root = find_project_root(configs.project_root, ".git")
     if git_root:
@@ -120,8 +126,4 @@ async def init(configs: Config) -> int:
             hook_obj = HookFile(hook_file_path, git_dir=git_root)
             hook_obj.inject_hook(__HOOK_CONTENTS[hook], configs.force)
 
-    print(f"VectorCode project root has been initialised at {configs.project_root}")
-    print(
-        "Note: The collection in the database will not be created until you vectorise a file."
-    )
-    return 0
+    return is_initialised
