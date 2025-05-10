@@ -175,7 +175,7 @@ return check_cli_wrap(function(opts)
     },
     system_prompt = function()
       local guidelines = {
-        "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags",
+        "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags. Do not include the `<path>``</path>` tags in your answers when you mention the paths.",
         "  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running",
         "  - Include one single command call for VectorCode each time. You may include multiple keywords in the command",
         "  - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks",
@@ -264,8 +264,16 @@ return check_cli_wrap(function(opts)
           for i, file in pairs(stdout) do
             if i <= max_result then
               if i == 1 then
-                user_message =
-                  string.format("**VectorCode Tool**: Retrieved %s files", max_result)
+                if cmd.options.project_root then
+                  user_message = string.format(
+                    "**VectorCode Tool**: Retrieved %s files from %s",
+                    max_result,
+                    cmd.options.project_root
+                  )
+                else
+                  user_message =
+                    string.format("**VectorCode Tool**: Retrieved %s files", max_result)
+                end
               else
                 user_message = ""
               end
