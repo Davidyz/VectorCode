@@ -13,10 +13,10 @@
   * [If Anything Goes Wrong...](#if-anything-goes-wrong)
 * [Advanced Usage](#advanced-usage)
   * [Initialising a Project](#initialising-a-project)
+    * [Git Hooks](#git-hooks)
   * [Configuring VectorCode](#configuring-vectorcode)
   * [Vectorising Your Code](#vectorising-your-code)
     * [File Specs](#file-specs)
-    * [Git Hooks](#git-hooks)
   * [Making a Query](#making-a-query)
   * [Listing All Collections](#listing-all-collections)
   * [Removing a Collection](#removing-a-collection)
@@ -123,8 +123,7 @@ vectorcode vectorise src/**/*.py
 ```
 > VectorCode doesn't track file changes, so you need to re-vectorise edited
 > files. You may automate this by a git pre-commit hook, etc. See the 
-> [wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks)
-> for examples to set them up.
+> [advanced usage section](#git-hooks) for examples to set them up.
 
 Ideally, you should try to vectorise all source code in the repo, but for large 
 repos you may experience slow queries. If that happens, try to `vectorcode drop` 
@@ -164,7 +163,7 @@ to refresh the embedding for a particular file, and the CLI provides a
 are currently indexed by VectorCode for the current project. 
 
 If you want something more automagic, check out 
-[this section in the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
+[the advanced usage section](#git-hooks) 
 about setting up git hooks to trigger automatic embedding updates when you
 commit/checkout to a different tag.
 
@@ -204,6 +203,37 @@ If you skip `vectorcode init`, VectorCode will look for a directory that
 contains `.git/` subdirectory and use it as the _project root_. In this case, the
 default global configuration will be used. If `.git/` does not exist, VectorCode
 falls back to using the current working directory as the _project root_.
+
+#### Git Hooks
+
+To keep the embeddings up-to-date, you may find it useful to set up some git
+hooks. The `init` subcommand provides a `--hooks` flag which helps you manage
+hooks when working with a git repository. You can put some custom hooks in
+`~/.config/vectorcode/hooks/` and the `vectorcode init --hooks` command will 
+pick them up and append them to your existing hooks, or create new hook scripts 
+if they don't exist yet. The hook files should be named the same as they would 
+be under the `.git/hooks` directory. For example, a pre-commit hook would be named 
+`~/.config/vectorcode/hooks/pre-commit`. 
+
+By default, there are 2 pre-defined hooks:
+```bash
+# pre-commit hook that vectorise changed files before you commit.
+diff_files=$(git diff --cached --name-only)
+[ -z "$diff_files" ] || vectorcode vectorise $diff_files
+```
+```bash
+# post-checkout hook that vectorise changed files when you checkout to a
+# different branch/tag/commit
+files=$(git diff --name-only "$1" "$2")
+[ -z "$files" ] || vectorcode vectorise $files
+```
+When you run `vectorcode init --hooks` in a git repo, these 2 hooks will be added 
+to your `.git/hooks/`. Hooks that are managed by VectorCode will be wrapped by 
+`# VECTORCODE_HOOK_START` and `# VECTORCODE_HOOK_END` comment lines. They help 
+VectorCode determine whether hooks have been added, so don't delete the markers 
+unless you know what you're doing. To remove the hooks, simply delete the lines
+wrapped by these 2 comment strings.
+
 
 ### Configuring VectorCode
 Since 0.6.4, VectorCode adapted a [json5 parser](https://github.com/dpranke/pyjson5) 
@@ -365,35 +395,6 @@ These specs can be useful if you want to automatically update the embeddings
 on certain conditions. See 
 [the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
 for an example to use it with git hooks.
-
-#### Git Hooks
-
-To keep the embeddings up-to-date, you may find it useful to set up some git
-hooks. The CLI provides a subcommand, `vectorcode hooks`, that helps you manage
-hooks when working with a git repository. You can put some custom hooks in
-`~/.config/vectorcode/hooks/` and the `vectorcode hooks` command will pick them
-up and append them to your existing hooks, or create new hook scripts if they
-don't exist yet. The hook files should be named the same as they would be under
-the `.git/hooks` directory. For example, a pre-commit hook would be named 
-`~/.config/vectorcode/hooks/pre-commit`. By default, there are 2 pre-defined
-hooks:
-```bash
-# pre-commit hook that vectorise changed files before you commit.
-diff_files=$(git diff --cached --name-only)
-[ -z "$diff_files" ] || vectorcode vectorise $diff_files
-```
-```bash
-# post-checkout hook that vectorise changed files when you checkout to a
-# different branch/tag/commit
-files=$(git diff --name-only "$1" "$2")
-[ -z "$files" ] || vectorcode vectorise $files
-```
-When you run `vectorcode hooks` in a git repo, these 2 hooks will be added to
-your `.git/hooks/`. Hooks that are managed by VectorCode will be wrapped by 
-`# VECTORCODE_HOOK_START` and `# VECTORCODE_HOOK_END` comment lines. They help 
-VectorCode determine whether hooks have been added, so don't delete the markers 
-unless you know what you're doing. To remove the hooks, simply delete the lines
-wrapped by these 2 comment strings.
 
 ### Making a Query
 
