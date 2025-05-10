@@ -96,6 +96,7 @@ class Config:
     hnsw: dict[str, str | int] = field(default_factory=dict)
     chunk_filters: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
+    hooks: bool = False
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -306,6 +307,12 @@ def get_cli_parser():
         action="store_true",
         default=False,
         help="Wipe current project config and overwrite with global config (if it exists).",
+    )
+    init_parser.add_argument(
+        "--hooks",
+        action="store_true",
+        default=False,
+        help="Add git hooks to the current project, if it's a git repo.",
     )
 
     subparsers.add_parser(

@@ -1,6 +1,6 @@
 import os
 import tempfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -93,3 +93,34 @@ async def test_init_copies_global_config(capsys):
                 f"VectorCode project root has been initialised at {temp_dir}"
                 in captured.out
             )
+
+
+@pytest.mark.asyncio
+async def test_hooks_orchestration_with_hooks():
+    """Test hooks orchestration: handles git repo and loaded hooks."""
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        mock_config = Config(project_root=os.path.join(temp_dir, "project"), hooks=True)
+        defined_hooks = {
+            "pre-commit": ["line1"],
+            "post-commit": ["lineA", "lineB"],
+        }
+
+        mock_hook_instance = MagicMock()
+
+        with (
+            patch.dict(
+                "vectorcode.subcommands.init.__HOOK_CONTENTS", defined_hooks, clear=True
+            ),
+            patch("vectorcode.subcommands.init.HookFile") as mock_HookFile,
+            patch(
+                "vectorcode.subcommands.init.find_project_root",
+                return_value=os.path.join(temp_dir, "project"),
+            ),
+            patch("vectorcode.subcommands.init.load_hooks") as mock_load_hooks,
+        ):
+            mock_HookFile.return_value = mock_hook_instance
+            return_code = await init(mock_config)
+
+            mock_load_hooks.assert_called_once()
+            assert return_code == 0
