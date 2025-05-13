@@ -1,6 +1,11 @@
+local vectorcode_server_cli_cmd =
+  require("vectorcode.config").get_user_config().cli_cmds.vectorcode_server
+local vectorcode_cli_cmd =
+  require("vectorcode.config").get_user_config().cli_cmds.vectorcode
+
 if
-  vim.fn.executable("vectorcode-server") ~= 1
-  or vim.system({ "vectorcode-server", "--version" }):wait().code ~= 0
+  vim.fn.executable(vectorcode_server_cli_cmd) ~= 1
+  or vim.system({ vectorcode_server_cli_cmd, "--version" }):wait().code ~= 0
 then
   return nil
 end
@@ -93,7 +98,7 @@ function jobrunner.run_async(args, callback, bufnr)
   )
   local _, id = CLIENT:request(
     vim.lsp.protocol.Methods.workspace_executeCommand,
-    { command = "vectorcode", arguments = args },
+    { command = vectorcode_cli_cmd, arguments = args },
     function(err, result, _, _)
       if type(callback) == "function" then
         local err_message = {}

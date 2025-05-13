@@ -15,6 +15,10 @@ local cacher = nil
 
 ---@type VectorCode.Opts
 local config = {
+  cli_cmds = {
+    vectorcode = "vectorcode",
+    vectorcode_server = "vectorcode-server",
+  },
   async_opts = {
     debounce = 10,
     events = { "BufWritePost", "InsertEnter", "BufReadPost" },
@@ -24,6 +28,7 @@ local config = {
     query_cb = require("vectorcode.utils").make_surrounding_lines_cb(-1),
     run_on_register = false,
     single_job = false,
+    timeout_ms = 5000,
   },
   async_backend = "default",
   exclude_this = true,
@@ -35,12 +40,14 @@ local config = {
 }
 
 local setup_config = vim.deepcopy(config, true)
+local vectorcode_cli_cmd = setup_config.cli_cmds.vectorcode
+local vectorcode_server_cli_cmd = setup_config.cli_cmds.vectorcode_server
 
 ---@return vim.lsp.ClientConfig
 local lsp_configs = function()
   ---@type vim.lsp.ClientConfig
   local cfg =
-    { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
+    { cmd = { vectorcode_server_cli_cmd }, root_markers = { ".vectorcode", ".git" } }
   if vim.lsp.config ~= nil and vim.lsp.config.vectorcode_server ~= nil then
     -- nvim >= 0.11.0
     cfg = vim.tbl_deep_extend("force", cfg, vim.lsp.config.vectorcode_server)
@@ -73,7 +80,7 @@ local notify_opts = { title = "VectorCode" }
 ---@param opts {notify:boolean}?
 local has_cli = function(opts)
   opts = opts or { notify = false }
-  local ok = vim.fn.executable("vectorcode") == 1
+  local ok = vim.fn.executable(vectorcode_cli_cmd) == 1
   if not ok and opts.notify then
     vim.notify("VectorCode CLI is not executable!", vim.log.levels.ERROR, notify_opts)
   end

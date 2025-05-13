@@ -1,6 +1,7 @@
 ---@type VectorCode.CacheBackend
 local M = {}
 local vc_config = require("vectorcode.config")
+local vectorcode_cli_cmd = vc_config.get_user_config().cli_cmds.vectorcode
 local logger = vc_config.logger
 
 local notify_opts = vc_config.notify_opts

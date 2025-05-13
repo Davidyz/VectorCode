@@ -7,6 +7,8 @@ import time
 import traceback
 import uuid
 
+import shtab
+
 try:  # pragma: nocover
     from lsprotocol import types
     from pygls.exceptions import (
@@ -63,6 +65,12 @@ def get_arg_parser():
         help="Default project root for VectorCode queries.",
         type=str,
         default="",
+    )
+    shtab.add_argument_to(
+        parser,
+        ["-s", "--print-completion"],
+        parent=parser,
+        help="Print completion script.",
     )
     return parser
 

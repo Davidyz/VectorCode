@@ -4,6 +4,8 @@ local runner = {}
 local Job = require("plenary.job")
 ---@type {integer: Job}
 local jobs = {}
+local vectorcode_cli_cmd =
+  require("vectorcode.config").get_user_config().cli_cmds.vectorcode
 local logger = require("vectorcode.config").logger
 
 function runner.run_async(args, callback, bufnr)
@@ -12,15 +14,12 @@ function runner.run_async(args, callback, bufnr)
   else
     callback = nil
   end
-  local cmd = { "vectorcode" }
-  args = require("vectorcode.jobrunner").find_root(args, bufnr)
-  vim.list_extend(cmd, args)
   logger.debug(
     ("cmd jobrunner for buffer %s args: %s"):format(bufnr, vim.inspect(args))
   )
   ---@diagnostic disable-next-line: missing-fields
   local job = Job:new({
-    command = "vectorcode",
+    command = vectorcode_cli_cmd,
     args = args,
     on_exit = function(self, code, signal)
       jobs[self.pid] = nil
