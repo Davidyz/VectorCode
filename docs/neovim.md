@@ -137,6 +137,10 @@ This function initialises the VectorCode client and sets up some default
 ```lua
 -- Default configuration
 require("vectorcode").setup({
+  cli_cmds = {
+    vectorcode = "vectorcode",
+    vectorcode_server = "vectorcode-server",
+  },
   async_opts = {
     debounce = 10,
     events = { "BufWritePost", "InsertEnter", "BufReadPost" },
@@ -160,6 +164,10 @@ require("vectorcode").setup({
 ```
 
 The following are the available options for the parameter of this function:
+- `cli_cmds`: A table to customize the CLI command names / paths used by the plugin.
+  Supported keys:
+  - `vectorcode`: The command / path to use for the main CLI tool. Default: `"vectorcode"`.
+  - `vectorcode_server`: The command / path to use for the server component. Default: `"vectorcode-server"`.
 - `n_query`: number of retrieved documents. A large number gives a higher chance
   of including the right file, but with the risk of saturating the context 
   window and getting truncated. Default: `1`;
