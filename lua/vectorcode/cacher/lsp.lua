@@ -1,6 +1,7 @@
 ---@type VectorCode.CacheBackend
 local M = {}
 local vc_config = require("vectorcode.config")
+local vectorcode_cli_cmd = vc_config.get_user_config().cli_cmds.vectorcode
 local logger = vc_config.logger
 
 local notify_opts = vc_config.notify_opts
@@ -356,7 +357,7 @@ function M.async_check(check_item, on_success, on_failure)
   end
 
   check_item = check_item or "config"
-  vim.system({ "vectorcode", "check", check_item }, {}, function(out)
+  vim.system({ vectorcode_cli_cmd, "check", check_item }, {}, function(out)
     if out.code == 0 and type(on_success) == "function" then
       vim.schedule_wrap(on_success)(out)
     elseif out.code ~= 0 and type(on_failure) == "function" then
