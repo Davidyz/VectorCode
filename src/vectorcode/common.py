@@ -5,7 +5,6 @@ import os
 import socket
 import subprocess
 import sys
-import traceback
 from typing import AsyncGenerator
 
 import chromadb
@@ -159,9 +158,8 @@ def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction | None
             "\nFor errors caused by missing dependency, consult the documentation of pipx (or whatever package manager that you installed VectorCode with) for instructions to inject libraries into the virtual environment."
         )
         logger.error(
-            f"Failed to use {configs.embedding_function} with the following error:",
+            f"Failed to use {configs.embedding_function} with following error.",
         )
-        logger.error(traceback.format_exc())
         raise
 
 

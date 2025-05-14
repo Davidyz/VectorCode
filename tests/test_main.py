@@ -373,10 +373,9 @@ async def test_async_main_exception_handling(monkeypatch):
     mock_query = AsyncMock(side_effect=Exception("Test Exception"))
     monkeypatch.setattr("vectorcode.subcommands.query", mock_query)
 
-    with patch("sys.stderr.write") as mock_stderr:
-        return_code = await async_main()
-        assert return_code == 1
-        mock_stderr.assert_called()
+    with patch("vectorcode.main.logger") as mock_logger:
+        assert await async_main() == 1
+        mock_logger.error.assert_called_once()
 
 
 @pytest.mark.asyncio

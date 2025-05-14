@@ -85,7 +85,7 @@ class FileChunker(ChunkerBase):
         super().__init__(config)
 
     def chunk(self, data: TextIOWrapper) -> Generator[Chunk, None, None]:
-        logger.info("Started chunking using FileChunker.", data.name)
+        logger.info("Started chunking %s using FileChunker.", data.name)
         lines = data.readlines()
         if len(lines) == 0:
             return

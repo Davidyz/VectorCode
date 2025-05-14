@@ -61,7 +61,7 @@ async def async_main():
         case CliAction.chunks:
             from vectorcode.subcommands import chunks
 
-            return_val = await chunks(final_configs)
+            return await chunks(final_configs)
         case CliAction.hooks:
             logger.warning(
                 "`vectorcode hooks` has been deprecated and will be removed in 0.7.0."
@@ -109,9 +109,8 @@ async def async_main():
                 from vectorcode.subcommands import clean
 
                 return_val = await clean(final_configs)
-    except Exception as e:
+    except Exception:
         return_val = 1
-        traceback.print_exception(e, file=sys.stderr)
         logger.error(traceback.format_exc())
     finally:
         if server_process is not None:
