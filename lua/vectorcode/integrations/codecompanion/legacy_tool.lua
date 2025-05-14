@@ -70,10 +70,10 @@ return check_cli_wrap(function(opts)
               vim.list_extend(args, { "--project_root", action.options.project_root })
               vim.list_extend(args, { "--absolute" })
             else
-              agent.chat:add_message(
-                { role = "user", content = "INVALID PROJECT ROOT! USE THE LS COMMAND!" },
-                { visible = false }
-              )
+              return {
+                status = "error",
+                data = "INVALID PROJECT ROOT! USE THE LS COMMAND!",
+              }
             end
           end
 
@@ -281,7 +281,7 @@ Remember:
         agent.chat:add_message({
           role = "user",
           content = string.format(
-            "VectorCode tool failed with the following error:\n",
+            "VectorCode tool failed with the following error:\n```\n%s\n```",
             stderr
           ),
         }, { visible = false })
