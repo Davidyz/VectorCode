@@ -8,10 +8,10 @@ for a list of hooks enabled for the repo.
 # Python CLI
 
 The development and publication of this tool is managed by 
-[pdm](https://pdm-project.org/en/latest/).
+[uv](https://docs.astral.sh/uv/).
 
 Once you've cloned and `cd`ed into the repo, run `make deps`. This will call
-some `pdm` commands to install development dependencies. Some of them are
+some `uv` commands to install development dependencies. Some of them are
 actually optional, but for convenience I decided to leave them here. This will
 include [pytest](https://docs.pytest.org/en/stable/), the testing framework, 
 and [coverage.py](https://coverage.readthedocs.io/en/7.7.1/), the coverage

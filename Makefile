@@ -1,7 +1,7 @@
 .PHONY: multitest
 
 deps:
-	uv sync --group dev --extra lsp --extra mcp
+	uv sync --group dev --group lsp --group mcp
 	
 test:
 	make deps; \
@@ -17,4 +17,5 @@ coverage:
 	make deps; \
 	uv run coverage run -m pytest; \
 	uv run coverage html; \
-	uv run coverage report -m
+	uv run coverage report -m; \
+	uv run coverage xml -m

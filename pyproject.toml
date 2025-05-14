@@ -64,8 +64,6 @@ dev = [
     "debugpy>=1.8.12",
     "coredumpy>=0.4.1",
 ]
-
-[project.optional-dependencies]
 legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
 intel = ['optimum[openvino]', 'openvino']
 lsp = ['pygls<2.0.0', 'lsprotocol']
