@@ -36,16 +36,11 @@ vectorcode-server = "vectorcode.lsp_main:main"
 vectorcode-mcp-server = "vectorcode.mcp_main:main"
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
 
-[tool.pdm]
-distribution = true
-
-[tool.pdm.version]
-source = "scm"
-write_to = "./vectorcode/_version.py"
-write_template = "__version__ = '{}' # pragma: no cover"
+[tool.setuptools_scm]
+version_file = "./src/vectorcode/_version.py"
 
 [tool.coverage.run]
 omit = [

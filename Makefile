@@ -1,21 +1,20 @@
 .PHONY: multitest
 
 deps:
-	pdm lock --group dev --group lsp --group mcp; \
-	pdm install
+	uv sync --group dev --extra lsp --extra mcp
 	
 test:
 	make deps; \
-	pdm run pytest --enable-coredumpy --coredumpy-dir dumps
+	uv run pytest --enable-coredumpy --coredumpy-dir dumps
 
 multitest:
 	@for i in {11..13}; do \
-		pdm use python3.$$i; \
-		make test; \
+		uv venv -p python3.$$i; \
+		make test || exit 1; \
 	done
 
 coverage:
 	make deps; \
-	pdm run coverage run -m pytest; \
-	pdm run coverage html; \
-	pdm run coverage report -m
+	uv run coverage run -m pytest; \
+	uv run coverage html; \
+	uv run coverage report -m
