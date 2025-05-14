@@ -489,6 +489,12 @@ async def test_parse_cli_args_chunks():
         assert config.overlap_ratio == 0.5
         assert config.chunk_size == 100
 
+    with patch("sys.argv", ["vectorcode", "chunks", "file.py"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.chunks
+        assert config.overlap_ratio == Config().overlap_ratio
+        assert config.chunk_size == Config().chunk_size
+
 
 @pytest.mark.asyncio
 async def test_config_import_from_hnsw():

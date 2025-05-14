@@ -172,22 +172,27 @@ class Config:
 
 
 def get_cli_parser():
+    __default_config = Config()
     shared_parser = argparse.ArgumentParser(add_help=False)
     chunking_parser = argparse.ArgumentParser(add_help=False)
     chunking_parser.add_argument(
-        "--overlap", "-o", type=float, help="Ratio of overlaps between chunks."
+        "--overlap",
+        "-o",
+        type=float,
+        default=__default_config.overlap_ratio,
+        help="Ratio of overlaps between chunks.",
     )
     chunking_parser.add_argument(
         "-c",
         "--chunk_size",
         type=int,
-        default=-1,
+        default=__default_config.chunk_size,
         help="Size of chunks (-1 for no chunking).",
     )
     chunking_parser.add_argument(
         "--encoding",
         type=str,
-        default="utf8",
+        default=__default_config.encoding,
         help="Encoding used by the files. See https://docs.python.org/3/library/codecs.html#standard-encodings for supported encodings. Use `_auto` for automatic encoding detection.",
     )
     shared_parser.add_argument(
@@ -262,10 +267,18 @@ def get_cli_parser():
     )
     query_parser.add_argument("query", nargs="+", help="Query keywords.")
     query_parser.add_argument(
-        "--multiplier", "-m", type=int, default=-1, help="Query multiplier."
+        "--multiplier",
+        "-m",
+        type=int,
+        default=__default_config.query_multiplier,
+        help="Query multiplier.",
     )
     query_parser.add_argument(
-        "-n", "--number", type=int, default=1, help="Number of results to retrieve."
+        "-n",
+        "--number",
+        type=int,
+        default=__default_config.n_result,
+        help="Number of results to retrieve.",
     )
     query_parser.add_argument(
         "--exclude", nargs="*", help="Files to exclude from query results."
@@ -281,7 +294,7 @@ def get_cli_parser():
         choices=list(i.value for i in QueryInclude),
         nargs="+",
         help="What to include in the final output.",
-        default=["path", "document"],
+        default=__default_config.include,
     )
 
     subparsers.add_parser("drop", parents=[shared_parser], help="Remove a collection.")
