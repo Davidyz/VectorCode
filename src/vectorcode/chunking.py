@@ -302,6 +302,11 @@ class TreeSitterChunker(ChunkerBase):
                         break
                 except LookupError:  # pragma: nocover
                     pass
+                if '+' in name:
+                    primary_name = name.split('+')[0]
+                    if primary_name not in lang_names:
+                        lang_names.append(primary_name)
+                        logger.debug("Added primary lang_name: %s to the list of lang_names to test", primary_name)
 
         if parser is None:
             logger.debug(
