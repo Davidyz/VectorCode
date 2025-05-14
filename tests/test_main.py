@@ -354,24 +354,28 @@ async def test_async_main_cli_action_clean(monkeypatch):
     mock_clean.assert_called_once_with(mock_final_configs)
 
 
-def test_main_exception_handling(monkeypatch):
-    mock_async_main_with_exception = AsyncMock(
-        side_effect=Exception("Simulated Error in async_main")
+@pytest.mark.asyncio
+async def test_async_main_exception_handling(monkeypatch):
+    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
+    monkeypatch.setattr(
+        "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    monkeypatch.setattr("vectorcode.main.async_main", mock_async_main_with_exception)
-
-    mock_asyncio_run = MagicMock(side_effect=lambda coro: coro.result())
-    monkeypatch.setattr("asyncio.run", mock_asyncio_run)
+    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.query)
+    monkeypatch.setattr(
+        "vectorcode.main.get_project_config",
+        AsyncMock(
+            return_value=AsyncMock(
+                merge_from=AsyncMock(return_value=mock_final_configs)
+            )
+        ),
+    )
+    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
+    mock_query = AsyncMock(side_effect=Exception("Test Exception"))
+    monkeypatch.setattr("vectorcode.subcommands.query", mock_query)
 
     with patch("vectorcode.main.logger") as mock_logger:
-        result = main()
-
-        assert result == 1
-
-        mock_logger.error.assert_called()  # You might want to check specific arguments too
-
-    mock_async_main_with_exception.assert_called_once()
-    mock_asyncio_run.assert_called_once()
+        assert await async_main() == 1
+        mock_logger.error.assert_called_once()
 
 
 @pytest.mark.asyncio

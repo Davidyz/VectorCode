@@ -111,7 +111,7 @@ async def async_main():
                 return_val = await clean(final_configs)
     except Exception:
         return_val = 1
-        raise
+        logger.error(traceback.format_exc())
     finally:
         if server_process is not None:
             logger.info("Shutting down the bundled Chromadb instance.")
@@ -122,11 +122,7 @@ async def async_main():
 
 def main():  # pragma: nocover
     config_logging("vectorcode")
-    try:
-        return asyncio.run(async_main())
-    except Exception:
-        logger.error(traceback.format_exc())
-        return 1
+    return asyncio.run(async_main())
 
 
 if __name__ == "__main__":  # pragma: nocover
