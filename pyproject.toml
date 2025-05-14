@@ -36,16 +36,11 @@ vectorcode-server = "vectorcode.lsp_main:main"
 vectorcode-mcp-server = "vectorcode.mcp_main:main"
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
 
-[tool.pdm]
-distribution = true
-
-[tool.pdm.version]
-source = "scm"
-write_to = "./vectorcode/_version.py"
-write_template = "__version__ = '{}' # pragma: no cover"
+[tool.setuptools_scm]
+version_file = "./src/vectorcode/_version.py"
 
 [tool.coverage.run]
 omit = [
@@ -69,8 +64,6 @@ dev = [
     "debugpy>=1.8.12",
     "coredumpy>=0.4.1",
 ]
-
-[project.optional-dependencies]
 legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
 intel = ['optimum[openvino]', 'openvino']
 lsp = ['pygls<2.0.0', 'lsprotocol']
