@@ -97,6 +97,9 @@ class Config:
     chunk_filters: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
     hooks: bool = False
+    use_rewriter: bool = False
+    rewriter: Optional[str] = None
+    rewriter_params: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -146,6 +149,10 @@ class Config:
                     "chunk_filters", default_config.chunk_filters
                 ),
                 "encoding": config_dict.get("encoding", default_config.encoding),
+                "rewriter": config_dict.get("rewriter"),
+                "rewriter_params": config_dict.get(
+                    "rewriter_params", default_config.rewriter_params
+                ),
             }
         )
 
@@ -296,6 +303,11 @@ def get_cli_parser():
         help="What to include in the final output.",
         default=__default_config.include,
     )
+    query_parser.add_argument(
+        "--rewrite",
+        action="store_true",
+        help="Apply rewriter to rewrite the query before running the search.",
+    )
 
     subparsers.add_parser("drop", parents=[shared_parser], help="Remove a collection.")
     hooks_parser = subparsers.add_parser(
@@ -401,6 +413,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["use_absolute_path"] = main_args.absolute
             configs_items["include"] = [QueryInclude(i) for i in main_args.include]
             configs_items["encoding"] = main_args.encoding
+            configs_items["use_rewriter"] = main_args.rewrite
         case "check":
             configs_items["check_item"] = main_args.check_item
         case "init":
