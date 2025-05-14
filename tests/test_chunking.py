@@ -204,6 +204,50 @@ def bar():
     assert chunks == ['def 测试():\n    return "foo"', 'def bar():\n    return "bar"']
     os.remove(test_file)
 
+def test_treesitter_chunker_javascript():
+    """Test TreeSitterChunker with a sample javascript file using tempfile."""
+    chunker = TreeSitterChunker(Config(chunk_size=60))
+
+    test_content = r"""
+function foo() {
+    return "foo";
+}
+
+function bar() {
+    return "bar";
+}
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".js") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(str(i) for i in chunker.chunk(test_file))
+    assert chunks == ['function foo() {\n    return "foo";\n}', 'function bar() {\n    return "bar";\n}']
+    os.remove(test_file)
+
+def test_treesitter_chunker_javascript_genshi():
+    """Test TreeSitterChunker with a sample javascript + genshi file using tempfile."""
+    chunker = TreeSitterChunker(Config(chunk_size=60))
+
+    test_content = r"""
+function foo() {
+    return `foo with ${genshi}`;
+}
+
+function bar() {
+    return "bar";
+}
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".js") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(str(i) for i in chunker.chunk(test_file))
+    assert chunks == ['function foo() {\n    return `foo with ${genshi}`;\n}', 'function bar() {\n    return "bar";\n}']
+    os.remove(test_file)
+
 
 def test_treesitter_chunker_filter():
     chunker = TreeSitterChunker(
