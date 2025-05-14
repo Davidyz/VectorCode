@@ -374,7 +374,7 @@ async def test_async_main_exception_handling(monkeypatch):
     monkeypatch.setattr("vectorcode.subcommands.query", mock_query)
 
     with patch("sys.stderr.write") as mock_stderr:
-        return_code = await async_main()
+        return_code = main()
         assert return_code == 1
         mock_stderr.assert_called()
 
