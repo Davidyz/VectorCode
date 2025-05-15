@@ -1,8 +1,10 @@
 # NeoVim Plugin
 > [!NOTE]
-> This plugin depends on the CLI tool. Please go through 
+> This plugin depends on the CLI tool. Please go through
 > [the CLI documentation](./cli.md) and make sure the VectorCode CLI is working
 > before proceeding.
+>
+> If you are running ChromaDB in Docker, see the [Connecting to a Local ChromaDB Docker Instance](./cli.md#connecting-to-a-local-chromadb-docker-instance) section in the CLI docs for important setup details.
 
 > [!NOTE]
 > When the neovim plugin doesn't work properly, please try upgrading the CLI
@@ -37,9 +39,9 @@
 <!-- mtoc-end -->
 
 ## Installation
-Use your favourite plugin manager. 
+Use your favourite plugin manager.
 
-```lua 
+```lua
 {
   "Davidyz/VectorCode",
   version = "*", -- optional, depending on whether you're on nightly or release
@@ -76,8 +78,8 @@ you can use the following plugin spec:
 ```
 
 > This plugin is developed and tested (sort of) under the latest stable release
-> (specifically the package provided in the 
-> [Extra](https://archlinux.org/packages/extra/x86_64/neovim/) 
+> (specifically the package provided in the
+> [Extra](https://archlinux.org/packages/extra/x86_64/neovim/)
 > repository of Arch Linux).
 
 ## Integrations
@@ -110,7 +112,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
     cacher.async_check("config", function()
       cacher.register_buffer(
         bufnr,
-        { 
+        {
           n_query = 10,
         }
       )
@@ -161,17 +163,17 @@ require("vectorcode").setup({
 
 The following are the available options for the parameter of this function:
 - `n_query`: number of retrieved documents. A large number gives a higher chance
-  of including the right file, but with the risk of saturating the context 
+  of including the right file, but with the risk of saturating the context
   window and getting truncated. Default: `1`;
 - `notify`: whether to show notifications when a query is completed.
   Default: `true`;
 - `timeout_ms`: timeout in milliseconds for the query operation. Applies to
-  synchronous API only. Default: 
+  synchronous API only. Default:
   `5000` (5 seconds);
 - `exclude_this`: whether to exclude the file you're editing. Setting this to
   `false` may lead to an outdated version of the current file being sent to the
   LLM as the prompt, and can lead to generations with outdated information;
-- `async_opts`: default options used when registering buffers. See 
+- `async_opts`: default options used when registering buffers. See
   [`register_buffer(bufnr?, opts?)`](#register_bufferbufnr-opts) for details;
 - `async_backend`: the async backend to use, currently either `"default"` or
   `"lsp"`. Default: `"default"`;
@@ -180,12 +182,12 @@ The following are the available options for the parameter of this function:
   - `update`: if `true`, the plugin will run `vectorcode update` on startup to
     update the embeddings;
   - `lsp`: if `true`, the plugin will try to start the LSP server on startup so
-    that you won't need to wait for the server loading when making your first 
+    that you won't need to wait for the server loading when making your first
     request.
 - `sync_log_env_var`: `boolean`. If true, this plugin will automatically set the
   `VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
-  within your neovim session when logging is turned on for this plugin. Use at 
-  caution because the CLI write all logs to stderr, which _may_ make this plugin 
+  within your neovim session when logging is turned on for this plugin. Use at
+  caution because the CLI write all logs to stderr, which _may_ make this plugin
   VERY verbose. See [Debugging and Logging](#debugging-and-logging) for details
   on how to turn on logging.
 
@@ -199,11 +201,11 @@ configured.
 ## API Usage
 This plugin provides 2 sets of APIs that provides similar functionalities. The
 synchronous APIs provide more up-to-date retrieval results at the cost of
-blocking the main neovim UI, while the async APIs use a caching mechanism to 
+blocking the main neovim UI, while the async APIs use a caching mechanism to
 provide asynchronous retrieval results almost instantaneously, but the result
 may be slightly out-of-date. For some tasks like chat, the main UI being
 blocked/frozen doesn't hurt much because you spend the time waiting for response
-anyway, and you can use the synchronous API in this case. For other tasks like 
+anyway, and you can use the synchronous API in this case. For other tasks like
 completion, the async API will minimise the interruption to your workflow.
 
 
@@ -228,13 +230,13 @@ require("vectorcode").query("some query message", {
 ```
 - `callback`: a callback function that takes the result of the retrieval as the
   only parameter. If this is set, the `query` function will be non-blocking and
-  runs in an async manner. In this case, it doesn't return any value and 
+  runs in an async manner. In this case, it doesn't return any value and
   retrieval results can only be accessed by this callback function.
 
 The return value of this function is an array of results in the format of
-`{path="path/to/your/code.lua", document="document content"}`. 
+`{path="path/to/your/code.lua", document="document content"}`.
 
-For example, in [cmp-ai](https://github.com/tzachar/cmp-ai), you can add 
+For example, in [cmp-ai](https://github.com/tzachar/cmp-ai), you can add
 the path/document content to the prompt like this:
 ```lua
 prompt = function(prefix, suffix)
@@ -251,10 +253,10 @@ prompt = function(prefix, suffix)
             .. "\n"
     end
     return file_context
-        .. "<|fim_prefix|>" 
-        .. prefix 
-        .. "<|fim_suffix|>" 
-        .. suffix 
+        .. "<|fim_prefix|>"
+        .. prefix
+        .. "<|fim_suffix|>"
+        .. suffix
         .. "<|fim_middle|>"
 end
 ```
@@ -263,12 +265,12 @@ end
 #### `check(check_item?)`
 This function checks if VectorCode has been configured properly for your project. See the [CLI manual for details](./cli.md).
 
-```lua 
+```lua
 require("vectorcode").check()
 ```
 
 The following are the available options for this function:
-- `check_item`: Only supports `"config"` at the moment. Checks if a project-local 
+- `check_item`: Only supports `"config"` at the moment. Checks if a project-local
   config is present.
 Return value: `true` if passed, `false` if failed.
 
@@ -305,7 +307,7 @@ interface:
 2. The `lsp` based backend, which make use of the experimental `vectorcode-server`
    implemented in version 0.4.0. If you want to customise the LSP executable or
    any options supported by `vim.lsp.ClientConfig`, you can do so by using
-   `vim.lsp.config()` or 
+   `vim.lsp.config()` or
    [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig). The LSP will
    attempt to read configurations from these 2 sources before it starts. (If
    `vim.lsp.config.vectorcode_server` is not `nil`, this will be used and
@@ -317,16 +319,18 @@ interface:
 | **Pros** | Fully backward compatible with minimal extra config required                                              | Less IO overhead for loading/unloading embedding models; Progress reports.                                                |
 | **Cons** | Heavy IO overhead because the embedding model and database client need to be initialised for every query. | Requires `vectorcode-server`; Only works if you're using a standalone ChromaDB server; May contain bugs because it's new. |
 
-You may choose which backend to use by setting the [`setup`](#setupopts) option `async_backend`, 
+> If your ChromaDB server is running in Docker, see the [Connecting to a Local ChromaDB Docker Instance](./cli.md#connecting-to-a-local-chromadb-docker-instance) section in the CLI docs for connection and configuration tips.
+
+You may choose which backend to use by setting the [`setup`](#setupopts) option `async_backend`,
 and acquire the corresponding backend by the following API:
 ```lua
 local cacher_backend = require("vectorcode.config").get_cacher_backend()
 ```
 and you can use `cacher_backend` wherever you used to use
-`require("vectorcode.cacher")`. For example, `require("vectorcode.cacher").query_from_cache(0)` 
+`require("vectorcode.cacher")`. For example, `require("vectorcode.cacher").query_from_cache(0)`
 becomes `require("vectorcode.config").get_cacher_backend().query_from_cache(0)`.
 In the remaining section of this documentation, I'll use `cacher_backend` to
-represent either of the backends. Unless otherwise noticed, all the asynchronous APIs 
+represent either of the backends. Unless otherwise noticed, all the asynchronous APIs
 work for both backends.
 
 #### `cacher_backend.register_buffer(bufnr?, opts?)`
@@ -341,19 +345,19 @@ cacher_backend.register_buffer(0, {
 The following are the available options for this function:
 - `bufnr`: buffer number. Default: current buffer;
 - `opts`: accepts a lua table with the following keys:
-  - `project_root`: a string of the path that overrides the detected project root. 
-  Default: `nil`. This is mostly intended to use with the [user command](#vectorcode-register), 
+  - `project_root`: a string of the path that overrides the detected project root.
+  Default: `nil`. This is mostly intended to use with the [user command](#vectorcode-register),
   and you probably should not use this directly in your config. **If you're
-  using the LSP backend and did not specify this value, it will be automatically 
-  detected based on `.vectorcode` or `.git`. If this fails, LSP backend will not 
+  using the LSP backend and did not specify this value, it will be automatically
+  detected based on `.vectorcode` or `.git`. If this fails, LSP backend will not
   work**;
   - `exclude_this`: whether to exclude the file you're editing. Default: `true`;
   - `n_query`: number of retrieved documents. Default: `1`;
   - `debounce`: debounce time in milliseconds. Default: `10`;
   - `notify`: whether to show notifications when a query is completed. Default: `false`;
-  - `query_cb`: `fun(bufnr: integer):string|string[]`, a callback function that accepts 
-    the buffer ID and returns the query message(s). Default: 
-    `require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See 
+  - `query_cb`: `fun(bufnr: integer):string|string[]`, a callback function that accepts
+    the buffer ID and returns the query message(s). Default:
+    `require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See
     [this section](#built-in-query-callbacks) for a list of built-in query callbacks;
   - `events`: list of autocommand events that triggers the query. Default: `{"BufWritePost", "InsertEnter", "BufReadPost"}`;
   - `run_on_register`: whether to run the query when the buffer is registered.
@@ -376,22 +380,22 @@ The following are the available options for this function:
   - `notify`: boolean, whether to show notifications when a query is completed. Default:
     `false`;
 
-Return value: an array of results. Each item of the array is in the format of 
+Return value: an array of results. Each item of the array is in the format of
 `{path="path/to/your/code.lua", document="document content"}`.
 
 #### `cacher_backend.async_check(check_item?, on_success?, on_failure?)`
 This function checks if VectorCode has been configured properly for your project.
 
-```lua 
+```lua
 cacher_backend.async_check(
-    "config", 
+    "config",
     do_something(), -- on success
     do_something_else()  -- on failure
 )
 ```
 
 The following are the available options for this function:
-- `check_item`: any check that works with `vectorcode check` command. If not set, 
+- `check_item`: any check that works with `vectorcode check` command. If not set,
   it defaults to `"config"`;
 - `on_success`: a callback function that is called when the check passes;
 - `on_failure`: a callback function that is called when the check fails.
@@ -456,7 +460,7 @@ constructor for you to play around with it, but you can easily build your own!
 ## Debugging and Logging
 
 You can enable logging by setting `VECTORCODE_NVIM_LOG_LEVEL` environment
-variable to a 
-[supported log level](https://github.com/nvim-lua/plenary.nvim/blob/857c5ac632080dba10aae49dba902ce3abf91b35/lua/plenary/log.lua#L44). 
+variable to a
+[supported log level](https://github.com/nvim-lua/plenary.nvim/blob/857c5ac632080dba10aae49dba902ce3abf91b35/lua/plenary/log.lua#L44).
 The log file will be written to `stdpath("log")` or `stdpath("cache")`. On
 Linux, this is usually `~/.local/state/nvim/`.

@@ -1,4 +1,4 @@
-# VectorCode Command-line Tool 
+# VectorCode Command-line Tool
 
 
 <!-- mtoc-start -->
@@ -15,6 +15,7 @@
   * [Initialising a Project](#initialising-a-project)
     * [Git Hooks](#git-hooks)
   * [Configuring VectorCode](#configuring-vectorcode)
+  * [Connecting to a Local ChromaDB Docker Instance](#connecting-to-a-local-chromadb-docker-instance)
   * [Vectorising Your Code](#vectorising-your-code)
     * [File Specs](#file-specs)
   * [Making a Query](#making-a-query)
@@ -51,10 +52,10 @@ After installing `pipx`, run:
 ```bash
 pipx install vectorcode
 ```
-in your shell. To specify a particular version of Python, use the `--python` 
+in your shell. To specify a particular version of Python, use the `--python`
 flag. For example, `pipx install vectorcode --python python3.11`. For hardware
 accelerated embedding, refer to [the relevant section](#hardware-acceleration).
-If you want a cpu-only installation without CUDA dependences required by 
+If you want a cpu-only installation without CUDA dependences required by
 default by pytorch, run:
 ```bash
 PIP_INDEX_URL="https://download.pytorch.org/whl/cpu" PIP_EXTRA_INDEX_URL="https://pypi.org/simple" pipx install vectorcode
@@ -65,7 +66,7 @@ If you need to install multiple dependency group (for [LSP](#lsp-mode) or
 ```bash
 pipx install vectorcode[lsp,mcp]
 ```
-> [!NOTE] 
+> [!NOTE]
 > The command only install VectorCode and `SentenceTransformer`, the default
 > embedding engine. To use a different embedding function supported by Chromadb,
 > you may need to use `pipx inject` to install extra dependences to the virtual
@@ -92,6 +93,7 @@ will significantly reduce the IO overhead and avoid potential race condition.
 > v0.6.3.
 > ChromaDB recently released v1.0.0, which may not work with VectorCode. I'm
 > testing with v1.0.0 and will publish a new release when it's ready.
+> **If you are running ChromaDB in Docker or Docker Compose, see the new [Connecting to a Local ChromaDB Docker Instance](#connecting-to-a-local-chromadb-docker-instance) section for detailed setup and configuration instructions.**
 
 #### For Windows Users
 
@@ -102,9 +104,9 @@ tracks my progress trying to provide better experiences for windows users.
 
 If your environment doesn't support `numpy` version 2.0+, the default,
 unconstrained numpy picked by `pipx` may not work for you. In this case, you can
-try installing the package by `pipx install vectorcode[legacy]`, which enforces 
+try installing the package by `pipx install vectorcode[legacy]`, which enforces
 numpy `v1.x`. If this doesn't help, please open an issue with your OS, CPU
-architecture, python version and the vectorcode virtual environment 
+architecture, python version and the vectorcode virtual environment
 (`pipx runpip vectorcode freeze`).
 
 ## Getting Started
@@ -122,11 +124,11 @@ After that, you can start vectorising files for the project.
 vectorcode vectorise src/**/*.py
 ```
 > VectorCode doesn't track file changes, so you need to re-vectorise edited
-> files. You may automate this by a git pre-commit hook, etc. See the 
+> files. You may automate this by a git pre-commit hook, etc. See the
 > [advanced usage section](#git-hooks) for examples to set them up.
 
-Ideally, you should try to vectorise all source code in the repo, but for large 
-repos you may experience slow queries. If that happens, try to `vectorcode drop` 
+Ideally, you should try to vectorise all source code in the repo, but for large
+repos you may experience slow queries. If that happens, try to `vectorcode drop`
 the project and only vectorise files that are important or informative.
 
 And now, you're ready to make queries that will retrieve the relevant documents:
@@ -151,19 +153,19 @@ function or after an upgrade with breaking changes), use
 vectorcode drop
 ```
 
-To see a full list of CLI options and tricks to optimise the retrieval, keep 
+To see a full list of CLI options and tricks to optimise the retrieval, keep
 reading or use the `--help` flag.
 
 ### Refreshing Embeddings
 
 To maintain the accuracy of the vector search, it's important to keep your
 embeddings up-to-date. You can simply run the `vectorise` subcommand on a file
-to refresh the embedding for a particular file, and the CLI provides a 
-`vectorcode update` subcommand, which updates the embeddings for all files that 
-are currently indexed by VectorCode for the current project. 
+to refresh the embedding for a particular file, and the CLI provides a
+`vectorcode update` subcommand, which updates the embeddings for all files that
+are currently indexed by VectorCode for the current project.
 
-If you want something more automagic, check out 
-[the advanced usage section](#git-hooks) 
+If you want something more automagic, check out
+[the advanced usage section](#git-hooks)
 about setting up git hooks to trigger automatic embedding updates when you
 commit/checkout to a different tag.
 
@@ -171,7 +173,7 @@ commit/checkout to a different tag.
 
 Please try the following and see if any of these fix your issue:
 
-- [`drop`](#removing-a-collection) the collection and 
+- [`drop`](#removing-a-collection) the collection and
   [re-index it](#vectorising-your-code), because there may be changes in the way
   embeddings are stored in the database;
 - upgrade/re-install the CLI (via `pipx` or however you installed VectorCode).
@@ -190,7 +192,7 @@ project-specific settings such as embedding functions and database entry point
 `~/.config/vectorcode/config.json`, it will be copied to
 `project_root/.vectorcode/config.json` when you run `vectorcode init`. When a
 project-local config file is present, the global configuration file is ignored
-to avoid confusion. 
+to avoid confusion.
 
 The same logics apply to [file specs](#file-specs), which tells VectorCode what
 file it should (or shouldn't) vectorise. If you created a file spec
@@ -209,11 +211,11 @@ falls back to using the current working directory as the _project root_.
 To keep the embeddings up-to-date, you may find it useful to set up some git
 hooks. The `init` subcommand provides a `--hooks` flag which helps you manage
 hooks when working with a git repository. You can put some custom hooks in
-`~/.config/vectorcode/hooks/` and the `vectorcode init --hooks` command will 
-pick them up and append them to your existing hooks, or create new hook scripts 
-if they don't exist yet. The hook files should be named the same as they would 
-be under the `.git/hooks` directory. For example, a pre-commit hook would be named 
-`~/.config/vectorcode/hooks/pre-commit`. 
+`~/.config/vectorcode/hooks/` and the `vectorcode init --hooks` command will
+pick them up and append them to your existing hooks, or create new hook scripts
+if they don't exist yet. The hook files should be named the same as they would
+be under the `.git/hooks` directory. For example, a pre-commit hook would be named
+`~/.config/vectorcode/hooks/pre-commit`.
 
 By default, there are 2 pre-defined hooks:
 ```bash
@@ -227,16 +229,16 @@ diff_files=$(git diff --cached --name-only)
 files=$(git diff --name-only "$1" "$2")
 [ -z "$files" ] || vectorcode vectorise $files
 ```
-When you run `vectorcode init --hooks` in a git repo, these 2 hooks will be added 
-to your `.git/hooks/`. Hooks that are managed by VectorCode will be wrapped by 
-`# VECTORCODE_HOOK_START` and `# VECTORCODE_HOOK_END` comment lines. They help 
-VectorCode determine whether hooks have been added, so don't delete the markers 
+When you run `vectorcode init --hooks` in a git repo, these 2 hooks will be added
+to your `.git/hooks/`. Hooks that are managed by VectorCode will be wrapped by
+`# VECTORCODE_HOOK_START` and `# VECTORCODE_HOOK_END` comment lines. They help
+VectorCode determine whether hooks have been added, so don't delete the markers
 unless you know what you're doing. To remove the hooks, simply delete the lines
 wrapped by these 2 comment strings.
 
 
 ### Configuring VectorCode
-Since 0.6.4, VectorCode adapted a [json5 parser](https://github.com/dpranke/pyjson5) 
+Since 0.6.4, VectorCode adapted a [json5 parser](https://github.com/dpranke/pyjson5)
 for loading configuration. VectorCode will now look for `config.json5` in
 configuration directories, and if it doesn't find one, it'll look for
 `config.json` too. Regardless of the filename extension, the json5 syntax will
@@ -245,8 +247,8 @@ as writing comments (`//`). This can be very useful if you're experimenting with
 the configs.
 
 The JSON configuration file may hold the following values:
-- `embedding_function`: string, one of the embedding functions supported by [Chromadb](https://www.trychroma.com/) 
-  (find more [here](https://docs.trychroma.com/docs/embeddings/embedding-functions) and 
+- `embedding_function`: string, one of the embedding functions supported by [Chromadb](https://www.trychroma.com/)
+  (find more [here](https://docs.trychroma.com/docs/embeddings/embedding-functions) and
   [here](https://docs.trychroma.com/integrations/chroma-integrations)). For
   example, Chromadb supports Ollama as `chromadb.utils.embedding_functions.OllamaEmbeddingFunction`,
   and the corresponding value for `embedding_function` would be `OllamaEmbeddingFunction`. Default: `SentenceTransformerEmbeddingFunction`;
@@ -262,10 +264,11 @@ The JSON configuration file may hold the following values:
   `OllamaEmbeddingFunction(url="http://127.0.0.1:11434/api/embeddings",
   model_name="nomic-embed-text")`. Default: `{}`;
 - `host` and `port`: string and integer, Chromadb server host and port. VectorCode will start an
-  HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
-  configured `host:port` is not accessible. This allows the use of `AsyncHttpClient`. 
+  HTTP server for Chromadb at a randomly picked free port on `localhost` if your
+  configured `host:port` is not accessible. This allows the use of `AsyncHttpClient`.
   Default: `127.0.0.1:8000`;
-- `db_path`: string, Path to local persistent database. This is where the files for 
+  > **If you are connecting to a ChromaDB instance running in Docker or Docker Compose, see [Connecting to a Local ChromaDB Docker Instance](#connecting-to-a-local-chromadb-docker-instance) for important details on configuring these values.**
+- `db_path`: string, Path to local persistent database. This is where the files for
   your database will be stored. Default: `~/.local/share/vectorcode/chromadb/`;
 - `db_log_path`: string, path to the _directory_ where the built-in chromadb
   server will write the log to. Default: `~/.local/share/vectorcode/`;
@@ -273,32 +276,32 @@ The JSON configuration file may hold the following values:
   value reduces the number of items in the database, and hence accelerates the
   search, but at the cost of potentially truncated data and lost information.
   Default: `2500`. To disable chunking, set it to a negative number;
-- `overlap_ratio`: float between 0 and 1, the ratio of overlapping/shared content 
+- `overlap_ratio`: float between 0 and 1, the ratio of overlapping/shared content
   between 2 adjacent chunks. A larger ratio improves the coherences of chunks,
   but at the cost of increasing number of entries in the database and hence
   slowing down the search. Default: `0.2`. _Starting from 0.4.11, VectorCode
   will use treesitter to parse languages that it can automatically detect. It
   uses [pygments](https://github.com/pygments/pygments) to guess the language
-  from filename, and 
-  [tree-sitter-language-pack](https://github.com/Goldziher/tree-sitter-language-pack) 
+  from filename, and
+  [tree-sitter-language-pack](https://github.com/Goldziher/tree-sitter-language-pack)
   to fetch the correct parser. `overlap_ratio` has no effects when treesitter
   works. If VectorCode fails to find an appropriate parser, it'll fallback to
   the legacy naive parser, in which case `overlap_ratio` works exactly in the
   same way as before;_
 - `query_multiplier`: integer, when you use the `query` command to retrieve `n` documents,
-  VectorCode will check `n * query_multiplier` chunks and return at most `n` 
+  VectorCode will check `n * query_multiplier` chunks and return at most `n`
   documents. A larger value of `query_multiplier`
   guarantees the return of `n` documents, but with the risk of including too
-  many less-relevant chunks that may affect the document selection. Default: 
+  many less-relevant chunks that may affect the document selection. Default:
   `-1` (any negative value means selecting documents based on all indexed chunks);
 - `reranker`: string, the reranking method to use. Currently supports
-  `CrossEncoderReranker` (default, using 
+  `CrossEncoderReranker` (default, using
   [sentence-transformers cross-encoder](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html)
   ) and `NaiveReranker` (sort chunks by the "distance" between the embedding
   vectors);
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
   passed to the reranker class constructor. For `CrossEncoderReranker`, these
-  are the options passed to the 
+  are the options passed to the
   [`CrossEncoder`](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html#id1)
   class. For example, if you want to use a non-default model, you can use the
   following:
@@ -310,11 +313,11 @@ The JSON configuration file may hold the following values:
   }
   ```
   ;
-- `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
-  for Chromadb client settings so that you can configure 
+- `db_settings`: dictionary, works in a similar way to `embedding_params`, but
+  for Chromadb client settings so that you can configure
   [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
-- `hnsw`: a dictionary of 
-  [hnsw settings](https://cookbook.chromadb.dev/core/configuration/#hnsw-configuration) 
+- `hnsw`: a dictionary of
+  [hnsw settings](https://cookbook.chromadb.dev/core/configuration/#hnsw-configuration)
   that may improve the query performances or avoid runtime errors during
   queries. **It's recommended to re-vectorise the collection after modifying these
   options, because some of the options can only be set during collection
@@ -327,7 +330,7 @@ The JSON configuration file may hold the following values:
   ```
 - `chunk_filters`: `dict[str, list[str]]`, a dictionary where the keys are
   [language name](https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages)
-  and values are lists of [Python regex patterns](https://docs.python.org/3/library/re.html) 
+  and values are lists of [Python regex patterns](https://docs.python.org/3/library/re.html)
   that will match chunks to be excluded from being vectorised. This only applies
   to languages supported by treesitter chunker. By default, no filters will be
   added. Example configuration:
@@ -346,12 +349,40 @@ The JSON configuration file may hold the following values:
   to automatically detect the encoding, but this is not very accurate,
   especially on small files.
 
+### Connecting to a Local ChromaDB Docker Instance
+
+If you are running ChromaDB in a Docker container on your local machine (for example, using Docker Compose), you can configure VectorCode to connect to it by setting the `host` and `port` in your config file. **Do not include the `http://` or `https://` scheme in the `host` value.**
+
+**Example `~/.config/vectorcode/config.json` or `<project_root>/.vectorcode/config.json`:**
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": 8000
+}
+```
+
+**NOT**
+
+```json
+{
+  "host": "http://127.0.0.1",
+  "port": 8000
+}
+```
+
+If your Docker Compose file maps ChromaDB to a different port, update the `port` value accordingly.
+
+**Note:**
+- The `host` value should be just the hostname or IP address (e.g., `127.0.0.1` or `localhost`), **not** a full URL like `http://127.0.0.1`.
+- VectorCode will automatically prepend the `http://` scheme when connecting.
+
 ### Vectorising Your Code
 
 Run `vectorcode vectorise <path_to_your_file>` or `vectorcode vectorise
 <directory> -r`. There are a few extra tweaks you may use:
 
-- chunk size: embedding APIs may truncate long documents so that the documents 
+- chunk size: embedding APIs may truncate long documents so that the documents
   can be handled by the embedding models. To solve this, VectorCode implemented
   basic chunking features that chunks the documents into smaller segments so
   that the embeddings are more representative of the code content. To adjust the
@@ -361,7 +392,7 @@ Run `vectorcode vectorise <path_to_your_file>` or `vectorcode vectorise
 - overlapping ratio: when the chunk size is set to $c$ and overlapping ratio set
   to $o$, the maximum number of repeated content between 2 adjacent chunks will
   be $c \times o$. This prevents loss of information due to the key characters being
-  cut into 2 chunks. To configure this, you may either set `overlap_ratio` in 
+  cut into 2 chunks. To configure this, you may either set `overlap_ratio` in
   JSON configuration file or use `--overlap`/`-o` parameter.
 
 Note that, the documents being vectorised is not limited to source code. You can
@@ -372,13 +403,13 @@ This command also respects `.gitignore`. It by default skips files in
 `.gitignore`. To override this, run the `vectorise` command with `-f`/`--force`
 flag.
 
-There's also a `update` subcommand, which updates the embedding for all the indexed 
+There's also a `update` subcommand, which updates the embedding for all the indexed
 files and remove the embeddings for files that no longer exist.
 
 #### File Specs
 
 As a shorthand, you can create a file at `project_root/.vectorcode/vectorcode.include`.
-This file should follow the same syntax as a 
+This file should follow the same syntax as a
 [`gitignore` file](https://git-scm.com/docs/gitignore). Files matched by this
 specs will be vectorised when you run `vectorcode vectorise` without specifying
 files. This file has lower priority than `.gitignore`, but you can override this
@@ -392,19 +423,19 @@ some files that should be tracked by git, but are not necessary to be indexed by
 VectorCode.
 
 These specs can be useful if you want to automatically update the embeddings
-on certain conditions. See 
-[the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
+on certain conditions. See
+[the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks)
 for an example to use it with git hooks.
 
 ### Making a Query
 
 To retrieve a list of documents from the database, you can use the following command:
-```bash 
+```bash
 vectorcode query "your query message"
 ```
 The command can take an arbitrary number of query words, but make sure that
 full-sentences are enclosed in quotation marks. Otherwise, they may be
-interpreted as separated words and the embeddings may be inaccurate. The 
+interpreted as separated words and the embeddings may be inaccurate. The
 returned results are sorted by their similarity to the query message.
 
 You may also specify how many documents should be retrieved with `-n`/`--number`
@@ -416,7 +447,7 @@ You may also set a multiplier for the queries. When VectorCode sends queries to
 the database, it receives chunks, not document. It then uses some scoring
 algorithms to determine which documents are the best fit. The multiplier, set by
 command-line flag `--multiplier` or `-m`, defines how many chunks VectorCode
-will request from the database. The default is `-1`, which means to retrieve all 
+will request from the database. The default is `-1`, which means to retrieve all
 chunks. A larger multiplier guarantees the return of `n` documents, but with the risk
 of including too many less-relevant chunks that may affect the document selection.
 
@@ -438,10 +469,10 @@ normal CLI usage and [`--pipe` mode](#for-developers).
 For some applications, it may be overkill to use the full document as context
 and all you need is the chunks. You can do this by using `--include chunk` or
 `--include chunk path` in the command. This will return chunks from the
-document, and in `pipe` mode the objects will also include the line numbers of 
+document, and in `pipe` mode the objects will also include the line numbers of
 the first and last lines in the chunk. Note that `chunk` and `document` cannot be used at
 the same time, and the number of query result (the `-n` parameter) will refer to
-the number of retrieved chunks when you use `--include chunk`. For the sake of 
+the number of retrieved chunks when you use `--include chunk`. For the sake of
 completeness, the first and last lines of a chunk will be completed to include
 the whole lines if the chunker broke the text from mid-line.
 
@@ -461,11 +492,11 @@ instance.
 ### Removing a Collection
 
 You can use `vectorcode drop` command to remove a collection from Chromadb. This
-is useful if you want to clean up your Chromadb database, or if the project has 
-been deleted, and you don't need its embeddings any more. 
+is useful if you want to clean up your Chromadb database, or if the project has
+been deleted, and you don't need its embeddings any more.
 
 ### Checking Project Setup
-You may run `vectorcode check` command to check whether VectorCode is properly 
+You may run `vectorcode check` command to check whether VectorCode is properly
 installed and configured for your project. This currently supports only 1 check:
 
 - `config`: checks whether a project-local configuration directory exists.
@@ -505,7 +536,7 @@ for your shell of choice.
 
 For Nvidia users this should work out of the box. If not, try setting the
 following options in the JSON config file:
-```json 
+```json
 {
   "embedding_params": {
     "backend": "torch",
@@ -515,12 +546,12 @@ following options in the JSON config file:
 ```
 
 For Intel users, [sentence transformer](https://www.sbert.net/index.html)
-supports [OpenVINO](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) 
-backend for supported GPU. Run `pipx install vectorcode[intel]` which will 
+supports [OpenVINO](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)
+backend for supported GPU. Run `pipx install vectorcode[intel]` which will
 bundle the relevant libraries when you install VectorCode. After that, you will
 need to configure `SentenceTransformer` to use `openvino` backend. In your
 `config.json`, set `backend` key in `embedding_params` to `"openvino"`:
-```json 
+```json
 {
   "embedding_params": {
     "backend": "openvino",
@@ -532,13 +563,13 @@ some integrated GPUs.
 
 When using the default embedding function, any options inside the
 `"embedding_params"` will go to the class constructor of `SentenceTransformer`,
-so you can always take a look at 
+so you can always take a look at
 [their documentation](https://www.sbert.net/docs/package_reference/sentence_transformer/SentenceTransformer.html#sentence_transformers.SentenceTransformer)
 for detailed information _regardless of your platform_.
 
 ## For Developers
 To develop a tool that makes use of VectorCode, you may find the `--pipe`/`-p`
-flag helpful. It formats the output into JSON and suppress other outputs so that 
+flag helpful. It formats the output into JSON and suppress other outputs so that
 you can grab whatever's in the `STDOUT` and parse it as a JSON document. In
 fact, this is exactly what I did when I wrote the neovim plugin.
 
@@ -546,10 +577,10 @@ fact, this is exactly what I did when I wrote the neovim plugin.
 
 #### `vectorcode query`
 For the query command, here's the format printed in the `pipe` mode:
-```json 
+```json
 [
     {
-        "path": "path_to_your_code.py", 
+        "path": "path_to_your_code.py",
         "document":"import something"
     },
     {
@@ -588,7 +619,7 @@ The output is in JSON format. It contains a dictionary with the following fields
 
 #### `vectorcode ls`
 A JSON array of collection information of the following format will be printed:
-```json 
+```json
 {
     "project_root": str,
     "user": str,
@@ -611,7 +642,7 @@ A JSON array of collection information of the following format will be printed:
 ### LSP Mode
 
 There's an experimental implementation of VectorCode CLI, which accepts requests
-of [`workspace/executeCommand`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_executeCommand) 
+of [`workspace/executeCommand`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_executeCommand)
 from `STDIO`. This allows the CLI to keep the embedding model loaded in the
 memory/VRAM, and therefore speed up the query by avoiding the IO overhead of
 loading the models.
@@ -626,17 +657,17 @@ pipx install vectorcode[lsp]
 pipx inject vectorcode vectorcode[lsp] --force
 ```
 
-The LSP request for the `workspace/executeCommand` is defined as follows: 
+The LSP request for the `workspace/executeCommand` is defined as follows:
 ```
 {
     command: str
     arguments: list[Any]
 }
 ```
-For the `vectorcode-server`, the only valid value for the `command` key is 
+For the `vectorcode-server`, the only valid value for the `command` key is
 `"vectorcode"`, and `arguments` is any other remaining components of a valid CLI
 command. For example, to execute `vectorcode query -n 10 reranker`, the request
-would be: 
+would be:
 ```
 {
     command: "vectorcode",
@@ -665,19 +696,19 @@ Note that:
 
 ### MCP Server
 
-[Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is 
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is
 an open protocol that standardizes how applications provide context to LLMs.
-VectorCode provides an experimental implementation that provides the following 
+VectorCode provides an experimental implementation that provides the following
 features:
 
 - `ls`: list local collections, similar to the `ls` subcommand in the CLI;
 - `query`: query from a given collection, similar to the `query` subcommand in
   the CLI.
 
-To try it out, install the `vectorcode[mcp]` dependency group and the MCP server 
-is available in the shell as `vectorcode-mcp-server`, and make sure you're using 
-a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode) 
-via the `host` and `port` options. 
+To try it out, install the `vectorcode[mcp]` dependency group and the MCP server
+is available in the shell as `vectorcode-mcp-server`, and make sure you're using
+a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode)
+via the `host` and `port` options. If you are running ChromaDB in Docker, see [Connecting to a Local ChromaDB Docker Instance](#connecting-to-a-local-chromadb-docker-instance) for setup tips.
 
 The MCP server entry point (`vectorcode-mcp-server`) provides some CLI options
 that you can use to customise the default behaviour of the server. To view the
