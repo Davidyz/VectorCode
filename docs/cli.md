@@ -261,10 +261,9 @@ The JSON configuration file may hold the following values:
   Then the embedding function object will be initialised as
   `OllamaEmbeddingFunction(url="http://127.0.0.1:11434/api/embeddings",
   model_name="nomic-embed-text")`. Default: `{}`;
-- `host` and `port`: string and integer, Chromadb server host and port. VectorCode will start an
+- `db_url`: string, the url that points to the Chromadb server. VectorCode will start an
   HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
-  configured `host:port` is not accessible. This allows the use of `AsyncHttpClient`. 
-  Default: `127.0.0.1:8000`;
+  configured `http://host:port` is not accessible. Default: `http://127.0.0.1:8000`;
 - `db_path`: string, Path to local persistent database. This is where the files for 
   your database will be stored. Default: `~/.local/share/vectorcode/chromadb/`;
 - `db_log_path`: string, path to the _directory_ where the built-in chromadb

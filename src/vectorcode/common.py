@@ -5,13 +5,14 @@ import os
 import socket
 import subprocess
 import sys
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
+from urllib.parse import urlparse
 
 import chromadb
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.config import Settings
+from chromadb.config import APIVersion, Settings
 from chromadb.utils import embedding_functions
 
 from vectorcode.cli_utils import Config, expand_path
@@ -40,13 +41,13 @@ async def get_collections(
         yield collection
 
 
-async def try_server(host: str, port: int):
+async def try_server(base_url: str):
     for ver in ("v1", "v2"):  # v1 for legacy, v2 for latest chromadb.
-        url = f"http://{host}:{port}/api/{ver}/heartbeat"
+        heartbeat_url = f"{base_url}/api/{ver}/heartbeat"
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(url=url)
-                logger.debug(f"Heartbeat {url} returned {response=}")
+                response = await client.get(url=heartbeat_url)
+                logger.debug(f"Heartbeat {heartbeat_url} returned {response=}")
                 if response.status_code == 200:
                     return True
         except (httpx.ConnectError, httpx.ConnectTimeout):
@@ -54,12 +55,12 @@ async def try_server(host: str, port: int):
     return False
 
 
-async def wait_for_server(host, port, timeout=10):
+async def wait_for_server(url: str, timeout=10):
     # Poll the server until it's ready or timeout is reached
 
     start_time = asyncio.get_event_loop().time()
     while True:
-        if await try_server(host, port):
+        if await try_server(url):
             return
 
         if asyncio.get_event_loop().time() - start_time > timeout:
@@ -82,10 +83,8 @@ async def start_server(configs: Config):
     env = os.environ.copy()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))  # OS selects a free ephemeral port
-        configs.port = int(s.getsockname()[1])
-    logger.warning(
-        f"Starting bundled ChromaDB server at {configs.host}:{configs.port}."
-    )
+        port = int(s.getsockname()[1])
+    logger.warning(f"Starting bundled ChromaDB server at http://127.0.0.1:{port}.")
     env.update({"ANONYMIZED_TELEMETRY": "False"})
     process = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -95,7 +94,7 @@ async def start_server(configs: Config):
         "--host",
         "localhost",
         "--port",
-        str(configs.port),
+        str(port),
         "--path",
         db_path,
         "--log-path",
@@ -105,28 +104,32 @@ async def start_server(configs: Config):
         env=env,
     )
 
-    await wait_for_server(configs.host, configs.port)
+    await wait_for_server(f"http://127.0.0.1:{port}")
     return process
 
 
-__CLIENT_CACHE: dict[tuple[str, int], AsyncClientAPI] = {}
+__CLIENT_CACHE: dict[str, AsyncClientAPI] = {}
 
 
 async def get_client(configs: Config) -> AsyncClientAPI:
-    assert configs.host is not None
-    assert configs.port is not None
-    client_entry = (configs.host, configs.port)
+    client_entry = configs.db_url
     if __CLIENT_CACHE.get(client_entry) is None:
-        settings = {"anonymized_telemetry": False}
+        settings: dict[str, Any] = {"anonymized_telemetry": False}
         if isinstance(configs.db_settings, dict):
             valid_settings = {
                 k: v for k, v in configs.db_settings.items() if k in Settings.__fields__
             }
             settings.update(valid_settings)
+        parsed_url = urlparse(configs.db_url)
+        settings["chroma_server_host"] = parsed_url.hostname or "127.0.0.1"
+        settings["chroma_server_http_port"] = parsed_url.port or 8000
+        settings["chroma_server_ssl_enabled"] = parsed_url.scheme == "https"
+        settings["chroma_server_api_default_path"] = parsed_url.path or APIVersion.V2
+        settings_obj = Settings(**settings)
         __CLIENT_CACHE[client_entry] = await chromadb.AsyncHttpClient(
-            host=configs.host or "localhost",
-            port=configs.port or 8000,
-            settings=Settings(**settings),
+            settings=settings_obj,
+            host=str(settings_obj.chroma_server_host),
+            port=int(settings_obj.chroma_server_http_port or 8000),
         )
     return __CLIENT_CACHE[client_entry]
 

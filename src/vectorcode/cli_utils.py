@@ -73,8 +73,7 @@ class Config:
     files: list[PathLike] = field(default_factory=list)
     project_root: Optional[PathLike] = None
     query: Optional[list[str]] = None
-    host: str = "127.0.0.1"
-    port: int = 8000
+    db_url: str = "http://127.0.0.1:8000"
     embedding_function: str = "SentenceTransformerEmbeddingFunction"  # This should fallback to whatever the default is.
     embedding_params: dict[str, Any] = field(default_factory=(lambda: {}))
     n_result: int = 1
@@ -105,8 +104,20 @@ class Config:
         """
         default_config = Config()
         db_path = config_dict.get("db_path")
-        host = config_dict.get("host") or "localhost"
-        port = config_dict.get("port") or 8000
+        db_url = config_dict.get("db_url")
+        if db_url is None:
+            host = config_dict.get("host")
+            port = config_dict.get("port")
+            if host is not None or port is not None:
+                logger.warning(
+                    '"host" and "port" are deprecated. Use "db_url" (eg. http://127.0.0.1:8000).'
+                )
+                host = host or "127.0.0.1"
+                port = port or 8000
+                db_url = f"http://{host}:{port}"
+            else:
+                db_url = "http://127.0.0.1:8000"
+
         if db_path is None:
             db_path = os.path.expanduser("~/.local/share/vectorcode/chromadb/")
         elif not os.path.isdir(db_path):
@@ -121,8 +132,7 @@ class Config:
                 "embedding_params": config_dict.get(
                     "embedding_params", default_config.embedding_params
                 ),
-                "host": host,
-                "port": port,
+                "db_url": db_url,
                 "db_path": db_path,
                 "db_log_path": os.path.expanduser(
                     config_dict.get("db_log_path", default_config.db_log_path)

@@ -28,8 +28,7 @@ async def test_config_import_from():
         os.makedirs(db_path, exist_ok=True)
         config_dict: Dict[str, Any] = {
             "db_path": db_path,
-            "host": "test_host",
-            "port": 1234,
+            "db_url": "http://test_host:1234",
             "embedding_function": "TestEmbedding",
             "embedding_params": {"param1": "value1"},
             "chunk_size": 512,
@@ -42,8 +41,7 @@ async def test_config_import_from():
         config = await Config.import_from(config_dict)
         assert config.db_path == db_path
         assert config.db_log_path == os.path.expanduser("~/.local/share/vectorcode/")
-        assert config.host == "test_host"
-        assert config.port == 1234
+        assert config.db_url == "http://test_host:1234"
         assert config.embedding_function == "TestEmbedding"
         assert config.embedding_params == {"param1": "value1"}
         assert config.chunk_size == 512
@@ -52,6 +50,14 @@ async def test_config_import_from():
         assert config.reranker == "TestReranker"
         assert config.reranker_params == {"reranker_param1": "reranker_value1"}
         assert config.db_settings == {"db_setting1": "db_value1"}
+
+
+@pytest.mark.asyncio
+async def test_config_import_from_fallback_host_port():
+    conf = {"host": "test_host"}
+    assert (await Config.import_from(conf)).db_url == "http://test_host:8000"
+    conf = {"port": 114514}
+    assert (await Config.import_from(conf)).db_url == "http://127.0.0.1:114514"
 
 
 @pytest.mark.asyncio
@@ -75,22 +81,20 @@ async def test_config_import_from_db_path_is_file():
 
 @pytest.mark.asyncio
 async def test_config_merge_from():
-    config1 = Config(host="host1", port=8001, n_result=5)
-    config2 = Config(host="host2", port=None, query=["test"])
+    config1 = Config(db_url="http://host1:8001", n_result=5)
+    config2 = Config(db_url="http://host2:8002", query=["test"])
     merged_config = await config1.merge_from(config2)
-    assert merged_config.host == "host2"
-    assert merged_config.port == 8001  # port from config1 should be retained
+    assert merged_config.db_url == "http://host2:8002"
     assert merged_config.n_result == 5
     assert merged_config.query == ["test"]
 
 
 @pytest.mark.asyncio
 async def test_config_merge_from_new_fields():
-    config1 = Config(host="host1", port=8001)
+    config1 = Config(db_url="http://host1:8001")
     config2 = Config(query=["test"], n_result=10, recursive=True)
     merged_config = await config1.merge_from(config2)
-    assert merged_config.host == "host1"
-    assert merged_config.port == 8001
+    assert merged_config.db_url == "http://host1:8001"
     assert merged_config.query == ["test"]
     assert merged_config.n_result == 10
     assert merged_config.recursive
@@ -104,8 +108,7 @@ async def test_config_import_from_missing_keys():
     # Assert that default values are used
     assert config.embedding_function == "SentenceTransformerEmbeddingFunction"
     assert config.embedding_params == {}
-    assert config.host == "localhost"
-    assert config.port == 8000
+    assert config.db_url == "http://127.0.0.1:8000"
     assert config.db_path == os.path.expanduser("~/.local/share/vectorcode/chromadb/")
     assert config.chunk_size == 2500
     assert config.overlap_ratio == 0.2
@@ -318,7 +321,7 @@ def test_find_project_root():
 async def test_get_project_config_no_local_config():
     with tempfile.TemporaryDirectory() as temp_dir:
         config = await get_project_config(temp_dir)
-        assert config.host in {"127.0.0.1", "localhost"}
+        assert config.chunk_size == Config().chunk_size, "Should load default value."
 
 
 @pytest.mark.asyncio
@@ -394,36 +397,28 @@ async def test_parse_cli_args_vectorise_no_files():
 
 @pytest.mark.asyncio
 async def test_get_project_config_local_config(tmp_path):
-    # Create a temporary directory and a .vectorcode subdirectory
     project_root = tmp_path / "project"
     vectorcode_dir = project_root / ".vectorcode"
     vectorcode_dir.mkdir(parents=True)
 
-    # Create a config.json file inside .vectorcode with some custom settings
     config_file = vectorcode_dir / "config.json"
-    config_file.write_text('{"host": "test_host", "port": 9999}')
+    config_file.write_text('{"db_url": "http://test_host:9999" }')
 
-    # Call get_project_config and check if it returns the custom settings
     config = await get_project_config(project_root)
-    assert config.host == "test_host"
-    assert config.port == 9999
+    assert config.db_url == "http://test_host:9999"
 
 
 @pytest.mark.asyncio
 async def test_get_project_config_local_config_json5(tmp_path):
-    # Create a temporary directory and a .vectorcode subdirectory
     project_root = tmp_path / "project"
     vectorcode_dir = project_root / ".vectorcode"
     vectorcode_dir.mkdir(parents=True)
 
-    # Create a config.json file inside .vectorcode with some custom settings
     config_file = vectorcode_dir / "config.json5"
-    config_file.write_text('{"host": "test_host", "port": 9999}')
+    config_file.write_text('{"db_url": "http://test_host:9999" }')
 
-    # Call get_project_config and check if it returns the custom settings
     config = await get_project_config(project_root)
-    assert config.host == "test_host"
-    assert config.port == 9999
+    assert config.db_url == "http://test_host:9999"
 
 
 def test_find_project_root_file_input(tmp_path):
@@ -512,11 +507,9 @@ async def test_config_import_from_hnsw():
 
 @pytest.mark.asyncio
 async def test_hnsw_config_merge():
-    config1 = Config(host="host1", port=8001, hnsw={"space": "ip"})
-    config2 = Config(host="host2", port=None, hnsw={"ef_construction": 200})
+    config1 = Config(hnsw={"space": "ip"})
+    config2 = Config(hnsw={"ef_construction": 200})
     merged_config = await config1.merge_from(config2)
-    assert merged_config.host == "host2"
-    assert merged_config.port == 8001
     assert merged_config.hnsw["space"] == "ip"
     assert merged_config.hnsw["ef_construction"] == 200
 

@@ -268,8 +268,7 @@ def test_load_files_from_include_no_files(mock_check_tree_files, mock_isfile, tm
 @pytest.mark.asyncio
 async def test_vectorise(capsys):
     configs = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -330,8 +329,7 @@ async def test_vectorise(capsys):
 @pytest.mark.asyncio
 async def test_vectorise_cancelled():
     configs = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -373,8 +371,7 @@ async def test_vectorise_cancelled():
 @pytest.mark.asyncio
 async def test_vectorise_orphaned_files():
     configs = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -443,8 +440,7 @@ async def test_vectorise_orphaned_files():
 @pytest.mark.asyncio
 async def test_vectorise_collection_index_error():
     configs = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -470,8 +466,7 @@ async def test_vectorise_collection_index_error():
 @pytest.mark.asyncio
 async def test_vectorise_verify_ef_false():
     configs = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -500,8 +495,7 @@ async def test_vectorise_verify_ef_false():
 @pytest.mark.asyncio
 async def test_vectorise_gitignore():
     configs = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -548,8 +542,7 @@ async def test_vectorise_exclude_file(tmpdir):
     exclude_file.write("excluded_file.py\n")
 
     configs = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},

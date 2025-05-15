@@ -74,7 +74,7 @@ async def async_main():
     from vectorcode.common import start_server, try_server
 
     server_process = None
-    if not await try_server(final_configs.host, final_configs.port):
+    if not await try_server(final_configs.db_url):
         server_process = await start_server(final_configs)
 
     if final_configs.pipe:

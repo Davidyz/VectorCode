@@ -106,7 +106,7 @@ async def test_try_server_versions():
         mock_client.return_value.__aenter__.return_value.get.return_value = (
             mock_response
         )
-        assert await try_server("localhost", 8300) is True
+        assert await try_server("http://localhost:8300") is True
         mock_client.return_value.__aenter__.return_value.get.assert_called_once_with(
             url="http://localhost:8300/api/v1/heartbeat"
         )
@@ -121,7 +121,7 @@ async def test_try_server_versions():
             mock_response_v1,
             mock_response_v2,
         ]
-        assert await try_server("localhost", 8300) is True
+        assert await try_server("http://localhost:8300") is True
         assert mock_client.return_value.__aenter__.return_value.get.call_count == 2
 
     # Test both versions fail
@@ -134,20 +134,20 @@ async def test_try_server_versions():
             mock_response_v1,
             mock_response_v2,
         ]
-        assert await try_server("localhost", 8300) is False
+        assert await try_server("http://localhost:8300") is False
 
     # Test connection error cases
     with patch("httpx.AsyncClient") as mock_client:
         mock_client.return_value.__aenter__.return_value.get.side_effect = (
             httpx.ConnectError("Cannot connect")
         )
-        assert await try_server("localhost", 8300) is False
+        assert await try_server("http://localhost:8300") is False
 
     with patch("httpx.AsyncClient") as mock_client:
         mock_client.return_value.__aenter__.return_value.get.side_effect = (
             httpx.ConnectTimeout("Connection timeout")
         )
-        assert await try_server("localhost", 8300) is False
+        assert await try_server("http://localhost:8300") is False
 
 
 @pytest.mark.asyncio
@@ -157,22 +157,31 @@ async def test_get_client():
         mock_client = MagicMock(spec=AsyncClientAPI)
         MockAsyncHttpClient.return_value = mock_client
 
-        config = Config(host="test_host", port=1234, db_path="test_db")
+        config = Config(db_url="https://test_host:1234", db_path="test_db")
         client = await get_client(config)
 
         assert isinstance(client, AsyncClientAPI)
         MockAsyncHttpClient.assert_called_once()
-        assert MockAsyncHttpClient.call_args.kwargs["host"] == "test_host"
-        assert MockAsyncHttpClient.call_args.kwargs["port"] == 1234
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
+            == "test_host"
+        )
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
+            == 1234
+        )
         assert (
             MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
             is False
         )
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_ssl_enabled
+            is True
+        )
 
         # Test with valid db_settings (only anonymized_telemetry)
         config = Config(
-            host="test_host1",
-            port=1234,
+            db_url="http://test_host1:1234",
             db_path="test_db",
             db_settings={"anonymized_telemetry": True},
         )
@@ -180,8 +189,14 @@ async def test_get_client():
 
         assert isinstance(client, AsyncClientAPI)
         MockAsyncHttpClient.assert_called()
-        assert MockAsyncHttpClient.call_args.kwargs["host"] == "test_host1"
-        assert MockAsyncHttpClient.call_args.kwargs["port"] == 1234
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
+            == "test_host1"
+        )
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
+            == 1234
+        )
         assert (
             MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
             is True
@@ -190,16 +205,21 @@ async def test_get_client():
         # Test with multiple db_settings, including an invalid one.  The invalid one
         # should be filtered out inside get_client.
         config = Config(
-            host="test_host2",
-            port=1234,
+            db_url="http://test_host2:1234",
             db_path="test_db",
             db_settings={"anonymized_telemetry": True, "other_setting": "value"},
         )
         client = await get_client(config)
         assert isinstance(client, AsyncClientAPI)
         MockAsyncHttpClient.assert_called()
-        assert MockAsyncHttpClient.call_args.kwargs["host"] == "test_host2"
-        assert MockAsyncHttpClient.call_args.kwargs["port"] == 1234
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
+            == "test_host2"
+        )
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
+            == 1234
+        )
         assert (
             MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
             is True
@@ -249,28 +269,27 @@ async def test_try_server_mocked(mock_socket):
         mock_client.return_value.__aenter__.return_value.get.return_value = (
             mock_response
         )
-        assert await try_server("localhost", 8000) is True
+        assert await try_server("http://localhost:8000") is True
 
     # Mocking httpx.AsyncClient to raise a ConnectError
     with patch("httpx.AsyncClient") as mock_client:
         mock_client.return_value.__aenter__.return_value.get.side_effect = (
             httpx.ConnectError("Simulated connection error")
         )
-        assert await try_server("localhost", 8000) is False
+        assert await try_server("http://localhost:8000") is False
 
     # Mocking httpx.AsyncClient to raise a ConnectTimeout
     with patch("httpx.AsyncClient") as mock_client:
         mock_client.return_value.__aenter__.return_value.get.side_effect = (
             httpx.ConnectTimeout("Simulated connection timeout")
         )
-        assert await try_server("localhost", 8000) is False
+        assert await try_server("http://localhost:8000") is False
 
 
 @pytest.mark.asyncio
 async def test_get_collection():
     config = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -337,8 +356,7 @@ async def test_get_collection():
 @pytest.mark.asyncio
 async def test_get_collection_hnsw():
     config = Config(
-        host="test_host",
-        port=1234,
+        db_url="http://test_host:1234",
         db_path="test_db",
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
@@ -415,8 +433,7 @@ async def test_start_server():
 
             # Create a config object
             config = Config(
-                host="localhost",
-                port=8000,
+                db_url="http://localhost:8000",
                 db_path=temp_dir,
                 project_root=temp_dir,
             )
@@ -447,7 +464,7 @@ async def test_start_server():
             assert kwargs["stderr"] == sys.stderr
             assert "ANONYMIZED_TELEMETRY" in kwargs["env"]
 
-            MockWaitForServer.assert_called_once_with("localhost", 12345)
+            MockWaitForServer.assert_called_once_with("http://127.0.0.1:12345")
 
             assert process == mock_process
             mock_makedirs.assert_called_once_with(config.db_log_path)
@@ -530,10 +547,10 @@ async def test_wait_for_server_success():
         mock_try_server.return_value = True
 
         # Should complete immediately without timeout
-        await wait_for_server("localhost", 8000, timeout=1)
+        await wait_for_server("http://localhost:8000", timeout=1)
 
         # Verify try_server was called once
-        mock_try_server.assert_called_once_with("localhost", 8000)
+        mock_try_server.assert_called_once_with("http://localhost:8000")
 
 
 @pytest.mark.asyncio
@@ -544,7 +561,7 @@ async def test_wait_for_server_timeout():
 
         # Should raise TimeoutError after 0.1 seconds (minimum timeout)
         with pytest.raises(TimeoutError) as excinfo:
-            await wait_for_server("localhost", 8000, timeout=0.1)
+            await wait_for_server("http://localhost:8000", timeout=0.1)
 
         assert "Server did not start within 0.1 seconds" in str(excinfo.value)
 
