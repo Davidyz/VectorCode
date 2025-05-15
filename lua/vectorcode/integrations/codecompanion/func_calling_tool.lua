@@ -70,6 +70,9 @@ return check_cli_wrap(function(opts)
             action.options.query = { action.options.query }
           end
           vim.list_extend(args, action.options.query)
+          if action.options.project_root == "" then
+            action.options.project_root = nil
+          end
           if action.options.project_root ~= nil then
             action.options.project_root = vim.fs.normalize(action.options.project_root)
             if
@@ -156,18 +159,19 @@ return check_cli_wrap(function(opts)
                 },
                 count = {
                   type = "integer",
+                  minimum = 1,
                   description = "Number of documents to retrieve, must be positive",
                 },
                 project_root = {
                   type = "string",
-                  description = "Project path to search within (must be from 'ls' results)",
+                  description = "Project path to search within (must be from 'ls' results). Use empty string for the current project.",
                 },
               },
-              required = { "query" },
+              required = { "query", "count", "project_root" },
               additionalProperties = false,
             },
           },
-          required = { "command" },
+          required = { "command", "options" },
           additionalProperties = false,
         },
         strict = true,
