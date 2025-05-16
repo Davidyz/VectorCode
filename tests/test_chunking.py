@@ -229,7 +229,6 @@ function bar() {
 def test_treesitter_chunker_javascript_genshi():
     """Test TreeSitterChunker with a sample javascript + genshi file using tempfile. (bypassing lexers via the filetype_map config param)"""
     chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"javascript": ["^kid$"]}))
-    # chunker = TreeSitterChunker(Config(chunk_size=60))
 
     test_content = r"""
 function foo() {
@@ -248,6 +247,53 @@ function bar() {
     chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == ['function foo() {\n    return `foo with ${genshi}`;\n}', 'function bar() {\n    return "bar";\n}']
     os.remove(test_file)
+
+def test_treesitter_chunker_parser_from_config_no_parser_found_error():
+    """Test TreeSitterChunker filetype_map: should raise an error if no parser is found"""
+    chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"unknown_parser": ["^kid$"]}))
+
+    test_content = r"""
+function foo() {
+    return `foo with ${genshi}`;
+}
+
+function bar() {
+    return "bar";
+}
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".kid") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+
+    with pytest.raises(ValueError):
+        chunks = list(str(i) for i in chunker.chunk(test_file))
+    os.remove(test_file)
+
+def test_treesitter_chunker_parser_from_config_regex_error():
+    """Test TreeSitterChunker filetype_map: should raise an error if a regex is invalid"""
+    chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"javascript": ["\\"]}))
+
+    test_content = r"""
+function foo() {
+    return `foo with ${genshi}`;
+}
+
+function bar() {
+    return "bar";
+}
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".kid") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+
+    with pytest.raises(ValueError):
+        chunks = list(str(i) for i in chunker.chunk(test_file))
+    os.remove(test_file)
+
 
 
 def test_treesitter_chunker_filter():

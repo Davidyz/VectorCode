@@ -294,17 +294,14 @@ class TreeSitterChunker(ChunkerBase):
                     if re.search(pattern, extension):
                         logger.debug(f"'{filename}' extension matches pattern '{pattern}' for language '{language}'. Attempting to load parser.")
                         parser = get_parser(language)
-                        if parser is None:
-                            raise LookupError(f"Parser not found for language '{language}'. Please check your filetype_map config.")
                         logger.debug(f"Found parser for language '{language}' from config.")
                         return parser
                 except re.error as e:
                     logger.error(f"Invalid regex pattern '{pattern}' for language '{language}' in filetype_map: {e}")
+                    raise ValueError(f"Invalid regex pattern '{pattern}' for language '{language}' in filetype_map: {e}")
                 except LookupError:
                     logger.error(f"Configured parser for language '{language}' not found or failed to load. Please check your filetype_map config.")
                     raise ValueError(f"Configured parser for language '{language}' not found.") from None
-                except Exception as e:
-                    logger.error(f"An unexpected error occurred while processing filetype_map for language '{language}' and pattern '{pattern}': {e}")
 
         logger.debug(f"No matching filetype map entry found for {filename}.")
         return None
