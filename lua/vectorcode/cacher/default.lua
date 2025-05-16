@@ -1,6 +1,7 @@
 ---@type VectorCode.CacheBackend
 local M = {}
 local vc_config = require("vectorcode.config")
+local vectorcode_cli_cmd = vc_config.get_user_config().cli_cmds.vectorcode
 local notify_opts = vc_config.notify_opts
 
 local logger = vc_config.logger
@@ -61,7 +62,7 @@ local function async_runner(query_message, buf_nr)
   CACHE[buf_nr].job_count = CACHE[buf_nr].job_count + 1
   logger.debug("vectorcode default cacher job args: ", args)
   local job = require("plenary.job"):new({
-    command = "vectorcode",
+    command = vectorcode_cli_cmd,
     args = args,
     detached = true,
     on_start = function()
