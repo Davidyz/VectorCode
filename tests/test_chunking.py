@@ -1,5 +1,6 @@
 import os
 import tempfile
+from unittest.mock import MagicMock
 
 import pytest
 from tree_sitter import Point
@@ -157,6 +158,24 @@ def bar():
     chunks = list(str(i) for i in chunker.chunk(test_file))
     assert chunks == ['def foo():\n    return "foo"', 'def bar():\n    return "bar"']
     os.remove(test_file)
+
+
+def test_treesitter_chunker_fallback_on_long_node():
+    test_content = r"""
+def foo():
+    return "a very very very very very long string"
+    """
+    config = Config(chunk_size=15)
+    with (
+        tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".py"
+        ) as temp_py_file,
+    ):
+        temp_py_file.write(test_content)
+    ts_chunker = TreeSitterChunker(config)
+    ts_chunker._fallback_chunker.chunk = MagicMock()
+    list(ts_chunker.chunk(temp_py_file.name))
+    ts_chunker._fallback_chunker.chunk.assert_called_once()
 
 
 def test_treesitter_chunker_python_encoding():

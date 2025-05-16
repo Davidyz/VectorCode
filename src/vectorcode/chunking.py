@@ -141,6 +141,7 @@ class TreeSitterChunker(ChunkerBase):
         if config is None:
             config = Config()
         super().__init__(config)
+        self._fallback_chunker = StringChunker(config)
 
     def __chunk_node(
         self, node: Node, text_bytes: bytes
@@ -155,10 +156,9 @@ class TreeSitterChunker(ChunkerBase):
 
         logger.debug("nbr children: %s", len(node.children))
         # if node has no children we fallback to the string chunker
-        if len(node.children) == 0:
+        if len(node.children) == 0 and node.text:
             logger.debug("No children, falling back to string chunker")
-            yield from StringChunker(self.config).chunk(node.text.decode())
-
+            yield from self._fallback_chunker.chunk(node.text.decode())
 
         for child in node.children:
             child_bytes = text_bytes[child.start_byte : child.end_byte]
@@ -314,7 +314,7 @@ class TreeSitterChunker(ChunkerBase):
             logger.debug(
                 "Unable to pick a suitable parser. Fall back to naive chunking"
             )
-            yield from StringChunker(self.config).chunk(content)
+            yield from self._fallback_chunker.chunk(content)
         else:
             pattern_str = self.__build_pattern(language=language)
             content_bytes = content.encode()
