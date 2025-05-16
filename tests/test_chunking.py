@@ -315,6 +315,28 @@ function bar() {
         assert chunks == []
     os.remove(test_file)
 
+def test_treesitter_chunker_parser_from_config_no_language_match():
+    """Test TreeSitterChunker filetype_map: should continue with the lexer parser checks if no language matches a regex"""
+    chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"php": ["^jsx$"]}))
+
+    test_content = r"""
+function foo() {
+    return "foo";
+}
+
+function bar() {
+    return "bar";
+}
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".js") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(str(i) for i in chunker.chunk(test_file))
+    assert chunks == ['function foo() {\n    return "foo";\n}', 'function bar() {\n    return "bar";\n}']
+    os.remove(test_file)
+
 
 
 def test_treesitter_chunker_filter():
