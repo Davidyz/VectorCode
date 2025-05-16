@@ -159,7 +159,6 @@ return check_cli_wrap(function(opts)
                 },
                 count = {
                   type = "integer",
-                  minimum = 1,
                   default = opts.default_num,
                   description = "Number of documents to retrieve, must be positive",
                 },
