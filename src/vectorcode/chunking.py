@@ -8,7 +8,7 @@ from io import TextIOWrapper
 from typing import Generator, Optional
 
 from pygments.lexer import Lexer
-from pygments.lexers import guess_lexer_for_filename
+from pygments.lexers import get_lexer_for_filename
 from pygments.util import ClassNotFound
 from tree_sitter import Node, Point
 from tree_sitter_language_pack import get_parser
@@ -233,7 +233,7 @@ class TreeSitterChunker(ChunkerBase):
     @cache
     def __guess_type(self, path: str, content: str) -> Optional[Lexer]:
         try:
-            return guess_lexer_for_filename(path, content)
+            return get_lexer_for_filename(path, content)
 
         except ClassNotFound:
             return None
@@ -272,6 +272,43 @@ class TreeSitterChunker(ChunkerBase):
             lines = fin.readlines()
         return lines
 
+
+    def __get_parser_from_config(self, file_path: str):
+        """
+        Get parser based on filetype_map config.
+        """
+        filetype_map = self.config.filetype_map
+        if not filetype_map:
+            logger.debug("filetype_map is empty in config.")
+            return None
+
+        filename = os.path.basename(file_path)
+        extension = os.path.splitext(file_path)[1]
+        if extension.startswith('.'):
+            extension = extension[1:]
+        logger.debug(f"Checking filetype map for extension '{extension}' in {filename}")
+        for _language, patterns in filetype_map.items():
+            language =  _language.lower()
+            for pattern in patterns:
+                try:
+                    if re.search(pattern, extension):
+                        logger.debug(f"'{filename}' extension matches pattern '{pattern}' for language '{language}'. Attempting to load parser.")
+                        parser = get_parser(language)
+                        if parser is None:
+                            raise LookupError(f"Parser not found for language '{language}'. Please check your filetype_map config.")
+                        logger.debug(f"Found parser for language '{language}' from config.")
+                        return parser
+                except re.error as e:
+                    logger.error(f"Invalid regex pattern '{pattern}' for language '{language}' in filetype_map: {e}")
+                except LookupError:
+                    logger.error(f"Configured parser for language '{language}' not found or failed to load. Please check your filetype_map config.")
+                    raise ValueError(f"Configured parser for language '{language}' not found.") from None
+                except Exception as e:
+                    logger.error(f"An unexpected error occurred while processing filetype_map for language '{language}' and pattern '{pattern}': {e}")
+
+        logger.debug(f"No matching filetype map entry found for {filename}.")
+        return None
+
     def chunk(self, data: str) -> Generator[Chunk, None, None]:
         """
         data: path to the file
@@ -287,26 +324,23 @@ class TreeSitterChunker(ChunkerBase):
             return
         parser = None
         language = None
-        lexer = self.__guess_type(data, content)
-        if lexer is not None:
-            lang_names = [lexer.name]
-            lang_names.extend(lexer.aliases)
-            for name in lang_names:
-                try:
-                    parser = get_parser(name.lower())
-                    if parser is not None:
-                        language = name.lower()
-                        logger.debug(
-                            "Detected %s filetype for treesitter chunking.", language
-                        )
-                        break
-                except LookupError:  # pragma: nocover
-                    pass
-                if '+' in name:
-                    primary_name = name.split('+')[0]
-                    if primary_name not in lang_names:
-                        lang_names.append(primary_name)
-                        logger.debug("Added primary lang_name: %s to the list of lang_names to test", primary_name)
+        parser = self.__get_parser_from_config(data)
+        if parser is None:
+            lexer = self.__guess_type(data, content)
+            if lexer is not None:
+                lang_names = [lexer.name]
+                lang_names.extend(lexer.aliases)
+                for name in lang_names:
+                    try:
+                        parser = get_parser(name.lower())
+                        if parser is not None:
+                            language = name.lower()
+                            logger.debug(
+                                "Detected %s filetype for treesitter chunking.", language
+                            )
+                            break
+                    except LookupError:  # pragma: nocover
+                        pass
 
         if parser is None:
             logger.debug(

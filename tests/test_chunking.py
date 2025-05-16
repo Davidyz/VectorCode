@@ -227,8 +227,9 @@ function bar() {
     os.remove(test_file)
 
 def test_treesitter_chunker_javascript_genshi():
-    """Test TreeSitterChunker with a sample javascript + genshi file using tempfile."""
-    chunker = TreeSitterChunker(Config(chunk_size=60))
+    """Test TreeSitterChunker with a sample javascript + genshi file using tempfile. (bypassing lexers via the filetype_map config param)"""
+    chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"javascript": ["^kid$"]}))
+    # chunker = TreeSitterChunker(Config(chunk_size=60))
 
     test_content = r"""
 function foo() {
@@ -240,7 +241,7 @@ function bar() {
 }
     """
 
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".js") as tmp_file:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".kid") as tmp_file:
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
