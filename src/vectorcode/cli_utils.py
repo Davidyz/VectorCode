@@ -109,12 +109,13 @@ class Config:
             host = config_dict.get("host")
             port = config_dict.get("port")
             if host is not None or port is not None:
-                logger.warning(
-                    '"host" and "port" are deprecated. Use "db_url" (eg. http://127.0.0.1:8000).'
-                )
+                # TODO: deprecate `host` and `port` in 0.7.0
                 host = host or "127.0.0.1"
                 port = port or 8000
                 db_url = f"http://{host}:{port}"
+                logger.warning(
+                    f'"host" and "port" are deprecated and will be removed in 0.7.0. Use "db_url" (eg. {db_url}).'
+                )
             else:
                 db_url = "http://127.0.0.1:8000"
 
