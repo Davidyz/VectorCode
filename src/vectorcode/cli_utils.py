@@ -94,6 +94,7 @@ class Config:
     )
     hnsw: dict[str, str | int] = field(default_factory=dict)
     chunk_filters: dict[str, list[str]] = field(default_factory=dict)
+    filetype_map: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
     hooks: bool = False
 
@@ -155,6 +156,9 @@ class Config:
                 "hnsw": config_dict.get("hnsw", default_config.hnsw),
                 "chunk_filters": config_dict.get(
                     "chunk_filters", default_config.chunk_filters
+                ),
+                "filetype_map": config_dict.get(
+                    "filetype_map", default_config.filetype_map
                 ),
                 "encoding": config_dict.get("encoding", default_config.encoding),
             }

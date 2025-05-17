@@ -324,6 +324,19 @@ The JSON configuration file may hold the following values:
     "hnsw:construction_ef": 100
   }
   ```
+- `filetype_map`: `dict[str, list[str]]`, a dictionary where keys are
+    [language name](https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages)
+    and values are lists of [Python regex patterns](https://docs.python.org/3/library/re.html)
+    that will match file extensions. This allows overriding automatic language
+    detection and specifying a treesitter parser for certain file types for which the language parser cannot be
+    correctly identified (e.g., `.phtml` files containing both php and html).
+    Example configuration:
+    ```json5
+    "filetype_map": {
+      "php": ["^phtml$"]
+    }
+    ```
+
 - `chunk_filters`: `dict[str, list[str]]`, a dictionary where the keys are
   [language name](https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages)
   and values are lists of [Python regex patterns](https://docs.python.org/3/library/re.html) 
