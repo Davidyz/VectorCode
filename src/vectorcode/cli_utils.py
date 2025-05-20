@@ -104,20 +104,6 @@ class Config:
         """
         default_config = Config()
         db_path = config_dict.get("db_path")
-        db_url = config_dict.get("db_url")
-        if db_url is None:
-            host = config_dict.get("host")
-            port = config_dict.get("port")
-            if host is not None or port is not None:
-                # TODO: deprecate `host` and `port` in 0.7.0
-                host = host or "127.0.0.1"
-                port = port or 8000
-                db_url = f"http://{host}:{port}"
-                logger.warning(
-                    f'"host" and "port" are deprecated and will be removed in 0.7.0. Use "db_url" (eg. {db_url}).'
-                )
-            else:
-                db_url = "http://127.0.0.1:8000"
 
         if db_path is None:
             db_path = os.path.expanduser("~/.local/share/vectorcode/chromadb/")
@@ -133,7 +119,7 @@ class Config:
                 "embedding_params": config_dict.get(
                     "embedding_params", default_config.embedding_params
                 ),
-                "db_url": db_url,
+                "db_url": config_dict.get("db_url", default_config.db_url),
                 "db_path": db_path,
                 "db_log_path": os.path.expanduser(
                     config_dict.get("db_log_path", default_config.db_log_path)

@@ -54,14 +54,6 @@ async def test_config_import_from():
 
 
 @pytest.mark.asyncio
-async def test_config_import_from_fallback_host_port():
-    conf = {"host": "test_host"}
-    assert (await Config.import_from(conf)).db_url == "http://test_host:8000"
-    conf = {"port": 114514}
-    assert (await Config.import_from(conf)).db_url == "http://127.0.0.1:114514"
-
-
-@pytest.mark.asyncio
 async def test_config_import_from_invalid_path():
     config_dict: Dict[str, Any] = {"db_path": "/path/does/not/exist"}
     with pytest.raises(IOError):
