@@ -358,6 +358,10 @@ The JSON configuration file may hold the following values:
   to automatically detect the encoding, but this is not very accurate,
   especially on small files.
 
+See 
+[the wiki](https://github.com/Davidyz/VectorCode/wiki/Default-Configuration#default-cli-configuration) 
+for an example of the default configuration.
+
 ### Vectorising Your Code
 
 Run `vectorcode vectorise <path_to_your_file>` or `vectorcode vectorise

@@ -10,9 +10,8 @@ repository you're working on. This repository also contains the corresponding
 neovim plugin because that's what I used to write this tool.
 
 > [!NOTE]
-> This project is in beta quality and only implements very basic retrieval and
-> embedding functionalities. There are plenty of rooms for improvements and any
-> help is welcomed.
+> This project is in beta quality and is undergoing rapid iterations.
+> I know there are plenty of rooms for improvements, and any help is welcomed.
 
 > [!NOTE]
 > [Chromadb](https://www.trychroma.com/), the vector database backend behind
@@ -24,8 +23,10 @@ neovim plugin because that's what I used to write this tool.
 
 * [Why VectorCode?](#why-vectorcode)
 * [Documentation](#documentation)
+  * [About Versioning](#about-versioning)
 * [TODOs](#todos)
 * [Credit](#credit)
+* [Star History](#star-history)
 
 <!-- mtoc-end -->
 
@@ -59,6 +60,23 @@ If you're trying to contribute to this project, take a look at [the contribution
 guide](./docs/CONTRIBUTING.md), which contains information about some basic
 guidelines that you should follow and tips that you may find helpful.
 
+### About Versioning
+
+This project follows an adapted semantic versioning:
+
+- Until 1.0.0 is released, the _major version number_ stays 0 which indicates that
+  this project is still in early stage, and features/interfaces may change from 
+  time to time;
+- The _minor version number_ indicates __breaking changes__. When I decide to remove a
+  feature/config option, the actual removal will happen when I bump the minor
+  version number. Therefore, if you want to avoid breaking a working setup, you
+  may choose to use a version constraint like `"vectorcode<0.7.0"`;
+- The _patch version number_ indicates __non-breaking changes__. This can include new
+  features and bug fixes. When I decide to deprecate things, I will make a new
+  release with bumped patch version. Until the minor version number is bumped,
+  the deprecated feature will still work but you'll see a warning. It's
+  recommended to update your setup to adapt the new features.
+
 ## TODOs
 - [x] query by ~file path~ excluded paths;
 - [x] chunking support;
@@ -79,7 +97,10 @@ guidelines that you should follow and tips that you may find helpful.
   **Implemented project-level `.vectorcode/` and `.git` as root anchor**
 - [ ] ability to view and delete files in a collection (atm you can only `drop`
   and `vectorise` again);
-- [x] joint search (kinda, using codecompanion.nvim/MCP).
+- [x] joint search (kinda, using codecompanion.nvim/MCP);
+- [-] Nix support (#144);
+- [-] Query rewriting (#124).
+
 
 ## Credit
 
@@ -89,3 +110,7 @@ guidelines that you should follow and tips that you may find helpful.
   when this project made initial attempts at tool-calling;
 - Thank [@ravitemer](https://github.com/ravitemer) for the help to interface
   VectorCode with [MCP](https://modelcontextprotocol.io/introduction).
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Davidyz/VectorCode&type=Date)](https://www.star-history.com/#Davidyz/VectorCode&Date)
