@@ -15,10 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pdm-project/setup-pdm@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Publish package distributions to PyPI
-        run: pdm publish
+        run: |
+          uv build
+          uv publish --trusted-publishing automatic
 
       - name: Generate Changelog
         id: changelog
