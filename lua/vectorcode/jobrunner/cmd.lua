@@ -25,6 +25,7 @@ function runner.run_async(args, callback, bufnr)
     on_exit = function(self, _, _)
       jobs[self.pid] = nil
       local result = self:result()
+      logger.debug(result)
       local ok, decoded = pcall(vim.json.decode, table.concat(result, ""))
       if callback ~= nil then
         if ok then

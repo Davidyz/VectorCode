@@ -55,9 +55,11 @@ M.query = vc_config.check_cli_wrap(
       if err then
         logger.warn(vim.inspect(err))
       end
+      logger.debug(result)
       return result
     else
       jobrunner.run_async(args, function(result, error)
+        logger.debug(result)
         callback(result)
         if error then
           logger.warn(vim.inspect(error))
@@ -198,11 +200,12 @@ end
 ---@return string[]
 M.prompts = vc_config.check_cli_wrap(function()
   local result, error = jobrunner.run({ "prompts", "-p" }, -1, 0)
-  if error then
+  if result == nil or result == {} then
     logger.warn(vim.inspect(error))
     if vc_config.get_user_config().notify then
       notify(vim.inspect(error))
     end
+    return {}
   end
   return result
 end)
