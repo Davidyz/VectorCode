@@ -37,12 +37,12 @@
 <!-- mtoc-end -->
 
 ## Installation
-Use your favourite plugin manager. 
+Use your favorite plugin manager. 
 
 ```lua 
 {
   "Davidyz/VectorCode",
-  version = "*", -- optional, depending on whether you're on nightly or release
+  version = "<0.7.0", -- optional, depending on whether you're on nightly or release
   dependencies = { "nvim-lua/plenary.nvim" },
   cmd = "VectorCode", -- if you're lazy-loading VectorCode
 }
@@ -69,8 +69,8 @@ you can use the following plugin spec:
 ```lua
 {
   "Davidyz/VectorCode",
-  version = "*", -- optional, depending on whether you're on nightly or release
-  build = "pipx upgrade vectorcode", -- optional but recommended if you set `version = "*"`
+  version = "*",
+  build = "pipx upgrade vectorcode", -- recommended if you set `version = "*"` or follow the main branch
   dependencies = { "nvim-lua/plenary.nvim" },
 }
 ```
