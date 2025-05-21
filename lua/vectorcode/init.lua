@@ -1,12 +1,11 @@
 local M = {}
 
 local vc_config = require("vectorcode.config")
-
 local logger = vc_config.logger
-
 local get_config = vc_config.get_user_config
-
 local notify_opts = vc_config.notify_opts
+local jobrunner = require("vectorcode.jobrunner.cmd")
+local notify = vim.schedule_wrap(vim.notify)
 
 M.query = vc_config.check_cli_wrap(
   ---This function wraps the `query` subcommand of the VectorCode CLI. When used without the `callback` parameter,
@@ -39,57 +38,31 @@ M.query = vc_config.check_cli_wrap(
         notify_opts
       )
     end
-    local args = { "vectorcode", "query", "--pipe", "-n", tostring(opts.n_query) }
+    local bufnr = vim.api.nvim_get_current_buf()
+    local args = { "query", "--pipe", "-n", tostring(opts.n_query) }
     if type(query_message) == "string" then
       query_message = { query_message }
     end
     vim.list_extend(args, query_message)
 
     if opts.exclude_this then
-      vim.list_extend(args, { "--exclude", vim.api.nvim_buf_get_name(0) })
+      vim.list_extend(args, { "--exclude", vim.api.nvim_buf_get_name(bufnr) })
     end
 
     logger.debug("vectorcode.query cmd args: ", args)
-    local decoded_response = {}
-    local job = vim.system(args, { text = true }, function(out)
-      logger.debug("vectorcode.query cmd output: ", out)
-      local raw_response
-      if out.code == 124 and out.signal == 9 then
-        -- killed due to timeout
-        raw_response = nil
-        if opts.notify then
-          vim.schedule(function()
-            vim.notify(
-              "VectorCode process killed due to timeout.",
-              vim.log.levels.WARN,
-              notify_opts
-            )
-          end)
-        end
-      else
-        raw_response = out.stdout
-      end
-
-      if raw_response ~= nil and raw_response ~= "" then
-        decoded_response =
-          vim.json.decode(raw_response, { object = true, array = true })
-        if opts.notify then
-          vim.notify(
-            ("Retrieved %s documents."):format(tostring(#decoded_response)),
-            vim.log.levels.INFO,
-            notify_opts
-          )
-        end
-        if type(callback) == "function" then
-          callback(decoded_response)
-        end
-        logger.info("vectorcode.query result:\n", decoded_response)
-      end
-    end)
-
     if callback == nil then
-      job:wait(timeout_ms)
-      return decoded_response
+      local result, err = jobrunner.run(args, timeout_ms, bufnr)
+      if err then
+        logger.warn(vim.inspect(err))
+      end
+      return result
+    else
+      jobrunner.run_async(args, function(result, error)
+        callback(result)
+        if error then
+          logger.warn(vim.inspect(error))
+        end
+      end, bufnr)
     end
   end
 )
@@ -138,37 +111,40 @@ M.vectorise = vc_config.check_cli_wrap(
         )
       end)
     end
+    local bufnr = vim.api.nvim_get_current_buf()
     logger.debug("vectorcode.vectorise cmd args: ", args)
-    require("plenary.job")
-      :new({
-        command = "vectorcode",
-        args = args,
-        on_exit = function(job, return_code)
-          if get_config().notify then
-            if return_code == 0 then
-              vim.notify(
-                "Indexing successful.",
-                vim.log.levels.INFO,
-                { title = "VectorCode" }
-              )
-            else
-              vim.notify(
-                "Indexing failed.",
-                vim.log.levels.WARN,
-                { title = "VectorCode" }
-              )
-            end
-          end
-        end,
-      })
-      :start()
+    jobrunner.run_async(args, function(result, error)
+      if result then
+        if vc_config.get_user_config().notify then
+          vim.schedule_wrap(vim.notify)(
+            "Indexing successful.",
+            vim.log.levels.INFO,
+            notify_opts
+          )
+        end
+        logger.info("Vectorise result:", vim.inspect(result))
+      elseif error then
+        vim.schedule_wrap(vim.notify)(
+          string.format("Indexing failed:\n%s", vim.inspect(error)),
+          vim.log.levels.WARN,
+          notify_opts
+        )
+        logger.warn(vim.inspect(error))
+      else
+        vim.schedule_wrap(vim.notify)(
+          "Indexing failed.",
+          vim.log.levels.WARN,
+          notify_opts
+        )
+      end
+    end, bufnr)
   end
 )
 
 ---@param project_root string?
 M.update = vc_config.check_cli_wrap(function(project_root)
   logger.info("vectorcode.update: ", project_root)
-  local args = { "vectorcode", "update" }
+  local args = { "update" }
   if
     type(project_root) == "string"
     and vim.uv.fs_stat(vim.fs.normalize(project_root)).type == "directory"
@@ -176,32 +152,26 @@ M.update = vc_config.check_cli_wrap(function(project_root)
     vim.list_extend(args, { "--project_root", project_root })
   end
   logger.debug("vectorcode.update cmd args: ", args)
-  vim.system(args, { stdout = nil, stderr = nil }, function(out)
-    logger.debug("vectorcode.update cmd out:\n", out)
-    if get_config().notify then
-      vim.schedule(function()
-        if out.code == 0 then
-          vim.notify(
-            "VectorCode embeddings has been updated.",
-            vim.log.levels.INFO,
-            notify_opts
-          )
-        else
-          vim.notify(
-            ("Failed to update the embeddings due to the following error:\n%s"):format(
-              out.stderr
-            ),
-            vim.log.levels.ERROR,
-            notify_opts
-          )
-        end
-      end)
+  jobrunner.run_async(args, function(result, error)
+    if result then
+      if vc_config.get_user_config().notify then
+        notify("Indexing successful.", vim.log.levels.INFO, notify_opts)
+      end
+      logger.info("Update result:", vim.inspect(result))
+    elseif error then
+      notify(
+        string.format("Update failed:\n%s", vim.inspect(error)),
+        vim.log.levels.WARN,
+        notify_opts
+      )
+      logger.warn(vim.inspect(error))
+    else
+      notify("Update failed.", vim.log.levels.WARN, notify_opts)
     end
-  end)
+  end, vim.api.nvim_get_current_buf())
+
   if get_config().notify then
-    vim.schedule(function()
-      vim.notify("Updating VectorCode embeddings...", vim.log.levels.INFO, notify_opts)
-    end)
+    notify("Updating VectorCode embeddings...", vim.log.levels.INFO, notify_opts)
   end
 end)
 
@@ -227,32 +197,14 @@ end
 
 ---@return string[]
 M.prompts = vc_config.check_cli_wrap(function()
-  local vectorcode_prompts = {}
-  vim
-    .system({ "vectorcode", "prompts", "-p" }, {}, function(out)
-      local successful = false
-      if out.code == 0 then
-        local ok, result =
-          pcall(vim.json.decode, out.stdout, { array = true, object = true })
-
-        if ok then
-          for _, str in pairs(result) do
-            table.insert(vectorcode_prompts, str)
-          end
-          successful = true
-        end
-      end
-      if not successful then
-        vim.schedule_wrap(vim.notify)(
-          "Failed to run `vectorcode prompts`. Please ensure your vectorcode CLI is up to date.\n"
-            .. tostring(out.stderr),
-          vim.log.levels.ERROR,
-          notify_opts
-        )
-      end
-    end)
-    :wait()
-  return vectorcode_prompts
+  local result, error = jobrunner.run({ "prompts", "-p" }, -1, 0)
+  if error then
+    logger.warn(vim.inspect(error))
+    if vc_config.get_user_config().notify then
+      notify(vim.inspect(error))
+    end
+  end
+  return result
 end)
 
 M.setup = vc_config.setup
