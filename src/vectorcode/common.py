@@ -84,7 +84,9 @@ async def start_server(configs: Config):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))  # OS selects a free ephemeral port
         port = int(s.getsockname()[1])
-    logger.warning(f"Starting bundled ChromaDB server at http://127.0.0.1:{port}.")
+
+    server_url = f"http://127.0.0.1:{port}"
+    logger.warning(f"Starting bundled ChromaDB server at {server_url}.")
     env.update({"ANONYMIZED_TELEMETRY": "False"})
     process = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -104,7 +106,8 @@ async def start_server(configs: Config):
         env=env,
     )
 
-    await wait_for_server(f"http://127.0.0.1:{port}")
+    await wait_for_server(server_url)
+    configs.db_url = server_url
     return process
 
 

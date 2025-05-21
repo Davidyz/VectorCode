@@ -463,6 +463,7 @@ async def test_start_server():
             assert kwargs["stdout"] == subprocess.DEVNULL
             assert kwargs["stderr"] == sys.stderr
             assert "ANONYMIZED_TELEMETRY" in kwargs["env"]
+            assert config.db_url == "http://127.0.0.1:12345"
 
             MockWaitForServer.assert_called_once_with("http://127.0.0.1:12345")
 
