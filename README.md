@@ -90,7 +90,7 @@ This project follows an adapted semantic versioning:
   been indexed~ Returns empty array instead;
 - [x] job pool for async caching;
 - [x] [persistent-client](https://docs.trychroma.com/docs/run-chroma/persistent-client);
-- [-] proper [remote Chromadb](https://docs.trychroma.com/production/administration/auth) support (with authentication, etc.);
+- [ ] proper [remote Chromadb](https://docs.trychroma.com/production/administration/auth) support (with authentication, etc.);
 - [x] respect `.gitignore`;
 - [x] implement some sort of project-root anchors (such as `.git` or a custom
   `.vectorcode.json`) that enhances automatic project-root detection.
@@ -98,8 +98,8 @@ This project follows an adapted semantic versioning:
 - [ ] ability to view and delete files in a collection (atm you can only `drop`
   and `vectorise` again);
 - [x] joint search (kinda, using codecompanion.nvim/MCP);
-- [-] Nix support (#144);
-- [-] Query rewriting (#124).
+- [ ] Nix support (#144);
+- [ ] Query rewriting (#124).
 
 
 ## Credit
