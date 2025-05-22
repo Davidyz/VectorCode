@@ -39,14 +39,6 @@ vectorcode-mcp-server = "vectorcode.mcp_main:main"
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[tool.pdm]
-distribution = true
-
-[tool.pdm.version]
-source = "scm"
-write_to = "./vectorcode/_version.py"
-write_template = "__version__ = '{}' # pragma: no cover"
-
 [tool.coverage.run]
 omit = [
     "./tests/*",
@@ -55,6 +47,15 @@ omit = [
     "/tmp/*",
 ]
 include = ['src/vectorcode/**/*.py']
+
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.version]
+source = "scm"
+write_to = "./vectorcode/_version.py"
+write_template = "__version__ = '{}' # pragma: no cover"
 
 [dependency-groups]
 dev = [
@@ -68,6 +69,7 @@ dev = [
     "pytest-asyncio>=0.25.3",
     "debugpy>=1.8.12",
     "coredumpy>=0.4.1",
+    "basedpyright>=1.29.2",
 ]
 
 [project.optional-dependencies]
@@ -75,3 +77,7 @@ legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
 intel = ['optimum[openvino]', 'openvino']
 lsp = ['pygls<2.0.0', 'lsprotocol']
 mcp = ['mcp<2.0.0', 'pydantic']
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+ignore = ["./tests/"]

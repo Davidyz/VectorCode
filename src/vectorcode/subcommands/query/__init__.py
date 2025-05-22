@@ -1,8 +1,9 @@
 import json
 import logging
 import os
+from typing import cast
 
-from chromadb import GetResult
+from chromadb import GetResult, Where
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
@@ -70,7 +71,7 @@ async def get_query_result_files(
                 IncludeEnum.distances,
                 IncludeEnum.documents,
             ],
-            where=filter or None,
+            where=cast(Where, filter) or None,
         )
     except IndexError:
         # no results found
@@ -99,21 +100,23 @@ async def build_query_results(
                 {str(key): full_result[str(key)] for key in configs.include}
             )
         elif QueryInclude.chunk in configs.include:
-            chunk: GetResult = await collection.get(
+            chunks: GetResult = await collection.get(
                 identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
             )
-            meta = chunk.get(
+            meta = chunks.get(
                 "metadatas",
             )
             if meta is not None and len(meta) != 0:
-                full_result: dict[str, str | int] = {
-                    "chunk": str(chunk.get("documents", [""])[0])
-                }
+                chunk_texts = chunks.get("documents")
+                assert chunk_texts is not None, (
+                    "QueryResult does not contain `documents`!"
+                )
+                full_result: dict[str, str | int] = {"chunk": str(chunk_texts[0])}
                 if meta[0].get("start") is not None and meta[0].get("end") is not None:
                     path = str(meta[0].get("path"))
                     with open(path) as fin:
-                        start: int = meta[0]["start"]
-                        end: int = meta[0]["end"]
+                        start: int = int(meta[0]["start"])
+                        end: int = int(meta[0]["end"])
                         full_result["chunk"] = "".join(fin.readlines()[start : end + 1])
                     full_result["start_line"] = start
                     full_result["end_line"] = end
@@ -122,7 +125,7 @@ async def build_query_results(
                             meta[0]["path"]
                             if configs.use_absolute_path
                             else os.path.relpath(
-                                meta[0]["path"], str(configs.project_root)
+                                str(meta[0]["path"]), str(configs.project_root)
                             )
                         )
 

@@ -5,13 +5,13 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cache
 from io import TextIOWrapper
-from typing import Generator, Optional
+from typing import Generator, Optional, cast
 
 from pygments.lexer import Lexer
 from pygments.lexers import get_lexer_for_filename
 from pygments.util import ClassNotFound
 from tree_sitter import Node, Point
-from tree_sitter_language_pack import get_parser
+from tree_sitter_language_pack import SupportedLanguage, get_parser
 
 from vectorcode.cli_utils import Config
 
@@ -279,7 +279,6 @@ class TreeSitterChunker(ChunkerBase):
             lines = fin.readlines()
         return lines
 
-
     def __get_parser_from_config(self, file_path: str):
         """
         Get parser based on filetype_map config.
@@ -291,23 +290,31 @@ class TreeSitterChunker(ChunkerBase):
 
         filename = os.path.basename(file_path)
         extension = os.path.splitext(file_path)[1]
-        if extension.startswith('.'):
+        if extension.startswith("."):
             extension = extension[1:]
         logger.debug(f"Checking filetype map for extension '{extension}' in {filename}")
         for _language, patterns in filetype_map.items():
-            language =  _language.lower()
+            language = _language.lower()
             for pattern in patterns:
                 try:
                     if re.search(pattern, extension):
-                        logger.debug(f"'{filename}' extension matches pattern '{pattern}' for language '{language}'. Attempting to load parser.")
-                        parser = get_parser(language)
-                        logger.debug(f"Found parser for language '{language}' from config.")
+                        logger.debug(
+                            f"'{filename}' extension matches pattern '{pattern}' for language '{language}'. Attempting to load parser."
+                        )
+                        parser = get_parser(cast(SupportedLanguage, language))
+                        logger.debug(
+                            f"Found parser for language '{language}' from config."
+                        )
                         return parser
                 except re.error as e:
-                    e.add_note(f"\nInvalid regex pattern '{pattern}' for language '{language}' in filetype_map")
+                    e.add_note(
+                        f"\nInvalid regex pattern '{pattern}' for language '{language}' in filetype_map"
+                    )
                     raise
                 except LookupError as e:
-                    e.add_note(f"\nTreeSitter Parser for language '{language}' not found. Please check your filetype_map config.")
+                    e.add_note(
+                        f"\nTreeSitter Parser for language '{language}' not found. Please check your filetype_map config."
+                    )
                     raise
 
         logger.debug(f"No matching filetype map entry found for {filename}.")
@@ -336,11 +343,12 @@ class TreeSitterChunker(ChunkerBase):
                 lang_names.extend(lexer.aliases)
                 for name in lang_names:
                     try:
-                        parser = get_parser(name.lower())
+                        parser = get_parser(cast(SupportedLanguage, name.lower()))
                         if parser is not None:
                             language = name.lower()
                             logger.debug(
-                                "Detected %s filetype for treesitter chunking.", language
+                                "Detected %s filetype for treesitter chunking.",
+                                language,
                             )
                             break
                     except LookupError:  # pragma: nocover

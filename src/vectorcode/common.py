@@ -158,7 +158,7 @@ def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction | None
         logger.warning(
             f"Failed to use {configs.embedding_function}. Falling back to Sentence Transformer.",
         )
-        return embedding_functions.SentenceTransformerEmbeddingFunction()
+        return embedding_functions.SentenceTransformerEmbeddingFunction()  # type:ignore
     except Exception as e:
         e.add_note(
             "\nFor errors caused by missing dependency, consult the documentation of pipx (or whatever package manager that you installed VectorCode with) for instructions to inject libraries into the virtual environment."

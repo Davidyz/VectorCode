@@ -19,7 +19,7 @@ async def get_collection_list(client: AsyncClientAPI) -> list[dict]:
         meta = collection.metadata
         document_meta = await collection.get(include=[IncludeEnum.metadatas])
         unique_files = set(
-            i.get("path") for i in document_meta["metadatas"] if i is not None
+            i.get("path") for i in (document_meta["metadatas"] or []) if i is not None
         )
         result.append(
             {

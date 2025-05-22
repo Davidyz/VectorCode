@@ -24,4 +24,8 @@ class NaiveReranker(RerankerBase):
         assert self._raw_results.get("distances") is not None
         assert self.configs.query, "Expecting query messages in self.configs"
         idx = self.configs.query.index(query_message)
-        return list(-i for i in self._raw_results.get("distances")[idx])
+        dist = self._raw_results.get("distances")
+        if dist is None:  # pragma: nocover
+            raise ValueError("QueryResult should contain distances!")
+        else:
+            return list(-i for i in dist[idx])

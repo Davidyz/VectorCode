@@ -18,8 +18,6 @@ from vectorcode import __version__
 logger = logging.getLogger(name=__name__)
 
 
-PathLike = Union[str, Path]
-
 GLOBAL_CONFIG_PATH = os.path.join(
     os.path.expanduser("~"), ".config", "vectorcode", "config.json"
 )
@@ -70,8 +68,8 @@ class Config:
     to_be_deleted: list[str] = field(default_factory=list)
     pipe: bool = False
     action: Optional[CliAction] = None
-    files: list[PathLike] = field(default_factory=list)
-    project_root: Optional[PathLike] = None
+    files: list[Union[str, os.PathLike]] = field(default_factory=list)
+    project_root: Optional[Union[str, Path]] = None
     query: Optional[list[str]] = None
     db_url: str = "http://127.0.0.1:8000"
     embedding_function: str = "SentenceTransformerEmbeddingFunction"  # This should fallback to whatever the default is.
@@ -84,7 +82,7 @@ class Config:
     chunk_size: int = 2500
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
-    query_exclude: list[PathLike] = field(default_factory=list)
+    query_exclude: list[Union[str, os.PathLike]] = field(default_factory=list)
     reranker: Optional[str] = "CrossEncoderReranker"
     reranker_params: dict[str, Any] = field(default_factory=lambda: {})
     check_item: Optional[str] = None
@@ -214,7 +212,7 @@ def get_cli_parser():
         "--project_root",
         default=None,
         help="Project root to be used as an identifier of the project.",
-    ).complete = shtab.DIRECTORY
+    ).complete = shtab.DIRECTORY  # type:ignore
     shared_parser.add_argument(
         "--pipe",
         "-p",
@@ -226,7 +224,7 @@ def get_cli_parser():
         "--no_stderr",
         action="store_true",
         default=False,
-        help="Supress all STDERR messages.",
+        help="Suppress all STDERR messages.",
     )
     main_parser = argparse.ArgumentParser(
         "vectorcode",
@@ -253,7 +251,7 @@ def get_cli_parser():
     )
     vectorise_parser.add_argument(
         "file_paths", nargs="*", help="Paths to files to be vectorised."
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type:ignore
     vectorise_parser.add_argument(
         "--recursive",
         "-r",
@@ -297,7 +295,7 @@ def get_cli_parser():
     )
     query_parser.add_argument(
         "--exclude", nargs="*", help="Files to exclude from query results."
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type:ignore
     query_parser.add_argument(
         "--absolute",
         default=False,
@@ -382,7 +380,7 @@ def get_cli_parser():
     )
     chunks_parser.add_argument(
         "file_paths", nargs="*", help="Paths to files to be chunked."
-    ).complete = shtab.FILE
+    ).complete = shtab.FILE  # type:ignore
     return main_parser
 
 
@@ -443,7 +441,7 @@ def expand_envs_in_dict(d: dict):
                 stack.append(curr[k])
 
 
-async def load_config_file(path: Optional[PathLike] = None):
+async def load_config_file(path: Optional[Union[str, Path]] = None):
     """Load config file from ~/.config/vectorcode/config.json"""
     if path is None:
         path = GLOBAL_CONFIG_PATH
@@ -466,7 +464,7 @@ async def load_config_file(path: Optional[PathLike] = None):
     return Config()
 
 
-async def find_project_config_dir(start_from: PathLike = "."):
+async def find_project_config_dir(start_from: Union[str, Path] = "."):
     """Returns the project-local config directory."""
     current_dir = Path(start_from).resolve()
     project_root_anchors = [".vectorcode", ".git"]
@@ -486,7 +484,7 @@ async def find_project_config_dir(start_from: PathLike = "."):
 
 
 def find_project_root(
-    start_from: PathLike, root_anchor: PathLike = ".vectorcode"
+    start_from: Union[str, Path], root_anchor: Union[str, Path] = ".vectorcode"
 ) -> str | None:
     start_from = Path(start_from)
     if os.path.isfile(start_from):
@@ -500,7 +498,7 @@ def find_project_root(
         start_from = start_from.parent
 
 
-async def get_project_config(project_root: PathLike) -> Config:
+async def get_project_config(project_root: Union[str, Path]) -> Config:
     """
     Load config file for `project_root`.
     Fallback to global config, and then default config.
@@ -520,7 +518,7 @@ async def get_project_config(project_root: PathLike) -> Config:
     return config
 
 
-def expand_path(path: PathLike, absolute: bool = False) -> PathLike:
+def expand_path(path: Union[str, Path], absolute: bool = False) -> Union[str, Path]:
     expanded = os.path.expanduser(os.path.expandvars(path))
     if absolute:
         return os.path.abspath(expanded)
@@ -528,21 +526,21 @@ def expand_path(path: PathLike, absolute: bool = False) -> PathLike:
 
 
 async def expand_globs(
-    paths: list[PathLike], recursive: bool = False, include_hidden: bool = False
-) -> list[PathLike]:
+    paths: Sequence[os.PathLike | str],
+    recursive: bool = False,
+    include_hidden: bool = False,
+) -> list[str]:
     result = set()
-    stack = paths
+    stack = list(str(i) for i in paths)
     while stack:
         curr = stack.pop()
         if os.path.isfile(curr):
             result.add(expand_path(curr))
         elif "**" in str(curr):
-            stack.extend(
-                glob.glob(str(curr), recursive=True, include_hidden=include_hidden)
-            )
+            stack.extend(glob.glob(curr, recursive=True, include_hidden=include_hidden))
         elif "*" in str(curr):
             stack.extend(
-                glob.glob(str(curr), recursive=recursive, include_hidden=include_hidden)
+                glob.glob(curr, recursive=recursive, include_hidden=include_hidden)
             )
         elif os.path.isdir(curr) and recursive:
             stack.extend(

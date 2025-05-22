@@ -20,6 +20,10 @@ run tests, and `make coverage` to generate a coverage report. The testing and
 coverage report are also in the CI configuration, but it might still help to run
 them locally before you open the PR.
 
+This project also runs static analysis with
+[basedpyright](https://docs.basedpyright.com). GitHub Action will also run the
+check when a PR is submitted.
+
 You may also find it helpful to 
 [enable logging](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 
 for the CLI when developing new features or working on fixes.

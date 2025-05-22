@@ -44,9 +44,9 @@ jobs:
       - name: Set custom HF cache directory
         run: |
           export HF_HOME="$GITHUB_WORKSPACE/hf_cache"
-          export SENTENCE_TRANSFORMERS_HOME=$HF_HOME
-          mkdir -p $HF_HOME
-          [ -z "$(ls $HF_HOME)" ] || rm $HF_HOME/* -rf && true
+          export SENTENCE_TRANSFORMERS_HOME="$HF_HOME"
+          mkdir -p "$HF_HOME"
+          [ -z "$(ls "$HF_HOME")" ] || rm "${HF_HOME:?}/*" -rf && true
 
       - name: run tests 
         run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
@@ -56,6 +56,9 @@ jobs:
           pdm run coverage run -m pytest
           pdm run coverage report -m
           pdm run coverage xml -i
+
+      - name: static analysis by basedpyright
+        run: pdm run basedpyright
 
       - name: upload coverage reports to codecov
         uses: codecov/codecov-action@v5

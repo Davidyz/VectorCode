@@ -78,7 +78,7 @@ async def chunked_add(
             logger.debug(f"Chunked into {len(chunks)} pieces.")
             metas = []
             for chunk in chunks:
-                meta: dict[str, str | dict[str, int]] = {"path": full_path_str}
+                meta: dict[str, str | int] = {"path": full_path_str}
                 if isinstance(chunk, Chunk):
                     meta["start"] = chunk.start.row
                     meta["end"] = chunk.end.row
@@ -231,7 +231,7 @@ async def vectorise(configs: Config) -> int:
     async with collection_lock:
         all_results = await collection.get(include=[IncludeEnum.metadatas])
         if all_results is not None and all_results.get("metadatas"):
-            paths = (meta["path"] for meta in all_results["metadatas"])
+            paths = (meta["path"] for meta in (all_results["metadatas"] or []))
             orphans = set()
             for path in paths:
                 if isinstance(path, str) and not os.path.isfile(path):
