@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from vectorcode import cli_utils
 from vectorcode.cli_utils import (
     CliAction,
     Config,
@@ -205,6 +206,29 @@ async def test_load_config_file_invalid_json():
 
         with pytest.raises(ValueError):
             await load_config_file(config_path)
+
+
+@pytest.mark.asyncio
+async def test_load_from_default_config():
+    for name in ("config.json5", "config.json"):
+        with (
+            tempfile.TemporaryDirectory() as fake_home,
+        ):
+            os.environ.update({"HOME": fake_home})
+            config_path = os.path.join(fake_home, ".config", "vectorcode", name)
+            config_dir = os.path.join(fake_home, ".config", "vectorcode")
+            setattr(
+                cli_utils,
+                "GLOBAL_CONFIG_DIR",
+                config_dir,
+            )
+            os.makedirs(config_dir, exist_ok=True)
+            config_content = '{"db_url": "http://default.url:8000"}'
+            with open(config_path, "w") as fin:
+                fin.write(config_content)
+
+            config = await load_config_file()
+            assert config.db_url == "http://default.url:8000"
 
 
 @pytest.mark.asyncio
