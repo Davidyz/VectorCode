@@ -1,0 +1,15 @@
+diff --git a/lua/vectorcode/config.lua b/lua/vectorcode/config.lua
+index 247e93b..c6036b5 100644
+--- a/lua/vectorcode/config.lua
++++ b/lua/vectorcode/config.lua
+@@ -16,8 +16,8 @@ local cacher = nil
+ ---@type VectorCode.Opts
+ local config = {
+   cli_cmds = {
+-    vectorcode = "vectorcode",
+-    vectorcode_server = "vectorcode-server",
++    vectorcode = "@vectorcode@/bin/vectorcode",
++    vectorcode_server = "@vectorcode@/bin/vectorcode-server",
+   },
+   async_opts = {
+     debounce = 10,
