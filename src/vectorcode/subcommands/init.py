@@ -8,11 +8,11 @@ import stat
 from pathlib import Path
 from typing import Optional
 
-from vectorcode.cli_utils import GLOBAL_CONFIG_PATH, Config, find_project_root
+from vectorcode.cli_utils import GLOBAL_CONFIG_DIR, Config, find_project_root
 
 logger = logging.getLogger(name=__name__)
 
-__GLOBAL_HOOKS_PATH = Path(GLOBAL_CONFIG_PATH).parent / "hooks"
+__GLOBAL_HOOKS_PATH = Path(GLOBAL_CONFIG_DIR) / "hooks"
 
 
 # Keys: name of the hooks, ie. `pre-commit`

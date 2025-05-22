@@ -18,8 +18,10 @@ from vectorcode import __version__
 logger = logging.getLogger(name=__name__)
 
 
-GLOBAL_CONFIG_PATH = os.path.join(
-    os.path.expanduser("~"), ".config", "vectorcode", "config.json"
+GLOBAL_CONFIG_DIR = os.path.join(
+    os.path.expanduser("~"),
+    ".config",
+    "vectorcode",
 )
 GLOBAL_INCLUDE_SPEC = os.path.join(
     os.path.expanduser("~"), ".config", "vectorcode", "vectorcode.include"
@@ -442,10 +444,14 @@ def expand_envs_in_dict(d: dict):
 
 
 async def load_config_file(path: Optional[Union[str, Path]] = None):
-    """Load config file from ~/.config/vectorcode/config.json"""
+    """Load config file from ~/.config/vectorcode/config.json(5)"""
     if path is None:
-        path = GLOBAL_CONFIG_PATH
-    if os.path.isfile(path):
+        for name in ("config.json5", "config.json"):
+            p = os.path.join(GLOBAL_CONFIG_DIR, name)
+            if os.path.isfile(p):
+                path = str(p)
+                break
+    if path and os.path.isfile(path):
         logger.debug(f"Loading config from {path}")
         with open(path) as fin:
             content = fin.read()
