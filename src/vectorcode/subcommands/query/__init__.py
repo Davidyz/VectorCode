@@ -114,8 +114,8 @@ async def build_query_results(
                 if meta[0].get("start") is not None and meta[0].get("end") is not None:
                     path = str(meta[0].get("path"))
                     with open(path) as fin:
-                        start: int = int(meta[0]["start"])
-                        end: int = int(meta[0]["end"])
+                        start = int(meta[0]["start"])  # type:ignore
+                        end = int(meta[0]["end"])  # type:ignore
                         full_result["chunk"] = "".join(fin.readlines()[start : end + 1])
                     full_result["start_line"] = start
                     full_result["end_line"] = end
