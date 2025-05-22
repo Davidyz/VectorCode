@@ -23,8 +23,7 @@ logger = logging.getLogger(name=__name__)
 async def get_collections(
     client: AsyncClientAPI,
 ) -> AsyncGenerator[AsyncCollection, None]:
-    for collection_name in await client.list_collections():
-        collection = await client.get_collection(collection_name, None)
+    for collection in await client.list_collections():
         meta = collection.metadata
         if meta is None:
             continue
@@ -88,21 +87,20 @@ async def start_server(configs: Config):
     server_url = f"http://127.0.0.1:{port}"
     logger.warning(f"Starting bundled ChromaDB server at {server_url}.")
     env.update({"ANONYMIZED_TELEMETRY": "False"})
+    exe = os.path.join(sys.prefix, "bin", "chroma")
+    if not os.path.isfile(exe):
+        exe = os.path.join(sys.prefix, "Scripts", "chroma")
     process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "chromadb.cli.cli",
+        exe,
         "run",
         "--host",
-        "localhost",
+        "127.0.0.1",
         "--port",
         str(port),
         "--path",
         db_path,
-        "--log-path",
-        os.path.join(str(configs.db_log_path), "chroma.log"),
-        stdout=subprocess.DEVNULL,
-        stderr=sys.stderr,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env=env,
     )
 
