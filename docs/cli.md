@@ -318,10 +318,10 @@ The JSON configuration file may hold the following values:
   queries. **It's recommended to re-vectorise the collection after modifying these
   options, because some of the options can only be set during collection
   creation.** Example:
-  ```json
+  ```json5
+  // the following is the default value.
   "hnsw": {
     "hnsw:M": 64,
-    "hnsw:construction_ef": 100
   }
   ```
 - `filetype_map`: `dict[str, list[str]]`, a dictionary where keys are

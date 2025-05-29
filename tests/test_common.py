@@ -327,7 +327,19 @@ async def test_get_collection():
             ),
             "created-by": "VectorCode",
         }
-        mock_client.get_or_create_collection.return_value = mock_collection
+
+        async def mock_get_or_create_collection(
+            self,
+            name=None,
+            configuration=None,
+            metadata=None,
+            embedding_function=None,
+            data_loader=None,
+        ):
+            mock_collection.metadata.update(metadata or {})
+            return mock_collection
+
+        mock_client.get_or_create_collection.side_effect = mock_get_or_create_collection
         MockAsyncHttpClient.return_value = mock_client
 
         collection = await get_collection(mock_client, config, make_if_missing=True)
@@ -336,6 +348,7 @@ async def test_get_collection():
             "USER", os.environ.get("USERNAME", "DEFAULT_USER")
         )
         assert collection.metadata["created-by"] == "VectorCode"
+        assert collection.metadata["hnsw:M"] == 64
         mock_client.get_or_create_collection.assert_called_once()
         mock_client.get_collection.side_effect = None
 
@@ -361,7 +374,7 @@ async def test_get_collection_hnsw():
         embedding_function="SentenceTransformerEmbeddingFunction",
         embedding_params={},
         project_root="/test_project",
-        hnsw={"ef_construction": 200, "m": 32},
+        hnsw={"ef_construction": 200, "M": 32},
     )
 
     with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
@@ -374,7 +387,7 @@ async def test_get_collection_hnsw():
             ),
             "created-by": "VectorCode",
             "hnsw:ef_construction": 200,
-            "hnsw:m": 32,
+            "hnsw:M": 32,
             "embedding_function": "SentenceTransformerEmbeddingFunction",
             "path": "/test_project",
         }
@@ -394,7 +407,7 @@ async def test_get_collection_hnsw():
         )
         assert collection.metadata["created-by"] == "VectorCode"
         assert collection.metadata["hnsw:ef_construction"] == 200
-        assert collection.metadata["hnsw:m"] == 32
+        assert collection.metadata["hnsw:M"] == 32
         mock_client.get_or_create_collection.assert_called_once()
         assert (
             mock_client.get_or_create_collection.call_args.kwargs["metadata"]

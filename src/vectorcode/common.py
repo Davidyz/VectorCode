@@ -193,6 +193,7 @@ async def get_collection(
                 "USER", os.environ.get("USERNAME", "DEFAULT_USER")
             ),
             "embedding_function": configs.embedding_function,
+            "hnsw:M": 64,
         }
         if configs.hnsw:
             for key in configs.hnsw.keys():
