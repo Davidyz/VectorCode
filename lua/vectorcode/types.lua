@@ -23,9 +23,14 @@
 ---@field update boolean `vectorcode update`
 ---@field lsp boolean whether to start LSP server on startup (default is to delay it to the first LSP request)
 
+---@class VectorCode.CliCmds Cli commands to use
+---@field vectorcode string vectorcode cli command or full path
+---@field vectorcode_server string vectorcode-server cli command or full path
+
 ---Options passed to `setup`.
 ---@class VectorCode.Opts : VectorCode.QueryOpts
 ---@field async_opts VectorCode.RegisterOpts Default options to use for registering a new buffer for async cache.
+---@field cli_cmds VectorCode.CliCmds
 ---@field on_setup VectorCode.OnSetup
 ---@field async_backend "default"|"lsp"
 ---@field sync_log_env_var boolean Whether to automatically set `VECTORCODE_LOG_LEVEL` when `VECTORCODE_NVIM_LOG_LEVEL` is detected. !! WARNING: THIS MAY RESULT IN EXCESSIVE LOG MESSAGES DUE TO STDERR BEING POPULATED BY CLI LOGS

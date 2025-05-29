@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import shtab
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.errors import InvalidCollectionException
@@ -59,6 +60,12 @@ def get_arg_parser():
         action="store_true",
         default=False,
         help="Whether to include the output of `vectorcode ls` in the tool description.",
+    )
+    shtab.add_argument_to(
+        parser,
+        ["-s", "--print-completion"],
+        parent=parser,
+        help="Print completion script.",
     )
     return parser
 
