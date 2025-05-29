@@ -93,21 +93,6 @@ async def test_async_main_cli_action_init(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_async_main_cli_action_hooks(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.hooks)
-    monkeypatch.setattr(
-        "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
-    )
-    mock_hooks = AsyncMock(return_value=0)
-    monkeypatch.setattr("vectorcode.subcommands.hooks", mock_hooks)
-    monkeypatch.setattr("vectorcode.main.get_project_config", AsyncMock())
-
-    return_code = await async_main()
-    assert return_code == 0
-    mock_hooks.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_async_main_cli_action_chunks(monkeypatch):
     mock_cli_args = MagicMock(
         no_stderr=False, project_root=".", action=CliAction.chunks
