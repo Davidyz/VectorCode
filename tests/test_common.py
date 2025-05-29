@@ -1,7 +1,6 @@
 import os
 import socket
 import subprocess
-import sys
 import tempfile
 from unittest.mock import MagicMock, patch
 
@@ -458,25 +457,92 @@ async def test_start_server():
             MockCreateProcess.assert_called_once()
             args, kwargs = MockCreateProcess.call_args
             expected_args = [
-                sys.executable,
-                "-m",
-                "chromadb.cli.cli",
                 "run",
                 "--host",
-                "localhost",
+                "127.0.0.1",
                 "--port",
                 str(12345),  # Check the mocked port
                 "--path",
                 temp_dir,
-                "--log-path",
-                os.path.join(str(config.db_log_path), "chroma.log"),
             ]
-            assert args[0] == sys.executable
-            assert tuple(args[1:]) == tuple(expected_args[1:])
-            assert kwargs["stdout"] == subprocess.DEVNULL
-            assert kwargs["stderr"] == sys.stderr
+            assert "chroma" in args[0], (
+                f"{args[0]} should be the path to the `chroma` executable."
+            )
+            assert tuple(args[1:]) == tuple(expected_args)
+            assert kwargs["stdout"] == subprocess.PIPE
+            assert kwargs["stderr"] == subprocess.PIPE
             assert "ANONYMIZED_TELEMETRY" in kwargs["env"]
             assert config.db_url == "http://127.0.0.1:12345"
+
+            MockWaitForServer.assert_called_once_with("http://127.0.0.1:12345")
+            assert process == mock_process
+            mock_makedirs.assert_called_once_with(config.db_log_path)
+
+
+@pytest.mark.asyncio
+async def test_start_server_windows():
+    with tempfile.TemporaryDirectory() as temp_dir:
+
+        def _new_isdir(path):
+            if str(temp_dir) in str(path):
+                return True
+            return False
+
+        def _new_isfile(path):
+            if "/bin/" in path:
+                return False
+            return True
+
+        # Mock subprocess.Popen
+        with (
+            patch("asyncio.create_subprocess_exec") as MockCreateProcess,
+            patch("asyncio.sleep"),
+            patch("socket.socket") as MockSocket,
+            patch("vectorcode.common.wait_for_server") as MockWaitForServer,
+            patch("os.path.isdir") as mock_isdir,
+            patch("os.path.isfile") as mock_isfile,
+            patch("os.makedirs") as mock_makedirs,
+        ):
+            mock_isdir.side_effect = _new_isdir
+            mock_isfile.side_effect = _new_isfile
+            # Mock socket to return a specific port
+            mock_socket = MagicMock()
+            mock_socket.getsockname.return_value = ("localhost", 12345)  # Mock port
+            MockSocket.return_value.__enter__.return_value = mock_socket
+
+            # Mock the process object
+            mock_process = MagicMock()
+            mock_process.returncode = 0  # Simulate successful execution
+            MockCreateProcess.return_value = mock_process
+
+            # Create a config object
+            config = Config(
+                db_path=temp_dir,
+                project_root=temp_dir,
+            )
+
+            # Call start_server
+            process = await start_server(config)
+
+            # Assert that asyncio.create_subprocess_exec was called with the correct arguments
+            MockCreateProcess.assert_called_once()
+            args, kwargs = MockCreateProcess.call_args
+            expected_args = [
+                "run",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(12345),  # Check the mocked port
+                "--path",
+                temp_dir,
+            ]
+            assert "chroma" in args[0], (
+                f"{args[0]} should be the path to the `chroma` executable."
+            )
+            assert tuple(args[1:]) == tuple(expected_args)
+            assert kwargs["stdout"] == subprocess.PIPE
+            assert kwargs["stderr"] == subprocess.PIPE
+            assert "ANONYMIZED_TELEMETRY" in kwargs["env"]
 
             MockWaitForServer.assert_called_once_with("http://127.0.0.1:12345")
 
@@ -489,62 +555,54 @@ async def test_get_collections():
     # Mocking AsyncClientAPI and AsyncCollection
     mock_client = MagicMock(spec=AsyncClientAPI)
 
-    # Mock successful get_collection
-    mock_collection1 = MagicMock(spec=AsyncCollection)
-    mock_collection1.metadata = {
+    # Create test collections with different metadata scenarios
+    valid_collection = MagicMock(spec=AsyncCollection)
+    valid_collection.metadata = {
         "created-by": "VectorCode",
         "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
         "hostname": socket.gethostname(),
     }
 
-    # collection with meta == None
-    mock_collection2 = MagicMock(spec=AsyncCollection)
-    mock_collection2.metadata = None
+    no_metadata_collection = MagicMock(spec=AsyncCollection)
+    no_metadata_collection.metadata = None
 
-    # collection with wrong "created-by"
-    mock_collection3 = MagicMock(spec=AsyncCollection)
-    mock_collection3.metadata = {
-        "created-by": "NotVectorCode",
+    wrong_creator_collection = MagicMock(spec=AsyncCollection)
+    wrong_creator_collection.metadata = {
+        "created-by": "OtherTool",
         "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
         "hostname": socket.gethostname(),
     }
 
-    # collection with wrong "username"
-    mock_collection4 = MagicMock(spec=AsyncCollection)
-    mock_collection4.metadata = {
+    wrong_user_collection = MagicMock(spec=AsyncCollection)
+    wrong_user_collection.metadata = {
         "created-by": "VectorCode",
         "username": "wrong_user",
         "hostname": socket.gethostname(),
     }
 
-    # collection with wrong "hostname"
-    mock_collection5 = MagicMock(spec=AsyncCollection)
-    mock_collection5.metadata = {
+    wrong_host_collection = MagicMock(spec=AsyncCollection)
+    wrong_host_collection.metadata = {
         "created-by": "VectorCode",
         "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
         "hostname": "wrong_host",
     }
 
+    # Mock list_collections to return the collections directly
     mock_client.list_collections.return_value = [
-        "collection1",
-        "collection2",
-        "collection3",
-        "collection4",
-        "collection5",
-    ]
-    mock_client.get_collection.side_effect = [
-        mock_collection1,
-        mock_collection2,
-        mock_collection3,
-        mock_collection4,
-        mock_collection5,
+        valid_collection,
+        no_metadata_collection,
+        wrong_creator_collection,
+        wrong_user_collection,
+        wrong_host_collection,
     ]
 
-    collections = [
-        collection async for collection in get_collections(mock_client)
-    ]  # call get_collections
+    # Collect the filtered collections
+    collections = [collection async for collection in get_collections(mock_client)]
+
+    # Verify only the valid collection was returned
     assert len(collections) == 1
-    assert collections[0] == mock_collection1
+    assert collections[0] == valid_collection
+    mock_client.list_collections.assert_called_once()
 
 
 def test_get_embedding_function_fallback():
