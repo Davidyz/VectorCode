@@ -4,16 +4,16 @@ import logging
 import os
 import sys
 import time
+import traceback
 import uuid
-
-from pygls.exceptions import (
-    JsonRpcException,
-    JsonRpcInternalError,
-    JsonRpcInvalidRequest,
-)
 
 try:  # pragma: nocover
     from lsprotocol import types
+    from pygls.exceptions import (
+        JsonRpcException,
+        JsonRpcInternalError,
+        JsonRpcInvalidRequest,
+    )
     from pygls.server import LanguageServer
 except ModuleNotFoundError:  # pragma: nocover
     print(
@@ -166,7 +166,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             raise
         else:  # pragma: nocover
             # wrap non-pygls errors for error codes.
-            raise JsonRpcInternalError(e.__traceback__) from e
+            raise JsonRpcInternalError(message=traceback.format_exc()) from e
 
 
 async def lsp_start() -> int:
