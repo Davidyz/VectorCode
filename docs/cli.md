@@ -18,6 +18,7 @@
   * [Vectorising Your Code](#vectorising-your-code)
     * [File Specs](#file-specs)
   * [Making a Query](#making-a-query)
+    * [Query Rewriting](#query-rewriting)
   * [Listing All Collections](#listing-all-collections)
   * [Removing a Collection](#removing-a-collection)
   * [Checking Project Setup](#checking-project-setup)
@@ -356,7 +357,13 @@ The JSON configuration file may hold the following values:
   command line flag. You can also set this to `_auto`, which uses
   [charset-normalizer](https://charset-normalizer.readthedocs.io/en/latest/index.html)
   to automatically detect the encoding, but this is not very accurate,
-  especially on small files.
+  especially on small files;
+- `rewriter`: string, the type of rewriter to use. Currently the only supported
+  value is `OpenAIRewriter`, which uses a openai-compatible LLM provider as the
+  rewriter;
+- `rewriter_params`: dictionary, the options to be used for the construction of
+  the rewriter. The options are documented in [the source
+  code](../src/vectorcode/rewriter/).
 
 See 
 [the wiki](https://github.com/Davidyz/VectorCode/wiki/Default-Configuration#default-cli-configuration) 
@@ -460,6 +467,47 @@ the same time, and the number of query result (the `-n` parameter) will refer to
 the number of retrieved chunks when you use `--include chunk`. For the sake of 
 completeness, the first and last lines of a chunk will be completed to include
 the whole lines if the chunker broke the text from mid-line.
+
+#### Query Rewriting
+
+When your query messages are noisy (for example, containing a lot of symbols
+that are not relevant to the RAG tasks), the retrieval results may be
+compromised. To address this, you can try to use 
+[query rewriting](https://docs.llamaindex.ai/en/stable/examples/query_transformations/query_transform_cookbook/#query-rewriting).
+The VectorCode implementation of query rewriting uses an LLM to rewrite your
+search query so that it contains a curated list of keywords and (hopefully) will
+improve your search results. To do this, you'd need to [configure your rewriter](#configuring-vectorcode) 
+and pass the `--rewrite` flag to your query command. For example: 
+```json5
+// .vectorcode/config.json
+// `OpenAIRewriter` works for any openai-compatible LLM API service that works
+// provides structured_output.
+{
+  "rewriter": "OpenAIRewriter",
+  "rewriter_params": {
+    "client_kwargs": { 
+      // see openai.Client
+      // https://github.com/openai/openai-python/blob/67997a4ec1ebcdf8e740afb0d0b2e37897657bde/src/openai/_client.py#L80
+      "base_url": "https://api.siliconflow.cn/v1",
+      "api_key": "$SILICONFLOW_API_KEY"
+    },
+    "completion_kwargs": { 
+      // see openai.Client.beta.chat.completions.parse
+      // https://github.com/openai/openai-python/blob/main/helpers.md#structured-outputs-parsing-helpers
+      "model": "Qwen/Qwen2.5-7B-Instruct",
+      "temperature": 0
+    }
+  }
+}
+```
+
+And when making a query, if you pass the `--rewrite` flag, VectorCode will send
+your query message to the LLM and get a list of strings, which it will use as
+the query for the search:
+
+```bash
+vectorcode query "reranker implementation" "class" "struct" "transformers" --rewrite
+```
 
 ### Listing All Collections
 
