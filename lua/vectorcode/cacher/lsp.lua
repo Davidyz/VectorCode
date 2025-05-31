@@ -350,7 +350,7 @@ end
 function M.async_check(check_item, on_success, on_failure)
   vim.deprecate(
     "vectorcode.cacher.default.async_check",
-    "vectorcode.cacher.utils.async_check",
+    'require("vectorcode.cacher").utils.async_check',
     "0.7.0",
     "VectorCode",
     true
