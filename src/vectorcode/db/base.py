@@ -3,12 +3,10 @@ from typing import Any
 from urllib.parse import urlparse
 
 from vectorcode.cli_utils import Config
-from vectorcode.common import (
-    build_collection_metadata,
-    expand_path,
-    get_collection_name,
-    get_embedding_function,
-)
+
+
+class VectorStoreConnectionError(Exception):
+    pass
 
 
 class VectorStore(ABC):
@@ -19,18 +17,13 @@ class VectorStore(ABC):
     querying, adding, and deleting vectors.
     """
 
-    configs: Config
+    _configs: Config
 
     def __init__(self, configs: Config):
         self.__COLLECTION_CACHE: dict[str, Any] = {}
-        self.configs = configs
+        self._configs = configs
 
         assert configs.project_root is not None
-        self.full_path = str(expand_path(str(configs.project_root), absolute=True))
-
-        self.collection_metadata = build_collection_metadata(configs)
-        self.collection_name = get_collection_name(self.full_path)
-        self.embedding_function = get_embedding_function(configs)
 
     @abstractmethod
     async def connect(self) -> None:
@@ -43,6 +36,21 @@ class VectorStore(ABC):
         pass
 
     # @abstractmethod
+    # async def check_health(self) -> None:
+    #     """Check if the database is healthy and accessible. Raises a VectorStoreConnectionError if not."""
+    #     pass
+
+    @abstractmethod
+    async def get_collection(
+        self,
+        collection_name: str,
+        collection_meta: dict[str, Any] | None = None,
+        make_if_missing: bool = False,
+    ) -> Any:
+        """Get an existing collection."""
+        pass
+
+    # @abstractmethod
     # async def get_or_create_collection(
     #     self,
     #     collection_name: str,
@@ -51,14 +59,6 @@ class VectorStore(ABC):
     # ) -> Any:
     #     """Get an existing collection or create a new one if it doesn't exist."""
     #     pass
-
-    @abstractmethod
-    async def get_collection(
-        self,
-        make_if_missing: bool = False,
-    ) -> Any:
-        """Get an existing collection."""
-        pass
 
     # @abstractmethod
     # async def query(
@@ -110,23 +110,18 @@ class VectorStore(ABC):
     #     """Get documents by their IDs."""
     #     pass
 
-    @abstractmethod
-    async def check_health(self) -> bool:
-        """Check if the database is healthy and accessible."""
-        pass
-
     def print_config(self) -> None:
         """Print the current database configuration."""
-        parsed_url = urlparse(self.configs.db_url)
+        parsed_url = urlparse(self._configs.db_url)
 
-        print(f"{self.configs.db_type.title()} Configuration:")
-        print(f"  URL: {self.configs.db_url}")
+        print(f"{self._configs.db_type.title()} Configuration:")
+        print(f"  URL: {self._configs.db_url}")
         print(f"  Host: {parsed_url.hostname or 'localhost'}")
         print(
-            f"  Port: {parsed_url.port or (8000 if self.configs.db_type == 'chroma' else 6333)}"
+            f"  Port: {parsed_url.port or (8000 if self._configs.db_type == 'chroma' else 6333)}"
         )
         print(f"  SSL: {parsed_url.scheme == 'https'}")
-        if self.configs.db_settings:
+        if self._configs.db_settings:
             print("  Settings:")
-            for key, value in self.configs.db_settings.items():
+            for key, value in self._configs.db_settings.items():
                 print(f"    {key}: {value}")
