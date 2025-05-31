@@ -6,16 +6,15 @@ import socket
 import subprocess
 import sys
 from typing import Any, AsyncGenerator
-from urllib.parse import urlparse
 
 import chromadb
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.config import APIVersion, Settings
 from chromadb.utils import embedding_functions
 
 from vectorcode.cli_utils import Config, expand_path
+from vectorcode.db.base import VectorStore
 
 logger = logging.getLogger(name=__name__)
 
@@ -169,11 +168,36 @@ def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction | None
         raise
 
 
+def build_collection_metadata(configs: Config) -> dict[str, str | int]:
+    assert configs.project_root is not None
+    full_path = str(expand_path(str(configs.project_root), absolute=True))
+
+    collection_meta: dict[str, str | int] = {
+        "path": full_path,
+        "hostname": socket.gethostname(),
+        "created-by": "VectorCode",
+        "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
+        "embedding_function": configs.embedding_function,
+    }
+
+    if configs.hnsw:
+        for key in configs.hnsw.keys():
+            target_key = key
+            if not key.startswith("hnsw:"):
+                target_key = f"hnsw:{key}"
+            collection_meta[target_key] = configs.hnsw[key]
+    logger.debug(
+        f"Getting/Creating collection with the following metadata: {collection_meta}"
+    )
+
+    return collection_meta
+
+
 __COLLECTION_CACHE: dict[str, AsyncCollection] = {}
 
 
 async def get_collection(
-    client: AsyncClientAPI, configs: Config, make_if_missing: bool = False
+    db: VectorStore, configs: Config, make_if_missing: bool = False
 ):
     """
     Raise ValueError when make_if_missing is False and no collection is found;
@@ -205,11 +229,11 @@ async def get_collection(
             f"Getting/Creating collection with the following metadata: {collection_meta}"
         )
         if not make_if_missing:
-            __COLLECTION_CACHE[full_path] = await client.get_collection(
+            __COLLECTION_CACHE[full_path] = await db.get_collection(
                 collection_name, embedding_function
             )
         else:
-            collection = await client.get_or_create_collection(
+            collection = await db.get_or_create_collection(
                 collection_name,
                 metadata=collection_meta,
                 embedding_function=embedding_function,
