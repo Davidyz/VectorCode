@@ -5,6 +5,7 @@
 
 * [Installation](#installation)
   * [Install from Source](#install-from-source)
+  * [Migration from `pipx`](#migration-from-pipx)
   * [Chromadb](#chromadb)
     * [For Windows Users](#for-windows-users)
   * [Legacy Environments](#legacy-environments)
@@ -77,6 +78,16 @@ To install from source, either `git clone` this repository and run `uv tool inst
 ```bash
 pipx install git+https://github.com/Davidyz/VectorCode
 ```
+
+### Migration from `pipx`
+
+The motivation behind the change from `pipx` to `uv tool` is mainly the
+performance. The caching mechanism in uv makes it a lot faster than `pipx` for a
+lot of operations. If you installed VectorCode via `pipx`, you can continue to
+use `pipx` to manage your VectorCode installation. If you wish to switch to
+`uv`, you need to uninstall VectorCode using `pipx` and then use `uv` to install
+it as described above. All your VectorCode configurations and database files
+will work out of the box on your new install.
 
 ### Chromadb
 [Chromadb](https://www.trychroma.com/) is the vector database used by VectorCode

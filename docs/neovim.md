@@ -71,7 +71,8 @@ you can use the following plugin spec:
 {
   "Davidyz/VectorCode",
   version = "*",
-  build = "pipx upgrade vectorcode", -- recommended if you set `version = "*"` or follow the main branch
+  build = "uv tool upgrade vectorcode", -- This helps keeping the CLI up-to-date
+  -- build = "pipx upgrade vectorcode", -- If you used pipx to install the CLI
   dependencies = { "nvim-lua/plenary.nvim" },
 }
 ```
