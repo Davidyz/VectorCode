@@ -36,7 +36,9 @@ attach the relevant config here:
 ```
 
 **Platform information:**
- - If the issue is about the CLI, attach the output of `pipx runpip vectorcode freeze`:
+ - If the issue is about the CLI, attach a list of packages in the Python virtual environment:
+   - for `pipx`, run `pipx runpip vectorcode freeze`;
+   - for `uv`, run `uv tool run --from=vectorcode python -m ensurepip && uv tool run --from=vectorcode python -m pip freeze`.
 ```
 
 ```

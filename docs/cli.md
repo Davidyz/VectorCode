@@ -44,38 +44,36 @@ compiler because the core components of the vector database (ChromaDB) contains
 c++ and rust code.
 
 The recommended way of
-installation is through [`pipx`](https://pipx.pypa.io/stable/), which will
+installation is through [`uv`](https://docs.astral.sh/uv/), which will
 create a virtual environment for the package itself that doesn't mess up with
 your system Python or project-local virtual environments.
 
-After installing `pipx`, run:
+After installing `uv`, run:
 ```bash
-pipx install vectorcode
+uv tool install vectorcode
 ```
 in your shell. To specify a particular version of Python, use the `--python` 
-flag. For example, `pipx install vectorcode --python python3.11`. For hardware
+flag. For example, `uv tool install vectorcode --python python3.11`. For hardware
 accelerated embedding, refer to [the relevant section](#hardware-acceleration).
-If you want a cpu-only installation without CUDA dependences required by 
-default by pytorch, run:
+If you want a CPU-only installation without CUDA dependencies required by 
+default by PyTorch, run:
 ```bash
-PIP_INDEX_URL="https://download.pytorch.org/whl/cpu" PIP_EXTRA_INDEX_URL="https://pypi.org/simple" pipx install vectorcode
+uv tool install vectorcode --index https://download.pytorch.org/whl/cpu
 ```
 
 If you need to install multiple dependency group (for [LSP](#lsp-mode) or
 [MCP](#mcp-server)), you can use the following syntax:
 ```bash
-pipx install vectorcode[lsp,mcp]
+uv tool install vectorcode[lsp,mcp]
 ```
 > [!NOTE] 
 > The command only install VectorCode and `SentenceTransformer`, the default
-> embedding engine. To use a different embedding function supported by Chromadb,
-> you may need to use `pipx inject` to install extra dependences to the virtual
-> environment that `pipx` creates for VectorCode. This may include OpenAI,
-> Ollama and other self/cloud-hosted embedding model providers.
+> embedding engine. If you need to install an extra dependency, you can use 
+> `uv tool install vectorcode --with <your_deps_here>`
 
 ### Install from Source
-To install from source, either `git clone` this reposority and run `pipx install
-<path_to_vectorcode_repo>`, or use the git URL:
+To install from source, either `git clone` this repository and run `uv tool install
+<path_to_vectorcode_repo>`, or use `pipx`:
 ```bash
 pipx install git+https://github.com/Davidyz/VectorCode
 ```
@@ -102,11 +100,11 @@ tracks my progress trying to provide better experiences for windows users.
 ### Legacy Environments
 
 If your environment doesn't support `numpy` version 2.0+, the default,
-unconstrained numpy picked by `pipx` may not work for you. In this case, you can
-try installing the package by `pipx install vectorcode[legacy]`, which enforces 
+unconstrained numpy may not work for you. In this case, you can
+try installing the package by `uv tool install vectorcode[legacy]`, which enforces 
 numpy `v1.x`. If this doesn't help, please open an issue with your OS, CPU
 architecture, python version and the vectorcode virtual environment 
-(`pipx runpip vectorcode freeze`).
+(`uv tool run --from=vectorcode python -m ensurepip && uv tool run --from=vectorcode python -m pip freeze`).
 
 ### Nix
 
