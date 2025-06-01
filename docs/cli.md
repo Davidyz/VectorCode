@@ -59,7 +59,7 @@ accelerated embedding, refer to [the relevant section](#hardware-acceleration).
 If you want a CPU-only installation without CUDA dependencies required by 
 default by PyTorch, run:
 ```bash
-uv tool install vectorcode --index https://download.pytorch.org/whl/cpu
+uv tool install vectorcode --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
 ```
 
 If you need to install multiple dependency group (for [LSP](#lsp-mode) or
