@@ -25,6 +25,7 @@ return check_cli_wrap(function(opts)
     auto_submit = { ls = false, query = false },
     ls_on_start = false,
     no_duplicate = true,
+    only_chunks = false,
   }, opts or {})
   logger.info("Creating CodeCompanion tool with the following args:\n", opts)
   local capping_message = ""
@@ -58,7 +59,6 @@ return check_cli_wrap(function(opts)
         end
 
         if action.command == "query" then
-          local args = { "query", "--pipe", "-n", tostring(action.options.count) }
           if action.options.query == nil then
             return {
               status = "error",
@@ -68,7 +68,10 @@ return check_cli_wrap(function(opts)
           if type(action.options.query) == "string" then
             action.options.query = { action.options.query }
           end
+          local args = { "query" }
           vim.list_extend(args, action.options.query)
+          vim.list_extend(args, { "--pipe", "-n", tostring(action.options.count) })
+          vim.list_extend(args, { "--include", "path", "chunk", "document" })
           if action.options.project_root == "" then
             action.options.project_root = nil
           end
@@ -289,8 +292,23 @@ return check_cli_wrap(function(opts)
               else
                 user_message = ""
               end
-              local llm_message = string.format(
-                [[Here is a file the VectorCode tool retrieved:
+              local llm_message
+              if opts.only_chunks then
+                llm_message = string.format(
+                  [[Here is a file chunk the VectorCode tool retrieved:
+<path>
+%s
+</path>
+<chunk>
+%s
+</chunk>
+]],
+                  file.path,
+                  file.chunk
+                )
+              else
+                llm_message = string.format(
+                  [[Here is a file the VectorCode tool retrieved:
 <path>
 %s
 </path>
@@ -298,9 +316,10 @@ return check_cli_wrap(function(opts)
 %s
 </content>
 ]],
-                file.path,
-                file.document
-              )
+                  file.path,
+                  file.document
+                )
+              end
               agent.chat:add_tool_output(self, llm_message, user_message)
               agent.chat.references:add({
                 source = cc_common.tool_result_source,
