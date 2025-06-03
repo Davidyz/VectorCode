@@ -7,7 +7,7 @@
   * [Install from Source](#install-from-source)
   * [Migration from `pipx`](#migration-from-pipx)
   * [Chromadb](#chromadb)
-    * [For Windows Users](#for-windows-users)
+  * [For Windows Users](#for-windows-users)
   * [Legacy Environments](#legacy-environments)
   * [Nix](#nix)
 * [Getting Started](#getting-started)
@@ -103,7 +103,7 @@ will significantly reduce the IO overhead and avoid potential race condition.
 > ChromaDB recently released v1.0.0, which may not work with VectorCode. I'm
 > testing with v1.0.0 and will publish a new release when it's ready.
 
-#### For Windows Users
+### For Windows Users
 
 Windows support is not officially tested at this moment. [This PR](https://github.com/Davidyz/VectorCode/pull/40)
 tracks my progress trying to provide better experiences for windows users.
