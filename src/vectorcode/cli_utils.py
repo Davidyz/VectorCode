@@ -2,6 +2,7 @@ import argparse
 import atexit
 import glob
 import logging
+from optparse import Option
 import os
 import sys
 from dataclasses import dataclass, field, fields
@@ -62,6 +63,11 @@ class CliAction(Enum):
     hooks = "hooks"
 
 
+class DbType(StrEnum):
+    local = "local"  # Local ChromaDB instance
+    chromadb = "chromadb"  # Remote ChromaDB instance
+
+
 @dataclass
 class Config:
     no_stderr: bool = False
@@ -74,6 +80,7 @@ class Config:
     project_root: Optional[Union[str, Path]] = None
     query: Optional[list[str]] = None
     db_url: str = "http://127.0.0.1:8000"
+    db_type: DbType = DbType.local  # falls back to a local instance
     embedding_function: str = "SentenceTransformerEmbeddingFunction"  # This should fallback to whatever the default is.
     embedding_params: dict[str, Any] = field(default_factory=(lambda: {}))
     n_result: int = 1
@@ -106,6 +113,8 @@ class Config:
         default_config = Config()
         db_path = config_dict.get("db_path")
         db_url = config_dict.get("db_url")
+        db_type = config_dict.get("db_type", default_config.db_type)
+
         if db_url is None:
             host = config_dict.get("host")
             port = config_dict.get("port")
@@ -135,6 +144,7 @@ class Config:
                     "embedding_params", default_config.embedding_params
                 ),
                 "db_url": db_url,
+                "db_type": db_type,
                 "db_path": db_path,
                 "db_log_path": os.path.expanduser(
                     config_dict.get("db_log_path", default_config.db_log_path)
@@ -521,6 +531,9 @@ async def get_project_config(project_root: Union[str, Path]) -> Config:
     if config is None:
         config = await load_config_file()
     config.project_root = project_root
+
+    if config.db_type is None:
+        config.db_type = "local"
     return config
 
 
