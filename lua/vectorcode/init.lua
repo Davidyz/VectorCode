@@ -79,14 +79,15 @@ M.vectorise = vc_config.check_cli_wrap(
   function(files, project_root)
     logger.info("vectorcode.vectorise: ", files, project_root)
     local args = { "--pipe", "vectorise" }
-    if project_root ~= nil then
-      vim.list_extend(args, { "--project_root", project_root })
-    elseif
-      M.check("config", function(obj)
-        if obj.code == 0 then
-          project_root = obj.stdout
-        end
-      end)
+    if
+      project_root ~= nil
+      or (
+        M.check("config", function(obj)
+          if obj.code == 0 then
+            project_root = obj.stdout
+          end
+        end)
+      )
     then
       vim.list_extend(args, { "--project_root", project_root })
     end
@@ -203,7 +204,7 @@ end
 ---@return string[]
 M.prompts = vc_config.check_cli_wrap(function()
   local result, error = jobrunner.run({ "prompts", "-p" }, -1, 0)
-  if result == nil or result == {} then
+  if result == nil or vim.tbl_isempty(result) then
     logger.warn(vim.inspect(error))
     if vc_config.get_user_config().notify then
       notify(vim.inspect(error))

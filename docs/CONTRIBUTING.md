@@ -22,7 +22,8 @@ them locally before you open the PR.
 
 This project also runs static analysis with
 [basedpyright](https://docs.basedpyright.com). GitHub Action will also run the
-check when a PR is submitted.
+check when a PR is submitted. This, as well as `ruff check`, are both included
+in `make lint`.
 
 You may also find it helpful to 
 [enable logging](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 
@@ -34,6 +35,9 @@ At the moment, there isn't much to cover on here. As long as the code is
 formatted (stylua) and appropriately type-annotated, you're good. I do have 
 plans to write some tests, but before that happens, formatting and type 
 annotations are the only things that you need to take special care of.
+
+The lua codebase is linted by [selene](https://github.com/Kampfkarren/selene).
+You may run `make lint` or call `selene` from the CLI to lint the code.
 
 You may find it useful to 
 [enable logging](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 

@@ -77,7 +77,7 @@ local function async_runner(query_message, buf_nr)
       end
       logger.debug("vectorcode ", buf_name, " default cacher results: ", json_result)
       CACHE[buf_nr].job_count = CACHE[buf_nr].job_count - 1
-      assert(job_pid ~= nil)
+      assert(job_pid ~= nil, "Failed to fetch the job pid.")
       CACHE[buf_nr].jobs[job_pid] = nil
 
       if exit_code ~= 0 then
@@ -189,7 +189,7 @@ M.register_buffer = vc_config.check_cli_wrap(
           or (vim.uv.clock_gettime("realtime").sec - cache.last_run) > opts.debounce
         then
           local cb = cache.options.query_cb
-          assert(type(cb) == "function")
+          assert(type(cb) == "function", "`cb` should be a function.")
           async_runner(cb(bufnr), bufnr)
         end
       end,
@@ -249,7 +249,7 @@ M.buf_is_registered = function(bufnr)
   if bufnr == 0 or bufnr == nil then
     bufnr = vim.api.nvim_get_current_buf()
   end
-  return type(CACHE[bufnr]) == "table" and CACHE[bufnr] ~= {}
+  return type(CACHE[bufnr]) == "table" and not vim.tbl_isempty(CACHE[bufnr])
 end
 
 M.query_from_cache = vc_config.check_cli_wrap(

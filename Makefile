@@ -19,3 +19,8 @@ coverage:
 	pdm run coverage run -m pytest; \
 	pdm run coverage html; \
 	pdm run coverage report -m
+
+lint:
+	pdm run ruff check src/**/*.py; \
+	pdm run basedpyright src/**/*.py; \
+	selene lua/**/*.lua plugin/*.lua

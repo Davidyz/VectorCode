@@ -130,7 +130,7 @@ return {
       logger.info("Received setup opts:\n", opts)
       opts = opts or {}
       setup_config = vim.tbl_deep_extend("force", config, opts or {})
-      for k, v in pairs(setup_config.async_opts) do
+      for k, _ in pairs(setup_config.async_opts) do
         if
           setup_config[k] ~= nil
           and (opts.async_opts == nil or opts.async_opts[k] == nil)

@@ -14,10 +14,10 @@
 
 ---Type definitions for options accepted by `query` API.
 ---@class VectorCode.QueryOpts
----@field exclude_this boolean Whether to exclude the current buffer. Default: true
----@field n_query integer Number of results.
----@field notify boolean Notify on new results and other key moments.
----@field timeout_ms number Timeout (in milliseconds) for running a vectorcode command. Default: 5000
+---@field exclude_this boolean? Whether to exclude the current buffer. Default: true
+---@field n_query integer? Number of results.
+---@field notify boolean? Notify on new results and other key moments.
+---@field timeout_ms number? Timeout (in milliseconds) for running a vectorcode command. Default: 5000
 
 ---@class VectorCode.OnSetup Some actions that may be configured to run when `setup` is called.
 ---@field update boolean `vectorcode update`

@@ -39,17 +39,17 @@ end
 
 function jobrunner.run(args, timeout_ms, bufnr)
   jobrunner.init(false)
-  assert(CLIENT ~= nil)
-  assert(bufnr ~= nil)
+  assert(CLIENT ~= nil, "Failed to initialize the LSP server!")
+  assert(bufnr ~= nil, "Need to pass the buffer number!")
   if timeout_ms == nil or timeout_ms < 0 then
     timeout_ms = 2 ^ 31 - 1
   end
   args = require("vectorcode.jobrunner").find_root(args, bufnr)
 
   local result, err, code
-  jobrunner.run_async(args, function(res, err, e_code)
+  jobrunner.run_async(args, function(res, e, e_code)
     result = res
-    err = err
+    err = e
     code = e_code
   end, bufnr)
   vim.wait(timeout_ms, function()
@@ -60,7 +60,7 @@ end
 
 function jobrunner.run_async(args, callback, bufnr)
   assert(jobrunner.init(false))
-  assert(bufnr ~= nil)
+  assert(bufnr ~= nil, "Need to pass the buffer number!")
   if not CLIENT.attached_buffers[bufnr] then
     if vim.lsp.buf_attach_client(bufnr, CLIENT.id) then
       local uri = vim.uri_from_bufnr(bufnr)

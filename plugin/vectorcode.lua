@@ -2,7 +2,7 @@ local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 
 ---@param args string[]?
----@return {string: any}
+---@return table<string, any>
 local function process_args(args)
   if args == nil then
     return {}
@@ -48,7 +48,7 @@ vim.api.nvim_create_user_command("VectorCode", function(args)
   end
 end, {
   nargs = 1,
-  complete = function(arglead, cmd, cursorpos)
+  complete = function(arglead, cmd, _)
     local cacher = vc_config.get_cacher_backend()
     local splitted_cmd = vim.tbl_filter(function(str)
       return str ~= nil and str ~= ""

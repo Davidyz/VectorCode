@@ -23,7 +23,7 @@ local client_id = nil
 ---@param project_root string
 ---@return string?
 local function check_project_root(bufnr, project_root)
-  assert(bufnr ~= 0)
+  assert(bufnr ~= 0, "Need a non-zero bufnr")
   if project_root == nil then
     local cwd = vim.uv.cwd() or "."
     local result = vim.fs.root(cwd, ".vectorcode") or vim.fs.root(cwd, ".git")
@@ -76,7 +76,7 @@ local function kill_jobs(bufnr)
   if client == nil then
     return
   end
-  for request_id, time in pairs(CACHE[bufnr].jobs) do
+  for request_id, _ in pairs(CACHE[bufnr].jobs) do
     job_runner.stop_job(request_id)
   end
   cleanup_lsp_requests()
@@ -93,7 +93,7 @@ local function async_runner(query_message, buf_nr)
     buf_name = vim.api.nvim_buf_get_name(buf_nr)
     logger.debug("Started lsp cacher job on :", buf_name)
   end)
-  assert(client_id ~= nil)
+  assert(client_id ~= nil, "LSP client hasn't been initialised.")
   ---@type VectorCode.Cache
   local cache = CACHE[buf_nr]
   local args = {

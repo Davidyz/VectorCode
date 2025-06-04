@@ -37,7 +37,7 @@ end
 ---@async
 local run_job = async.wrap(function(args, use_lsp, bufnr, callback)
   local runner = get_runner(use_lsp)
-  assert(runner ~= nil)
+  assert(runner ~= nil, "Failed to initialize the runner!")
   runner.run_async(args, callback, bufnr)
 end, 4)
 

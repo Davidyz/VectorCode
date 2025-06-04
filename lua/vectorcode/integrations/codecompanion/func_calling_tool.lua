@@ -37,12 +37,11 @@ return check_cli_wrap(function(opts)
     cmds = {
       ---@param agent CodeCompanion.Agent
       ---@param action table
-      ---@param input table
       ---@return nil|{ status: string, msg: string }
-      function(agent, action, input, cb)
+      function(agent, action, _, cb)
         logger.info("CodeCompanion tool called with the following arguments:\n", action)
         job_runner = cc_common.initialise_runner(opts.use_lsp)
-        assert(job_runner ~= nil)
+        assert(job_runner ~= nil, "Jobrunner not initialised!")
         assert(
           type(cb) == "function",
           "Please upgrade CodeCompanion.nvim to at least 13.5.0"

@@ -1,0 +1,5 @@
+std = "neovim"
+exclude = ['lua/vectorcode/integrations/codecompanion/legacy_tool.lua']
+
+[rules]
+mixed_table = "allow"

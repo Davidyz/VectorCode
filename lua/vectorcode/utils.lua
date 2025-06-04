@@ -8,13 +8,13 @@ local function traverse(node, cb)
     traverse(node.result, cb)
   end
   if vim.isarray(node) then
-    for k, v in pairs(node) do
+    for _, v in pairs(node) do
       traverse(v, cb)
     end
     return
   end
   if vim.isarray(node.children) then
-    for k, v in pairs(node.children) do
+    for _, v in pairs(node.children) do
       traverse(v, cb)
     end
   end
@@ -47,7 +47,7 @@ function M.make_lsp_document_symbol_cb()
       return M.make_surrounding_lines_cb(-1)(bufnr)
     end
 
-    local result, err = vim.lsp.buf_request_sync(
+    local result, _ = vim.lsp.buf_request_sync(
       0,
       vim.lsp.protocol.Methods.textDocument_documentSymbol,
       { textDocument = vim.lsp.util.make_text_document_params(bufnr) }
