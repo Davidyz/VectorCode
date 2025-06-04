@@ -77,10 +77,8 @@ you can use the following plugin spec:
 }
 ```
 
-> This plugin is developed and tested (sort of) under the latest stable release
-> (specifically the package provided in the 
-> [Extra](https://archlinux.org/packages/extra/x86_64/neovim/) 
-> repository of Arch Linux).
+> This plugin is developed and tested on neovim _v0.11_. It may work on older
+> versions, but I do not test on them before publishing.
 
 ### Nix
 
