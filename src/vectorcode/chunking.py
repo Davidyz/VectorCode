@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cache
 from io import TextIOWrapper
@@ -32,7 +32,12 @@ class Chunk:
         return self.text
 
 
-class ChunkerBase:
+@dataclass
+class ChunkOpts:
+    start_pos: Point
+
+
+class ChunkerBase(ABC):  # pragma: nocover
     def __init__(self, config: Optional[Config] = None) -> None:
         if config is None:
             config = Config()
@@ -42,7 +47,9 @@ class ChunkerBase:
         self.config = config
 
     @abstractmethod
-    def chunk(self, data) -> Generator[Chunk, None, None]:
+    def chunk(
+        self, data, opts: Optional[ChunkOpts] = None
+    ) -> Generator[Chunk, None, None]:
         raise NotImplementedError
 
 
@@ -52,14 +59,21 @@ class StringChunker(ChunkerBase):
             config = Config()
         super().__init__(config)
 
-    def chunk(self, data: str):
+    def chunk(self, data: str, opts: Optional[ChunkOpts] = None):
+        start_pos = Point(row=1, column=0)
+        if opts is not None:
+            start_pos = opts.start_pos
+
         logger.info("Started chunking with StringChunker.")
         logger.debug(f"{data=}")
         if self.config.chunk_size < 0:
             yield Chunk(
                 text=data,
-                start=Point(row=1, column=0),
-                end=Point(row=1, column=len(data)),
+                start=start_pos,
+                end=Point(
+                    row=data.count("\n") + start_pos.row,
+                    column=len(data.split("\n")[-1]) - 1,
+                ),
             )
         else:
             step_size = max(
@@ -68,10 +82,26 @@ class StringChunker(ChunkerBase):
             i = 0
             while i < len(data):
                 chunk_text = data[i : i + self.config.chunk_size]
+
+                start_lines_before_chunk = data[:i].count("\n")
+                chunk_start_row = start_pos.row + start_lines_before_chunk
+                if start_lines_before_chunk == 0:
+                    chunk_start_column = start_pos.column + i
+                else:
+                    last_newline_idx_before_i = data.rfind("\n", 0, i)
+                    chunk_start_column = i - (last_newline_idx_before_i + 1)
+
+                chunk_end_row = chunk_start_row + chunk_text.count("\n")
+
+                if "\n" in chunk_text:
+                    chunk_end_column = len(chunk_text.split("\n")[-1]) - 1
+                else:
+                    chunk_end_column = chunk_start_column + len(chunk_text) - 1
+
                 yield Chunk(
                     text=chunk_text,
-                    start=Point(row=1, column=i),
-                    end=Point(row=1, column=i + len(chunk_text) - 1),
+                    start=Point(row=chunk_start_row, column=chunk_start_column),
+                    end=Point(row=chunk_end_row, column=chunk_end_column),
                 )
                 if i + self.config.chunk_size >= len(data):
                     break
@@ -84,7 +114,9 @@ class FileChunker(ChunkerBase):
             config = Config()
         super().__init__(config)
 
-    def chunk(self, data: TextIOWrapper) -> Generator[Chunk, None, None]:
+    def chunk(
+        self, data: TextIOWrapper, opts: Optional[ChunkOpts] = None
+    ) -> Generator[Chunk, None, None]:
         logger.info("Started chunking %s using FileChunker.", data.name)
         lines = data.readlines()
         if len(lines) == 0:
@@ -320,7 +352,9 @@ class TreeSitterChunker(ChunkerBase):
         logger.debug(f"No matching filetype map entry found for {filename}.")
         return None
 
-    def chunk(self, data: str) -> Generator[Chunk, None, None]:
+    def chunk(
+        self, data: str, opts: Optional[ChunkOpts] = None
+    ) -> Generator[Chunk, None, None]:
         """
         data: path to the file
         """
@@ -358,7 +392,7 @@ class TreeSitterChunker(ChunkerBase):
             logger.debug(
                 "Unable to pick a suitable parser. Fall back to naive chunking"
             )
-            yield from self._fallback_chunker.chunk(content)
+            yield from self._fallback_chunker.chunk(content, opts)
         else:
             pattern_str = self.__build_pattern(language=language)
             content_bytes = content.encode()

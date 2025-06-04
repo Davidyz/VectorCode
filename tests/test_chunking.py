@@ -8,6 +8,7 @@ from tree_sitter import Point
 from vectorcode.chunking import (
     Chunk,
     ChunkerBase,
+    ChunkOpts,
     FileChunker,
     StringChunker,
     TreeSitterChunker,
@@ -15,36 +16,90 @@ from vectorcode.chunking import (
 from vectorcode.cli_utils import Config
 
 
-class TestStringChunker:
-    file_chunker = FileChunker()
+def test_string_chunker():
+    string_chunker = StringChunker(Config(chunk_size=-1, overlap_ratio=0.5))
+    assert list(str(i) for i in string_chunker.chunk("hello world")) == ["hello world"]
+    string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.5))
+    assert list(str(i) for i in string_chunker.chunk("hello world")) == [
+        "hello",
+        "llo w",
+        "o wor",
+        "world",
+    ]
+    assert list(string_chunker.chunk("hello world"))[0] == Chunk(
+        "hello", Point(1, 0), Point(1, 4)
+    )
 
-    def test_string_chunker(self):
-        string_chunker = StringChunker(Config(chunk_size=-1, overlap_ratio=0.5))
-        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
-            "hello world"
-        ]
-        string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.5))
-        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
+    string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0))
+    assert list(str(i) for i in string_chunker.chunk("hello world")) == [
+        "hello",
+        " worl",
+        "d",
+    ]
+    chunks = list(string_chunker.chunk("hello world"))
+    assert chunks[1] == Chunk(" worl", Point(1, 5), Point(1, 9))
+
+    string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.8))
+    assert list(str(i) for i in string_chunker.chunk("hello world")) == [
+        "hello",
+        "ello ",
+        "llo w",
+        "lo wo",
+        "o wor",
+        " worl",
+        "world",
+    ]
+
+
+def test_string_chunker_with_start_pos():
+    chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0))
+    chunk = list(
+        chunker.chunk("hello world", ChunkOpts(start_pos=Point(row=3, column=4)))
+    )[0]
+    assert chunk.start.row == 3 and chunk.start.column == 4
+    assert chunk.end.row == 3 and chunk.end.column == 8
+
+    chunker = StringChunker(Config(chunk_size=7, overlap_ratio=0))
+    chunks = list(
+        chunker.chunk("hello\nworld", ChunkOpts(start_pos=Point(row=3, column=4)))
+    )
+    assert chunks[0].start.row == 3 and chunks[0].start.column == 4
+    assert chunks[0].end.row == 4 and chunks[0].end.column == 0
+
+    assert chunks[1].start.row == 4 and chunks[1].start.column == 1
+
+
+def test_file_chunker():
+    test_content = ["hello ", "world"]
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
+        tmp_file.writelines(test_content)
+        tmp_file_name = tmp_file.name
+
+    # Test negative chunk size (return whole file)
+    with open(tmp_file_name, "r") as f:
+        chunker = FileChunker(Config(chunk_size=-1, overlap_ratio=0.5))
+        assert list(str(i) for i in chunker.chunk(f)) == ["hello world"]
+
+    # Test basic chunking with overlap
+    with open(tmp_file_name, "r") as f:
+        chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0.5))
+        assert list(str(i) for i in chunker.chunk(f)) == [
             "hello",
             "llo w",
             "o wor",
             "world",
         ]
-        assert list(string_chunker.chunk("hello world"))[0] == Chunk(
-            "hello", Point(1, 0), Point(1, 4)
-        )
 
-        string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0))
-        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
-            "hello",
-            " worl",
-            "d",
-        ]
-        chunks = list(string_chunker.chunk("hello world"))
-        assert chunks[1] == Chunk(" worl", Point(1, 5), Point(1, 9))
+    # Test no overlap
+    with open(tmp_file_name, "r") as f:
+        chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0))
+        assert list(str(i) for i in chunker.chunk(f)) == ["hello", " worl", "d"]
 
-        string_chunker = StringChunker(Config(chunk_size=5, overlap_ratio=0.8))
-        assert list(str(i) for i in string_chunker.chunk("hello world")) == [
+    # Test high overlap ratio
+    with open(tmp_file_name, "r") as f:
+        chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0.8))
+        assert list(str(i) for i in chunker.chunk(f)) == [
             "hello",
             "ello ",
             "llo w",
@@ -54,49 +109,7 @@ class TestStringChunker:
             "world",
         ]
 
-
-class TestFileChunker:
-    def test_file_chunker(self):
-        test_content = ["hello ", "world"]
-
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
-            tmp_file.writelines(test_content)
-            tmp_file_name = tmp_file.name
-
-        # Test negative chunk size (return whole file)
-        with open(tmp_file_name, "r") as f:
-            chunker = FileChunker(Config(chunk_size=-1, overlap_ratio=0.5))
-            assert list(str(i) for i in chunker.chunk(f)) == ["hello world"]
-
-        # Test basic chunking with overlap
-        with open(tmp_file_name, "r") as f:
-            chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0.5))
-            assert list(str(i) for i in chunker.chunk(f)) == [
-                "hello",
-                "llo w",
-                "o wor",
-                "world",
-            ]
-
-        # Test no overlap
-        with open(tmp_file_name, "r") as f:
-            chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0))
-            assert list(str(i) for i in chunker.chunk(f)) == ["hello", " worl", "d"]
-
-        # Test high overlap ratio
-        with open(tmp_file_name, "r") as f:
-            chunker = FileChunker(Config(chunk_size=5, overlap_ratio=0.8))
-            assert list(str(i) for i in chunker.chunk(f)) == [
-                "hello",
-                "ello ",
-                "llo w",
-                "lo wo",
-                "o wor",
-                " worl",
-                "world",
-            ]
-
-        os.remove(tmp_file_name)
+    os.remove(tmp_file_name)
 
     def test_file_chunker_positions(self):
         test_content = ["first line\n", "second line\n", "third line"]
@@ -132,11 +145,8 @@ def test_no_config():
 
 
 def test_chunker_base():
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         ChunkerBase(Config(overlap_ratio=-1))
-    with pytest.raises(NotImplementedError):
-        ChunkerBase().chunk("hello")
-    assert ChunkerBase().config == Config()
 
 
 def test_treesitter_chunker_python():
@@ -223,6 +233,7 @@ def bar():
     assert chunks == ['def 测试():\n    return "foo"', 'def bar():\n    return "bar"']
     os.remove(test_file)
 
+
 def test_treesitter_chunker_javascript():
     """Test TreeSitterChunker with a sample javascript file using tempfile."""
     chunker = TreeSitterChunker(Config(chunk_size=60))
@@ -242,12 +253,18 @@ function bar() {
         test_file = tmp_file.name
 
     chunks = list(str(i) for i in chunker.chunk(test_file))
-    assert chunks == ['function foo() {\n    return "foo";\n}', 'function bar() {\n    return "bar";\n}']
+    assert chunks == [
+        'function foo() {\n    return "foo";\n}',
+        'function bar() {\n    return "bar";\n}',
+    ]
     os.remove(test_file)
+
 
 def test_treesitter_chunker_javascript_genshi():
     """Test TreeSitterChunker with a sample javascript + genshi file using tempfile. (bypassing lexers via the filetype_map config param)"""
-    chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"javascript": ["^kid$"]}))
+    chunker = TreeSitterChunker(
+        Config(chunk_size=60, filetype_map={"javascript": ["^kid$"]})
+    )
 
     test_content = r"""
 function foo() {
@@ -264,12 +281,18 @@ function bar() {
         test_file = tmp_file.name
 
     chunks = list(str(i) for i in chunker.chunk(test_file))
-    assert chunks == ['function foo() {\n    return `foo with ${genshi}`;\n}', 'function bar() {\n    return "bar";\n}']
+    assert chunks == [
+        "function foo() {\n    return `foo with ${genshi}`;\n}",
+        'function bar() {\n    return "bar";\n}',
+    ]
     os.remove(test_file)
+
 
 def test_treesitter_chunker_parser_from_config_no_parser_found_error():
     """Test TreeSitterChunker filetype_map: should raise an error if no parser is found"""
-    chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"unknown_parser": ["^kid$"]}))
+    chunker = TreeSitterChunker(
+        Config(chunk_size=60, filetype_map={"unknown_parser": ["^kid$"]})
+    )
 
     test_content = r"""
 function foo() {
@@ -284,16 +307,18 @@ function bar() {
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".kid") as tmp_file:
         tmp_file.write(test_content)
         test_file = tmp_file.name
-
 
     with pytest.raises(LookupError):
         chunks = list(str(i) for i in chunker.chunk(test_file))
         assert chunks == []
     os.remove(test_file)
 
+
 def test_treesitter_chunker_parser_from_config_regex_error():
     """Test TreeSitterChunker filetype_map: should raise an error if a regex is invalid"""
-    chunker = TreeSitterChunker(Config(chunk_size=60, filetype_map={"javascript": ["\\"]}))
+    chunker = TreeSitterChunker(
+        Config(chunk_size=60, filetype_map={"javascript": ["\\"]})
+    )
 
     test_content = r"""
 function foo() {
@@ -309,11 +334,11 @@ function bar() {
         tmp_file.write(test_content)
         test_file = tmp_file.name
 
-
     with pytest.raises(Exception):
         chunks = list(str(i) for i in chunker.chunk(test_file))
         assert chunks == []
     os.remove(test_file)
+
 
 def test_treesitter_chunker_parser_from_config_no_language_match():
     """Test TreeSitterChunker filetype_map: should continue with the lexer parser checks if no language matches a regex"""
@@ -334,9 +359,11 @@ function bar() {
         test_file = tmp_file.name
 
     chunks = list(str(i) for i in chunker.chunk(test_file))
-    assert chunks == ['function foo() {\n    return "foo";\n}', 'function bar() {\n    return "bar";\n}']
+    assert chunks == [
+        'function foo() {\n    return "foo";\n}',
+        'function bar() {\n    return "bar";\n}',
+    ]
     os.remove(test_file)
-
 
 
 def test_treesitter_chunker_filter():
