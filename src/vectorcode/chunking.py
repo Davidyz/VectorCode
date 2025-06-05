@@ -190,7 +190,9 @@ class TreeSitterChunker(ChunkerBase):
         # if node has no children we fallback to the string chunker
         if len(node.children) == 0 and node.text:
             logger.debug("No children, falling back to string chunker")
-            yield from self._fallback_chunker.chunk(node.text.decode())
+            yield from self._fallback_chunker.chunk(
+                node.text.decode(), ChunkOpts(start_pos=node.start_point)
+            )
 
         for child in node.children:
             child_bytes = text_bytes[child.start_byte : child.end_byte]
