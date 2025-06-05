@@ -27,6 +27,24 @@ jobs:
           docmappingprojectname: true # Use project name in tag when writing mapping docs
           shiftheadinglevelby: 0 # Shift heading levels by specified number
           incrementheadinglevelby: 0 # Increment heading levels by specified number
+
+      - name: panvimdoc
+        uses: kdheepak/panvimdoc@main
+        with:
+          vimdoc: "VectorCode-cli" # Output vimdoc project name (required)
+          pandoc: "./docs/cli.md" # Input pandoc file
+          toc: true # Table of contents
+          description: "A code repository indexing tool to supercharge your LLM experience." # Project description used in title (if empty, uses neovim version and current date)
+          titledatepattern: "%Y %B %d" # Pattern for the date that used in the title
+          demojify: true # Strip emojis from the vimdoc
+          dedupsubheadings: true # Add heading to subheading anchor links to ensure that subheadings are unique
+          treesitter: true # Use treesitter for highlighting codeblocks
+          ignorerawblocks: true # Ignore raw html blocks in markdown when converting to vimdoc
+          docmapping: false # Use h4 headers as mapping docs
+          docmappingprojectname: true # Use project name in tag when writing mapping docs
+          shiftheadinglevelby: 0 # Shift heading levels by specified number
+          incrementheadinglevelby: 0 # Increment heading levels by specified number
+
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "Auto generate docs"
