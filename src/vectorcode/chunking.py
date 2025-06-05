@@ -31,6 +31,16 @@ class Chunk:
     def __str__(self):
         return self.text
 
+    def export_dict(self):
+        if self.start is not None:
+            return {
+                "text": self.text,
+                "start": {"row": self.start.row, "column": self.start.column},
+                "end": {"row": self.end.row, "column": self.end.column},
+            }
+        else:
+            return {"text": self.text}
+
 
 @dataclass
 class ChunkOpts:
