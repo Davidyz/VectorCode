@@ -185,7 +185,9 @@ def foo():
     ts_chunker = TreeSitterChunker(config)
     ts_chunker._fallback_chunker.chunk = MagicMock()
     list(ts_chunker.chunk(temp_py_file.name))
-    ts_chunker._fallback_chunker.chunk.assert_called_once()
+    ts_chunker._fallback_chunker.chunk.assert_called_once_with(
+        "a very very very very very long string", ChunkOpts(Point(row=2, column=12))
+    )
 
 
 def test_treesitter_chunker_python_encoding():
