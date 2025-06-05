@@ -93,6 +93,16 @@ return check_cli_wrap(function(opts)
             for _, ref in pairs(agent.chat.refs) do
               if ref.source == cc_common.tool_result_source then
                 table.insert(existing_files, ref.id)
+              elseif type(ref.path) == "string" then
+                table.insert(existing_files, ref.path)
+              elseif ref.bufnr then
+                local fname = vim.api.nvim_buf_get_name(ref.bufnr)
+                if fname ~= nil then
+                  local stat = vim.uv.fs_stat(fname)
+                  if stat and stat.type == "file" then
+                    table.insert(existing_files, fname)
+                  end
+                end
               end
             end
             if #existing_files > 1 then
@@ -295,6 +305,7 @@ return check_cli_wrap(function(opts)
               agent.chat.references:add({
                 source = cc_common.tool_result_source,
                 id = file.path,
+                path = file.path,
                 opts = { visible = false },
               })
             end
