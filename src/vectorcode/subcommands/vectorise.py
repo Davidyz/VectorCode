@@ -32,6 +32,19 @@ def hash_str(string: str) -> str:
     return hashlib.sha256(string.encode()).hexdigest()
 
 
+def hash_file(path: str) -> str:
+    """return the sha-256 hash of a file."""
+    hasher = hashlib.sha256()
+    with open(path, "rb") as file:
+        while True:
+            chunk = file.read(8192)
+            if chunk:
+                hasher.update(chunk)
+            else:
+                break
+    return hasher.hexdigest()
+
+
 def get_uuid() -> str:
     return uuid.uuid4().hex
 
@@ -47,15 +60,21 @@ async def chunked_add(
     semaphore: asyncio.Semaphore,
 ):
     full_path_str = str(expand_path(str(file_path), True))
+    orig_sha256 = None
+    new_sha256 = hash_file(full_path_str)
     async with collection_lock:
-        num_existing_chunks = len(
-            (
-                await collection.get(
-                    where={"path": full_path_str},
-                    include=[IncludeEnum.metadatas],
-                )
-            )["ids"]
+        existing_chunks = await collection.get(
+            where={"path": full_path_str},
+            include=[IncludeEnum.metadatas],
         )
+        num_existing_chunks = len((existing_chunks)["ids"])
+        if existing_chunks["metadatas"]:
+            orig_sha256 = existing_chunks["metadatas"][0].get("sha256")
+    if orig_sha256 and orig_sha256 == new_sha256:
+        logger.debug(
+            f"Skipping {full_path_str} because it's unchanged since last vectorisation."
+        )
+        return
 
     if num_existing_chunks:
         logger.debug(
@@ -78,7 +97,10 @@ async def chunked_add(
             logger.debug(f"Chunked into {len(chunks)} pieces.")
             metas = []
             for chunk in chunks:
-                meta: dict[str, str | int] = {"path": full_path_str}
+                meta: dict[str, str | int] = {
+                    "path": full_path_str,
+                    "sha256": new_sha256,
+                }
                 if isinstance(chunk, Chunk):
                     meta["start"] = chunk.start.row
                     meta["end"] = chunk.end.row

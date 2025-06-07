@@ -72,7 +72,7 @@ async def update(configs: Config) -> int:
             for task in asyncio.as_completed(tasks):
                 await task
                 bar.update(1)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: nocover
             print("Abort.", file=sys.stderr)
             return 1
 

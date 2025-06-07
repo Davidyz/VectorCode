@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import socket
+import tempfile
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
@@ -17,6 +18,7 @@ from vectorcode.subcommands.vectorise import (
     chunked_add,
     exclude_paths_by_spec,
     get_uuid,
+    hash_file,
     hash_str,
     include_paths_by_spec,
     load_files_from_include,
@@ -29,6 +31,36 @@ def test_hash_str():
     test_string = "test_string"
     expected_hash = hashlib.sha256(test_string.encode()).hexdigest()
     assert hash_str(test_string) == expected_hash
+
+
+def test_hash_file_basic():
+    content = b"This is a test file for hashing."
+    expected_hash = hashlib.sha256(content).hexdigest()
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_file.write(content)
+        tmp_file_path = tmp_file.name
+
+    try:
+        actual_hash = hash_file(tmp_file_path)
+        assert actual_hash == expected_hash
+    finally:
+        os.remove(tmp_file_path)
+
+
+def test_hash_file_empty():
+    content = b""
+    expected_hash = hashlib.sha256(content).hexdigest()
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_file.write(content)
+        tmp_file_path = tmp_file.name
+
+    try:
+        actual_hash = hash_file(tmp_file_path)
+        assert actual_hash == expected_hash
+    finally:
+        os.remove(tmp_file_path)
 
 
 def test_get_uuid():
@@ -48,7 +80,11 @@ async def test_chunked_add():
     max_batch_size = 50
     semaphore = asyncio.Semaphore(1)
 
-    with patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk:
+    with (
+        patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk,
+        patch("vectorcode.subcommands.vectorise.hash_file") as mock_hash_file,
+    ):
+        mock_hash_file.return_value = "hash1"
         mock_chunk.return_value = [Chunk("chunk1", Point(1, 0), Point(1, 5)), "chunk2"]
         await chunked_add(
             file_path,
@@ -72,7 +108,7 @@ async def test_chunked_add_with_existing():
     file_path = "test_file.py"
     collection = AsyncMock()
     collection.get = AsyncMock()
-    collection.get.return_value = {"ids": ["id1"]}
+    collection.get.return_value = {"ids": ["id1"], "metadatas": [{"sha256": "hash1"}]}
     collection_lock = asyncio.Lock()
     stats = {"add": 0, "update": 0}
     stats_lock = asyncio.Lock()
@@ -80,7 +116,11 @@ async def test_chunked_add_with_existing():
     max_batch_size = 50
     semaphore = asyncio.Semaphore(1)
 
-    with patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk:
+    with (
+        patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk,
+        patch("vectorcode.subcommands.vectorise.hash_file") as mock_hash_file,
+    ):
+        mock_hash_file.return_value = "hash1"
         mock_chunk.return_value = [Chunk("chunk1", Point(1, 0), Point(1, 5)), "chunk2"]
         await chunked_add(
             file_path,
@@ -94,11 +134,8 @@ async def test_chunked_add_with_existing():
         )
 
     assert stats["add"] == 0
-    assert stats["update"] == 1
-    collection.add.assert_called()
-    assert collection.add.call_count == 1
-    collection.delete.assert_called
-    assert collection.delete.call_count == 1
+    assert stats["update"] == 0
+    collection.add.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -112,7 +149,11 @@ async def test_chunked_add_empty_file():
     max_batch_size = 50
     semaphore = asyncio.Semaphore(1)
 
-    with patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk:
+    with (
+        patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk,
+        patch("vectorcode.subcommands.vectorise.hash_file") as mock_hash_file,
+    ):
+        mock_hash_file.return_value = "hash1"
         mock_chunk.return_value = []
         await chunked_add(
             file_path,
@@ -390,7 +431,7 @@ async def test_vectorise_orphaned_files():
         "metadatas": [{"path": "test_file.py"}, {"path": "non_existent_file.py"}]
     }
     mock_collection.get.side_effect = [
-        {"ids": []},  # Return value for chunked_add
+        {"ids": [], "metadatas": []},  # Return value for chunked_add
         get_return,  # Return value for orphaned files
     ]
     mock_collection.delete.return_value = None
@@ -428,7 +469,9 @@ async def test_vectorise_orphaned_files():
             "vectorcode.subcommands.vectorise.expand_globs",
             return_value=["test_file.py"],  # Ensure expand_globs returns a valid file
         ),
+        patch("vectorcode.subcommands.vectorise.hash_file") as mock_hash_file,
     ):
+        mock_hash_file.return_value = "hash1"
         result = await vectorise(configs)
 
         assert result == 0
