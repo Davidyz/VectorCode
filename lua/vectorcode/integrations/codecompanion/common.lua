@@ -2,8 +2,16 @@
 
 local job_runner
 local vc_config = require("vectorcode.config")
+local cc_config = require("codecompanion.config").config
 local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
+local http_client = require("codecompanion.http")
+
+---@class VectorCode.CodeCompanion.SummariseOpts
+---@field enabled boolean?
+---@field adapter string|CodeCompanion.Adapter|nil
+---@field threshold integer?
+---@field system_prompt string
 
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
@@ -11,6 +19,22 @@ local default_query_options = {
   default_num = { chunk = 50, document = 10 },
   no_duplicate = true,
   chunk_mode = false,
+  summarise = {
+    enabled = false,
+    system_prompt = [[
+You are an experienced code analyser.
+Your task is to write summaries of source code that are informative and concise.
+The summary will serve as a source of information for others to quickly understand how the code works and how to work with the code without going through the source code
+Your summary should include the following information:
+- variables, functions, classes and other objects that are importable/includeable by other programs
+- for a function or method, include its signature and high-level implementation details. For example,
+  - when summarising a sorting function, include the sorting algorithm, the parameter types and return types
+  - when summarising a function that makes an http request, include the network library used by the function, the parameter types and return types
+- if the code contains syntax or semantics errors, include them as well.
+- for anything that you quote from the source code, include the line numbers from which you're quote them.
+- DO NOT include local variables and functions that are not accessible by other functions.
+]],
+  },
 }
 
 ---@type VectorCode.CodeCompanion.LsToolOpts
@@ -23,6 +47,7 @@ local TOOL_RESULT_SOURCE = "VectorCodeToolResult"
 
 return {
   tool_result_source = TOOL_RESULT_SOURCE,
+
   ---@param t table|string
   ---@return string
   flatten_table_to_string = function(t)

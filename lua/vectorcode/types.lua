@@ -93,6 +93,7 @@
 --- Whether to send chunks instead of full files to the LLM. Default: `false`
 --- > Make sure you adjust `max_num` and `default_num` accordingly.
 ---@field chunk_mode boolean?
+---@field summarise VectorCode.CodeCompanion.SummariseOpts?
 
 ---@class VectorCode.CodeCompanion.VectoriseToolOpts: VectorCode.CodeCompanion.ToolOpts
 
