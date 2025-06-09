@@ -17,15 +17,9 @@ return check_cli_wrap(function(opts)
       { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
     )
   end
-  opts = vim.tbl_deep_extend("force", {
-    max_num = -1,
-    default_num = 10,
-    include_stderr = false,
-    use_lsp = false,
-    auto_submit = { ls = false, query = false },
-    ls_on_start = false,
-    no_duplicate = true,
-  }, opts or {})
+
+  ---@type VectorCode.CodeCompanion.ToolOpts
+  opts = vim.tbl_deep_extend("force", cc_common.get_default_tool_opts(), opts or {})
   logger.info("Creating CodeCompanion tool with the following args:\n", opts)
   local capping_message = ""
   if opts.max_num > 0 then
@@ -289,18 +283,7 @@ return check_cli_wrap(function(opts)
               else
                 user_message = ""
               end
-              local llm_message = string.format(
-                [[Here is a file the VectorCode tool retrieved:
-<path>
-%s
-</path>
-<content>
-%s
-</content>
-]],
-                file.path,
-                file.document
-              )
+              local llm_message = cc_common.process_documents(file, opts.summarise)
               agent.chat:add_tool_output(self, llm_message, user_message)
               agent.chat.references:add({
                 source = cc_common.tool_result_source,
