@@ -1,7 +1,10 @@
 ---Type definition of the retrieval result.
 ---@class VectorCode.Result
 ---@field path string Path to the file
----@field document string Content of the file
+---@field document string? Content of the file
+---@field chunk string?
+---@field start_line integer?
+---@field end_line integer?
 
 ---Type definitions for the cache of a buffer.
 ---@class VectorCode.Cache
