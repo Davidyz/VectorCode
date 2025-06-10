@@ -2,6 +2,7 @@
 ---@class VectorCode.Result
 ---@field path string Path to the file
 ---@field document string Content of the file
+---@field summary string?
 
 ---Type definitions for the cache of a buffer.
 ---@class VectorCode.Cache

@@ -111,7 +111,22 @@ return check_cli_wrap(function(opts)
 
           job_runner.run_async(args, function(result, error)
             if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
-              cb({ status = "success", data = result })
+              local count = 0
+              coroutine.wrap(function()
+                for _, file in pairs(result) do
+                  cc_common.process_documents(file, opts.summarise, function(summary)
+                    file.summary = summary
+                    count = count + 1
+                  end)
+                end
+                cc_common.async_sleep(opts.summarise.timeout, function()
+                  return count == #result
+                end)
+                cb({
+                  status = "success",
+                  data = result,
+                })
+              end)()
             else
               if type(error) == "table" then
                 error = cc_common.flatten_table_to_string(error)
@@ -257,6 +272,7 @@ return check_cli_wrap(function(opts)
       ---@param cmd table
       ---@param stdout table
       success = function(self, agent, cmd, stdout)
+        ---@type VectorCode.Result[]
         stdout = stdout[1]
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
@@ -267,7 +283,7 @@ return check_cli_wrap(function(opts)
           if opts.max_num > 0 then
             max_result = math.min(opts.max_num, max_result)
           end
-          for i, file in pairs(stdout) do
+          for i, result in pairs(stdout) do
             if i <= max_result then
               if i == 1 then
                 if cmd.options.project_root then
@@ -283,12 +299,25 @@ return check_cli_wrap(function(opts)
               else
                 user_message = ""
               end
-              local llm_message = cc_common.process_documents(file, opts.summarise)
+              local llm_message
+              if result.summary then
+                llm_message = string.format(
+                  "<path>%s</path><summary>%s</summary>",
+                  result.path,
+                  result.summary
+                )
+              else
+                llm_message = string.format(
+                  "<path>%s</path><content>%s</content>",
+                  result.path,
+                  result.summary
+                )
+              end
               agent.chat:add_tool_output(self, llm_message, user_message)
               agent.chat.references:add({
                 source = cc_common.tool_result_source,
-                id = file.path,
-                path = file.path,
+                id = result.path,
+                path = result.path,
                 opts = { visible = false },
               })
             end
