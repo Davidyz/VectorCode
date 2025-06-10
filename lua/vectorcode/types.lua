@@ -1,3 +1,5 @@
+---@module "codecompanion"
+
 ---Type definition of the retrieval result.
 ---@class VectorCode.QueryResult
 ---@field path string Path to the file
@@ -6,6 +8,7 @@
 ---@field start_line integer?
 ---@field end_line integer?
 ---@field chunk_id string?
+---@field summary string?
 
 ---@class VectorCode.LsResult
 ---@field project-root string
