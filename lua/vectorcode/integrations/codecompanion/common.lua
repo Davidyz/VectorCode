@@ -13,6 +13,18 @@ local logger = vc_config.logger
 ---@field no_duplicate boolean?
 ---@field chunk_mode boolean?
 
+---@type VectorCode.CodeCompanion.ToolOpts
+local default_options = {
+  max_num = -1,
+  default_num = 10,
+  include_stderr = false,
+  use_lsp = false,
+  auto_submit = { ls = false, query = false },
+  ls_on_start = false,
+  no_duplicate = true,
+  only_chunks = false,
+}
+
 return {
   tool_result_source = "VectorCodeToolResult",
   ---@param t table|string
@@ -22,6 +34,30 @@ return {
       return t
     end
     return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
+  end,
+
+  ---@param opts VectorCode.CodeCompanion.ToolOpts|{}|nil
+  ---@return VectorCode.CodeCompanion.ToolOpts
+  get_tool_opts = function(opts)
+    if opts == nil or opts.use_lsp == nil then
+      opts = vim.tbl_deep_extend(
+        "force",
+        opts or {},
+        { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
+      )
+    end
+    if type(opts.default_num) == "table" then
+      if opts.chunk_mode then
+        opts.default_num = opts.default_num.chunk
+      else
+        opts.default_num = opts.default_num.document
+      end
+      assert(
+        type(opts.default_num) == "number",
+        "default_num should be an integer or a table: {chunk: integer, document: integer}"
+      )
+    end
+    return vim.tbl_deep_extend("force", default_options, opts)
   end,
 
   ---@param result VectorCode.Result

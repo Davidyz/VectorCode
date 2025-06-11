@@ -10,40 +10,19 @@ local job_runner = nil
 ---@param opts VectorCode.CodeCompanion.ToolOpts?
 ---@return CodeCompanion.Agent.Tool
 return check_cli_wrap(function(opts)
-  if opts == nil or opts.use_lsp == nil then
-    opts = vim.tbl_deep_extend(
-      "force",
-      opts or {},
-      { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
-    )
+  opts = cc_common.get_tool_opts(opts)
+  ---@type "file"|"chunk"
+  local mode
+  if opts.chunk_mode then
+    mode = "chunk"
+  else
+    mode = "file"
   end
-  ---@type VectorCode.CodeCompanion.ToolOpts
-  opts = vim.tbl_deep_extend("force", {
-    max_num = -1,
-    default_num = 10,
-    include_stderr = false,
-    use_lsp = false,
-    auto_submit = { ls = false, query = false },
-    ls_on_start = false,
-    no_duplicate = true,
-    only_chunks = false,
-  }, opts or {})
+
   logger.info("Creating CodeCompanion tool with the following args:\n", opts)
   local capping_message = ""
   if opts.max_num > 0 then
     capping_message = ("  - Request for at most %d documents"):format(opts.max_num)
-  end
-
-  if type(opts.default_num) == "table" then
-    if opts.chunk_mode then
-      opts.default_num = opts.default_num.chunk
-    else
-      opts.default_num = opts.default_num.document
-    end
-    assert(
-      type(opts.default_num) == "number",
-      "default_num should be an integer or a table: {chunk: integer, document: integer}"
-    )
   end
 
   return {
@@ -292,21 +271,20 @@ return check_cli_wrap(function(opts)
         if cmd.command == "query" then
           local max_result = #stdout
           if opts.max_num > 0 then
-            max_result = math.min(opts.max_num, max_result)
+            max_result = math.min(opts.max_num or 1, max_result)
           end
           for i, file in pairs(stdout) do
             if i <= max_result then
               if i == 1 then
+                user_message = string.format(
+                  "**VectorCode Tool**: Retrieved %d %s(s)",
+                  max_result,
+                  mode
+                )
                 if cmd.options.project_root then
-                  user_message = string.format(
-                    "**VectorCode Tool**: Retrieved %s files from %s",
-                    max_result,
-                    cmd.options.project_root
-                  )
-                else
-                  user_message =
-                    string.format("**VectorCode Tool**: Retrieved %s files", max_result)
+                  user_message = user_message .. " from " .. cmd.options.project_root
                 end
+                user_message = user_message .. "\n"
               else
                 user_message = ""
               end
