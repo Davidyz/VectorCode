@@ -64,6 +64,7 @@ class CliAction(Enum):
 
 @dataclass
 class Config:
+    debug: bool = False
     no_stderr: bool = False
     recursive: bool = False
     include_hidden: bool = False
@@ -189,6 +190,12 @@ class Config:
 def get_cli_parser():
     __default_config = Config()
     shared_parser = argparse.ArgumentParser(add_help=False)
+    shared_parser.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+        help="Enable debug mode (requires vectorcode[debug]).",
+    )
     chunking_parser = argparse.ArgumentParser(add_help=False)
     chunking_parser.add_argument(
         "--overlap",
@@ -397,6 +404,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
         "action": CliAction(main_args.action),
         "project_root": main_args.project_root,
         "pipe": main_args.pipe,
+        "debug": main_args.debug,
     }
 
     match main_args.action:
