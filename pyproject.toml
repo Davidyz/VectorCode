@@ -44,6 +44,7 @@ omit = [
     "./tests/*",
     "src/vectorcode/_version.py",
     "src/vectorcode/__init__.py",
+    "src/vectorcode/debugging.py",
     "/tmp/*",
 ]
 include = ['src/vectorcode/**/*.py']
