@@ -4,7 +4,7 @@ local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
 
 ---@class VectorCode.CodeCompanion.ToolOpts
----@field max_num integer?
+---@field max_num integer|{document:integer, chunk: integer}|nil
 ---@field default_num integer|{document:integer, chunk: integer}|nil
 ---@field include_stderr boolean?
 ---@field use_lsp boolean?
@@ -55,6 +55,17 @@ return {
       assert(
         type(opts.default_num) == "number",
         "default_num should be an integer or a table: {chunk: integer, document: integer}"
+      )
+    end
+    if type(opts.max_num) == "table" then
+      if opts.chunk_mode then
+        opts.max_num = opts.max_num.chunk
+      else
+        opts.max_num = opts.max_num.document
+      end
+      assert(
+        type(opts.max_num) == "number",
+        "max_num should be an integer or a table: {chunk: integer, document: integer}"
       )
     end
     return vim.tbl_deep_extend("force", default_options, opts)
