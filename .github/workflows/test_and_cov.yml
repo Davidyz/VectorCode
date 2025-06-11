@@ -32,13 +32,13 @@ jobs:
       - name: install pdm and dependencies
         if: matrix.os != 'macos-14'
         run: |
-          pdm lock --group dev --group lsp --group mcp
+          pdm lock --group dev --group lsp --group mcp --group debug
           pdm install
 
       - name: install pdm and dependencies for legacy system
         if: matrix.os == 'macos-14'
         run: |
-          pdm lock --group dev --group lsp --group mcp --group legacy
+          pdm lock --group dev --group lsp --group mcp --group legacy --group debug
           pdm install
 
       - name: Set custom HF cache directory
