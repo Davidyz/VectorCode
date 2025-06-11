@@ -56,3 +56,30 @@
 ---@field buf_is_enabled fun(bufnr: integer?): boolean Checks if a buffer has been enabled.
 ---@field make_prompt_component fun(bufnr: integer?, component_cb: (fun(result: VectorCode.Result): string)?): {content: string, count: integer} Compile the retrieval results into a string.
 ---@field async_check fun(check_item: string?, on_success: fun(out: vim.SystemCompleted)?, on_failure: fun(out: vim.SystemCompleted)?) Checks if VectorCode has been configured properly for your project.
+
+--- This class defines the options available to the CodeCompanion tool.
+---@class VectorCode.CodeCompanion.ToolOpts
+--- Maximum number of results provided to the LLM.
+--- You may set this to a table to configure different values for document/chunk mode.
+--- When set to negative values, it means unlimited.
+--- Default: `{ document = -1, chunk = -1 }`
+---@field max_num integer|{document:integer, chunk: integer}|nil
+--- Default number of results provided to the LLM.
+--- This value is written in the system prompt and tool description.
+--- Users may ask the LLM to request a different number of results in the chat.
+--- You may set this to a table to configure different values for document/chunk mode.
+--- Default: `{ document = 10, chunk = 50 }`
+---@field default_num integer|{document:integer, chunk: integer}|nil
+--- Whether the stderr should be provided back to the chat
+---@field include_stderr boolean?
+--- Whether to use the LSP backend. Default: `false`
+---@field use_lsp boolean?
+--- Whether to automatically submit the result (no longer necessary in recent CodeCompanion releases). Default: `false`
+---@field auto_submit table<string, boolean>?
+--- Whether to run `vectorcode ls` and tell the LLM about the indexed projects when initialising the tool. Default: `false`
+---@field ls_on_start boolean?
+--- Whether to avoid duplicated references. Default: `true`
+---@field no_duplicate boolean?
+--- Whether to send chunks instead of full files to the LLM. Default: `false`
+--- > Make sure you adjust `max_num` and `default_num` accordingly.
+---@field chunk_mode boolean?

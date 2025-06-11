@@ -3,26 +3,16 @@ local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
 
----@class VectorCode.CodeCompanion.ToolOpts
----@field max_num integer|{document:integer, chunk: integer}|nil
----@field default_num integer|{document:integer, chunk: integer}|nil
----@field include_stderr boolean?
----@field use_lsp boolean?
----@field auto_submit table<string, boolean>?
----@field ls_on_start boolean?
----@field no_duplicate boolean?
----@field chunk_mode boolean?
-
 ---@type VectorCode.CodeCompanion.ToolOpts
 local default_options = {
-  max_num = -1,
-  default_num = 10,
+  max_num = { chunk = -1, document = -1 },
+  default_num = { chunk = 50, document = 10 },
   include_stderr = false,
   use_lsp = false,
   auto_submit = { ls = false, query = false },
   ls_on_start = false,
   no_duplicate = true,
-  only_chunks = false,
+  chunk_mode = false,
 }
 
 return {
@@ -46,6 +36,7 @@ return {
         { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
       )
     end
+    opts = vim.tbl_deep_extend("force", default_options, opts)
     if type(opts.default_num) == "table" then
       if opts.chunk_mode then
         opts.default_num = opts.default_num.chunk
@@ -68,33 +59,34 @@ return {
         "max_num should be an integer or a table: {chunk: integer, document: integer}"
       )
     end
-    return vim.tbl_deep_extend("force", default_options, opts)
+    return opts
   end,
 
   ---@param result VectorCode.Result
   ---@return string
   process_result = function(result)
+    local llm_message
     if result.chunk then
       -- chunk mode
-      local chunk =
+      llm_message =
         string.format("<path>%s</path><chunk>%s</chunk>", result.path, result.chunk)
       if result.start_line and result.end_line then
-        chunk = chunk
+        llm_message = llm_message
           .. string.format(
             "<start_line>%d</start_line><end_line>%d</end_line>",
             result.start_line,
             result.end_line
           )
       end
-      return chunk
     else
       -- full document mode
-      return string.format(
+      llm_message = string.format(
         "<path>%s</path><content>%s</content>",
         result.path,
         result.document
       )
     end
+    return llm_message
   end,
   ---@param use_lsp boolean
   ---@return VectorCode.JobRunner

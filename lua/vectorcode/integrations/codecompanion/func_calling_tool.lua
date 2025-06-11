@@ -11,6 +11,10 @@ local job_runner = nil
 ---@return CodeCompanion.Agent.Tool
 return check_cli_wrap(function(opts)
   opts = cc_common.get_tool_opts(opts)
+  assert(
+    type(opts.max_num) == "number" and type(opts.default_num) == "number",
+    string.format("Options are not correctly formatted:%s", vim.inspect(opts))
+  )
   ---@type "file"|"chunk"
   local mode
   if opts.chunk_mode then
