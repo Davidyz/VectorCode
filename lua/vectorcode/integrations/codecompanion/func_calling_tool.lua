@@ -191,7 +191,7 @@ return check_cli_wrap(function(opts)
     system_prompt = function()
       local guidelines = {
         "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags. Do not include the `<path>``</path>` tags in your answers when you mention the paths.",
-        "  - The results may also be chunks of the source code. In this case, the text chunks will be wrapped in <chunk></chunk>. If the starting and ending line ranges are available, they will be wrapped in <start_line></start_line> and <end_line></end_line> tags. Make use of them when you're quoting the source code.",
+        "  - The results may also be chunks of the source code. In this case, the text chunks will be wrapped in <chunk></chunk>. If the starting and ending line ranges are available, they will be wrapped in <start_line></start_line> and <end_line></end_line> tags. Make use of the line numbers (NOT THE XML TAGS) when you're quoting the source code.",
         "  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running",
         "  - Include one single command call for VectorCode each time. You may include multiple keywords in the command",
         "  - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks",
