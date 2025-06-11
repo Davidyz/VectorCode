@@ -1,7 +1,7 @@
 .PHONY: multitest
 
 deps:
-	pdm lock --group dev --group lsp --group mcp; \
+	pdm lock --group dev --group lsp --group mcp --group debug; \
 	pdm install
 	
 test:

@@ -4,7 +4,7 @@ import os
 import sys
 import traceback
 
-from vectorcode import __version__
+from vectorcode import __version__, debugging
 from vectorcode.cli_utils import (
     CliAction,
     config_logging,
@@ -20,6 +20,10 @@ async def async_main():
     cli_args = await parse_cli_args()
     if cli_args.no_stderr:
         sys.stderr = open(os.devnull, "w")
+
+    if cli_args.debug:
+        debugging.enable()
+
     logger.info("Collected CLI arguments: %s", cli_args)
 
     if cli_args.project_root is None:
