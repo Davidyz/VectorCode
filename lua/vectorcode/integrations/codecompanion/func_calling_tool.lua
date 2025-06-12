@@ -324,9 +324,6 @@ return check_cli_wrap(function(opts)
             )
           end
         end
-        if opts.auto_submit[cmd.command] then
-          agent.chat:submit()
-        end
       end,
     },
   }

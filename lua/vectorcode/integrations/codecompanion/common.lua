@@ -9,7 +9,6 @@ local default_options = {
   default_num = { chunk = 50, document = 10 },
   include_stderr = false,
   use_lsp = false,
-  auto_submit = { ls = false, query = false },
   ls_on_start = false,
   no_duplicate = true,
   chunk_mode = false,
