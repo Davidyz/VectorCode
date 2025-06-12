@@ -8,23 +8,6 @@ local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
 local http_client = require("codecompanion.http")
 
----@class VectorCode.CodeCompanion.SummariseOpts
----@field enabled boolean?
----@field adapter string|CodeCompanion.Adapter|nil
----@field threshold integer?
----@field system_prompt string
----@field timeout integer
-
----@class VectorCode.CodeCompanion.ToolOpts
----@field max_num integer?
----@field default_num integer?
----@field include_stderr boolean?
----@field use_lsp boolean?
----@field auto_submit table<string, boolean>?
----@field ls_on_start boolean?
----@field no_duplicate boolean?
----@field summarise VectorCode.CodeCompanion.SummariseOpts?
-
 --- Suspends the current coroutine until a given amount of time has passed
 --- or an interrupt condition is met.
 ---
@@ -78,13 +61,14 @@ end
 
 ---@type VectorCode.CodeCompanion.ToolOpts
 local default_options = {
-  max_num = -1,
-  default_num = 10,
+  max_num = { chunk = -1, document = -1 },
+  default_num = { chunk = 50, document = 10 },
   include_stderr = false,
   use_lsp = false,
   auto_submit = { ls = false, query = false },
   ls_on_start = false,
   no_duplicate = true,
+  chunk_mode = false,
   summarise = {
     enabled = false,
     timeout = 5000,
@@ -153,7 +137,7 @@ local function make_oneshot_payload(adapter, system_prompt, user_messages)
   return { messages = adapter:map_roles(messages) }
 end
 
-return {
+local M = {
   tool_result_source = "VectorCodeToolResult",
 
   ---@param t table|string
@@ -167,6 +151,106 @@ return {
 
   async_sleep = sleep,
 
+  ---@param opts VectorCode.CodeCompanion.ToolOpts|{}|nil
+  ---@return VectorCode.CodeCompanion.ToolOpts
+  get_tool_opts = function(opts)
+    if opts == nil or opts.use_lsp == nil then
+      opts = vim.tbl_deep_extend(
+        "force",
+        opts or {},
+        { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
+      )
+    end
+    opts = vim.tbl_deep_extend("force", default_options, opts)
+    if type(opts.default_num) == "table" then
+      if opts.chunk_mode then
+        opts.default_num = opts.default_num.chunk
+      else
+        opts.default_num = opts.default_num.document
+      end
+      assert(
+        type(opts.default_num) == "number",
+        "default_num should be an integer or a table: {chunk: integer, document: integer}"
+      )
+    end
+    if type(opts.max_num) == "table" then
+      if opts.chunk_mode then
+        opts.max_num = opts.max_num.chunk
+      else
+        opts.max_num = opts.max_num.document
+      end
+      assert(
+        type(opts.max_num) == "number",
+        "max_num should be an integer or a table: {chunk: integer, document: integer}"
+      )
+    end
+    return opts
+  end,
+
+  ---@param result VectorCode.Result
+  ---@param summarise_opts VectorCode.CodeCompanion.SummariseOpts?
+  ---@return string
+  process_result = function(result, summarise_opts)
+    local llm_message
+
+    if result.chunk then
+      -- chunk mode
+      llm_message =
+        string.format("<path>%s</path><chunk>%s</chunk>", result.path, result.chunk)
+      if result.start_line and result.end_line then
+        llm_message = llm_message
+          .. string.format(
+            "<start_line>%d</start_line><end_line>%d</end_line>",
+            result.start_line,
+            result.end_line
+          )
+      end
+    else
+      -- full document mode
+      llm_message = string.format(
+        "<path>%s</path><content>%s</content>",
+        result.path,
+        result.document
+      )
+    end
+    if summarise_opts and summarise_opts.enabled then
+      summarise_opts = vim.deepcopy(
+        vim.tbl_deep_extend(
+          "force",
+          default_options.summarise or {},
+          summarise_opts or {}
+        )
+      )
+      local adapter =
+        vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
+
+      local payload =
+        make_oneshot_payload(adapter, summarise_opts.system_prompt, llm_message)
+      local settings =
+        vim.deepcopy(adapter:map_schema_to_params(cc_schema.get_default(adapter)))
+      settings.opts.stream = false
+
+      ---@type CodeCompanion.Client
+      local client = http_client.new({ adapter = settings })
+      client:request(payload, {
+        ---@param _adapter CodeCompanion.Adapter
+        callback = function(_, data, _adapter)
+          if data then
+            local summary_result = _adapter.handlers.chat_output(_adapter, data)
+            if summary_result and summary_result.status == "success" then
+              local summary = vim.trim(summary_result.output.content or "")
+              if summary ~= "" then
+                llm_message = summary
+              end
+            end
+          end
+        end,
+      }, { silent = true })
+      -- TODO: async wait here
+    end
+
+    return llm_message
+  end,
   ---@param use_lsp boolean
   ---@return VectorCode.JobRunner
   initialise_runner = function(use_lsp)
@@ -190,65 +274,5 @@ return {
     end
     return job_runner
   end,
-
-  ---@param vc_result VectorCode.Result
-  ---@param summarise_opts VectorCode.CodeCompanion.SummariseOpts|{}|nil
-  ---@param callback fun(summary:string)?
-  ---@return string?
-  process_documents = function(vc_result, summarise_opts, callback)
-    if vc_config.get_user_config().notify then
-      vim.schedule_wrap(vim.notify)(
-        "Processing " .. vc_result.path,
-        vim.log.levels.INFO
-      )
-    end
-    ---@type VectorCode.CodeCompanion.SummariseOpts
-    summarise_opts = vim.deepcopy(
-      vim.tbl_deep_extend(
-        "force",
-        default_options.summarise or {},
-        summarise_opts or {}
-      )
-    )
-
-    ---@type string
-    local processed_result = vc_result.document
-    if summarise_opts.enabled and type(callback) == "function" then
-      ---@type CodeCompanion.Adapter
-      local adapter =
-        vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
-
-      local payload =
-        make_oneshot_payload(adapter, summarise_opts.system_prompt, processed_result)
-      local settings =
-        vim.deepcopy(adapter:map_schema_to_params(cc_schema.get_default(adapter)))
-      settings.opts.stream = false
-
-      ---@type CodeCompanion.Client
-      local client = http_client.new({ adapter = settings })
-      client:request(payload, {
-        ---@param _adapter CodeCompanion.Adapter
-        callback = function(err, data, _adapter)
-          if data then
-            local result = _adapter.handlers.chat_output(_adapter, data)
-            if result and result.status == "success" then
-              local summary = vim.trim(result.output.content or "")
-              if summary ~= "" then
-                return callback(summary)
-              end
-            end
-            return callback(processed_result)
-          end
-        end,
-      }, { silent = true })
-    elseif type(callback) == "function" then
-      callback(processed_result)
-    else
-      return processed_result
-    end
-  end,
-
-  get_default_tool_opts = function()
-    return vim.deepcopy(default_options)
-  end,
 }
+return M

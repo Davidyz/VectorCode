@@ -10,16 +10,19 @@ local job_runner = nil
 ---@param opts VectorCode.CodeCompanion.ToolOpts?
 ---@return CodeCompanion.Agent.Tool
 return check_cli_wrap(function(opts)
-  if opts == nil or opts.use_lsp == nil then
-    opts = vim.tbl_deep_extend(
-      "force",
-      opts or {},
-      { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
-    )
+  opts = cc_common.get_tool_opts(opts)
+  assert(
+    type(opts.max_num) == "number" and type(opts.default_num) == "number",
+    string.format("Options are not correctly formatted:%s", vim.inspect(opts))
+  )
+  ---@type "file"|"chunk"
+  local mode
+  if opts.chunk_mode then
+    mode = "chunk"
+  else
+    mode = "file"
   end
 
-  ---@type VectorCode.CodeCompanion.ToolOpts
-  opts = vim.tbl_deep_extend("force", cc_common.get_default_tool_opts(), opts or {})
   logger.info("Creating CodeCompanion tool with the following args:\n", opts)
   local capping_message = ""
   if opts.max_num > 0 then
@@ -52,7 +55,6 @@ return check_cli_wrap(function(opts)
         end
 
         if action.command == "query" then
-          local args = { "query", "--pipe", "-n", tostring(action.options.count) }
           if action.options.query == nil then
             return {
               status = "error",
@@ -62,7 +64,14 @@ return check_cli_wrap(function(opts)
           if type(action.options.query) == "string" then
             action.options.query = { action.options.query }
           end
+          local args = { "query" }
           vim.list_extend(args, action.options.query)
+          vim.list_extend(args, { "--pipe", "-n", tostring(action.options.count) })
+          if opts.chunk_mode then
+            vim.list_extend(args, { "--include", "path", "chunk" })
+          else
+            vim.list_extend(args, { "--include", "path", "document" })
+          end
           if action.options.project_root == "" then
             action.options.project_root = nil
           end
@@ -111,22 +120,10 @@ return check_cli_wrap(function(opts)
 
           job_runner.run_async(args, function(result, error)
             if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
-              local count = 0
-              coroutine.wrap(function()
-                for _, file in pairs(result) do
-                  cc_common.process_documents(file, opts.summarise, function(summary)
-                    file.summary = summary
-                    count = count + 1
-                  end)
-                end
-                cc_common.async_sleep(opts.summarise.timeout, function()
-                  return count == #result
-                end)
-                cb({
-                  status = "success",
-                  data = result,
-                })
-              end)()
+              cb({
+                status = "success",
+                data = result,
+              })
             else
               if type(error) == "table" then
                 error = cc_common.flatten_table_to_string(error)
@@ -197,6 +194,7 @@ return check_cli_wrap(function(opts)
     system_prompt = function()
       local guidelines = {
         "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags. Do not include the `<path>``</path>` tags in your answers when you mention the paths.",
+        "  - The results may also be chunks of the source code. In this case, the text chunks will be wrapped in <chunk></chunk>. If the starting and ending line ranges are available, they will be wrapped in <start_line></start_line> and <end_line></end_line> tags. Make use of the line numbers (NOT THE XML TAGS) when you're quoting the source code.",
         "  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running",
         "  - Include one single command call for VectorCode each time. You may include multiple keywords in the command",
         "  - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks",
@@ -281,45 +279,39 @@ return check_cli_wrap(function(opts)
         if cmd.command == "query" then
           local max_result = #stdout
           if opts.max_num > 0 then
-            max_result = math.min(opts.max_num, max_result)
+            max_result = math.min(tonumber(opts.max_num) or 1, max_result)
           end
           for i, result in pairs(stdout) do
             if i <= max_result then
               if i == 1 then
+                user_message = string.format(
+                  "**VectorCode Tool**: Retrieved %d %s(s)",
+                  max_result,
+                  mode
+                )
                 if cmd.options.project_root then
-                  user_message = string.format(
-                    "**VectorCode Tool**: Retrieved %s files from %s",
-                    max_result,
-                    cmd.options.project_root
-                  )
-                else
-                  user_message =
-                    string.format("**VectorCode Tool**: Retrieved %s files", max_result)
+                  user_message = user_message .. " from " .. cmd.options.project_root
                 end
+                user_message = user_message .. "\n"
               else
                 user_message = ""
               end
-              local llm_message
-              if result.summary then
-                llm_message = string.format(
-                  "<path>%s</path><summary>%s</summary>",
-                  result.path,
-                  result.summary
-                )
-              else
-                llm_message = string.format(
-                  "<path>%s</path><content>%s</content>",
-                  result.path,
-                  result.summary
-                )
+
+              agent.chat:add_tool_output(
+                self,
+                cc_common.process_result(result, opts.summarise),
+                user_message
+              )
+              if not opts.chunk_mode then
+                -- skip referencing because there will be multiple chunks with the same path (id).
+                -- TODO: figure out a way to deduplicate.
+                agent.chat.references:add({
+                  source = cc_common.tool_result_source,
+                  id = result.path,
+                  path = result.path,
+                  opts = { visible = false },
+                })
               end
-              agent.chat:add_tool_output(self, llm_message, user_message)
-              agent.chat.references:add({
-                source = cc_common.tool_result_source,
-                id = result.path,
-                path = result.path,
-                opts = { visible = false },
-              })
             end
           end
         elseif cmd.command == "ls" then
