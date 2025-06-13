@@ -1,3 +1,5 @@
+---@module "codecompanion"
+
 local job_runner
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
@@ -15,8 +17,10 @@ local default_options = {
   chunk_mode = false,
 }
 
+local TOOL_RESULT_SOURCE = "VectorCodeToolResult"
+
 return {
-  tool_result_source = "VectorCodeToolResult",
+  tool_result_source = TOOL_RESULT_SOURCE,
   ---@param t table|string
   ---@return string
   flatten_table_to_string = function(t)
@@ -88,6 +92,7 @@ return {
     end
     return llm_message
   end,
+
   ---@param use_lsp boolean
   ---@return VectorCode.JobRunner
   initialise_runner = function(use_lsp)
@@ -110,5 +115,54 @@ return {
       end
     end
     return job_runner
+  end,
+
+  ---@param results VectorCode.Result[]
+  ---@param chat CodeCompanion.Chat
+  ---@return VectorCode.Result[]
+  filter_results = function(results, chat)
+    local existing_refs = chat.refs
+    if existing_refs == nil then
+      return results
+    end
+    existing_refs = vim
+      .iter(existing_refs)
+      :filter(
+        ---@param ref CodeCompanion.Chat.Ref
+        function(ref)
+          return ref.source == TOOL_RESULT_SOURCE or ref.path or ref.bufnr
+        end
+      )
+      :map(
+        ---@param ref CodeCompanion.Chat.Ref
+        function(ref)
+          if ref.source == TOOL_RESULT_SOURCE then
+            return ref.id
+          elseif ref.path then
+            return ref.path
+          elseif ref.bufnr then
+            return vim.api.nvim_buf_get_name(ref.bufnr)
+          end
+        end
+      )
+      :totable()
+
+    return vim
+      .iter(results)
+      :filter(
+        ---@param res VectorCode.Result
+        function(res)
+          -- return true if res is not in refs
+          if res.chunk then
+            if res.chunk_id == nil then
+              return true
+            end
+            return not vim.tbl_contains(existing_refs, res.chunk_id)
+          else
+            return not vim.tbl_contains(existing_refs, res.path)
+          end
+        end
+      )
+      :totable()
   end,
 }

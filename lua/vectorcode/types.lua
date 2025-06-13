@@ -5,6 +5,7 @@
 ---@field chunk string?
 ---@field start_line integer?
 ---@field end_line integer?
+---@field chunk_id string?
 
 ---Type definitions for the cache of a buffer.
 ---@class VectorCode.Cache
