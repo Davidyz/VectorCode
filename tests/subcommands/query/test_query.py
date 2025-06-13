@@ -173,6 +173,7 @@ async def test_build_query_results_chunk_mode_success(mock_collection, mock_conf
             "chunk": expected_chunk_content,
             "start_line": start_line,
             "end_line": end_line,
+            "chunk_id": identifier,
         }
 
         assert results[0] == expected_full_result
