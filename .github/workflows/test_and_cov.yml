@@ -30,16 +30,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: install pdm and dependencies
-        if: matrix.os != 'macos-14'
-        run: |
-          pdm lock --group dev --group lsp --group mcp
-          pdm install
-
-      - name: install pdm and dependencies for legacy system
-        if: matrix.os == 'macos-14'
-        run: |
-          pdm lock --group dev --group lsp --group mcp --group legacy
-          pdm install
+        run: make deps
 
       - name: Set custom HF cache directory
         run: |
