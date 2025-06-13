@@ -219,6 +219,7 @@ For example, you should include `parameter`, `arguments` and `return value` for 
         if opts.max_num > 0 then
           max_result = math.min(opts.max_num or 1, max_result)
         end
+        stdout = cc_common.filter_results(stdout, agent.chat)
         for i, file in pairs(stdout) do
           if i <= max_result then
             if i == 1 then
@@ -239,15 +240,16 @@ For example, you should include `parameter`, `arguments` and `return value` for 
               cc_common.process_result(file),
               user_message
             )
-            if not opts.chunk_mode then
+            if (not opts.chunk_mode) or file.chunk_id ~= nil then
               -- skip referencing because there will be multiple chunks with the same path (id).
               -- TODO: figure out a way to deduplicate.
-              agent.chat.references:add({
+              local ref = {
                 source = cc_common.tool_result_source,
-                id = file.path,
+                id = file.chunk_id or file.path,
                 path = file.path,
                 opts = { visible = false },
-              })
+              }
+              agent.chat.references:add(ref)
             end
           end
         end
