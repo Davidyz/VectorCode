@@ -120,7 +120,10 @@ return check_cli_wrap(function(opts)
 
           job_runner.run_async(args, function(result, error)
             if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
-              cb({ status = "success", data = result })
+              cb({
+                status = "success",
+                data = result,
+              })
             else
               if type(error) == "table" then
                 error = cc_common.flatten_table_to_string(error)
@@ -267,6 +270,7 @@ return check_cli_wrap(function(opts)
       ---@param cmd table
       ---@param stdout table
       success = function(self, agent, cmd, stdout)
+        ---@type VectorCode.Result[]
         stdout = stdout[1]
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
@@ -275,9 +279,9 @@ return check_cli_wrap(function(opts)
         if cmd.command == "query" then
           local max_result = #stdout
           if opts.max_num > 0 then
-            max_result = math.min(opts.max_num or 1, max_result)
+            max_result = math.min(tonumber(opts.max_num) or 1, max_result)
           end
-          for i, file in pairs(stdout) do
+          for i, result in pairs(stdout) do
             if i <= max_result then
               if i == 1 then
                 user_message = string.format(
@@ -292,9 +296,10 @@ return check_cli_wrap(function(opts)
               else
                 user_message = ""
               end
+
               agent.chat:add_tool_output(
                 self,
-                cc_common.process_result(file),
+                cc_common.process_result(result, opts.summarise),
                 user_message
               )
               if not opts.chunk_mode then
@@ -302,8 +307,8 @@ return check_cli_wrap(function(opts)
                 -- TODO: figure out a way to deduplicate.
                 agent.chat.references:add({
                   source = cc_common.tool_result_source,
-                  id = file.path,
-                  path = file.path,
+                  id = result.path,
+                  path = result.path,
                   opts = { visible = false },
                 })
               end

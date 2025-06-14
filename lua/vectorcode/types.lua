@@ -1,7 +1,8 @@
 ---Type definition of the retrieval result.
 ---@class VectorCode.Result
 ---@field path string Path to the file
----@field document string? Content of the file
+---@field document string Content of the file
+---@field summary string?
 ---@field chunk string?
 ---@field start_line integer?
 ---@field end_line integer?
@@ -83,3 +84,11 @@
 --- Whether to send chunks instead of full files to the LLM. Default: `false`
 --- > Make sure you adjust `max_num` and `default_num` accordingly.
 ---@field chunk_mode boolean?
+---@field summarise VectorCode.CodeCompanion.SummariseOpts?
+
+---@class VectorCode.CodeCompanion.SummariseOpts
+---@field enabled boolean?
+---@field adapter string|CodeCompanion.Adapter|nil
+---@field threshold integer?
+---@field system_prompt string
+---@field timeout integer
