@@ -14,6 +14,7 @@ import tqdm
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 
+from vectorcode.db.base import VectorStore
 from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import (
     GLOBAL_EXCLUDE_SPEC,
@@ -22,7 +23,7 @@ from vectorcode.cli_utils import (
     expand_globs,
     expand_path,
 )
-from vectorcode.common import get_client, get_collection, verify_ef
+from vectorcode.common import verify_ef
 
 logger = logging.getLogger(name=__name__)
 
@@ -180,11 +181,9 @@ def load_files_from_include(project_root: str) -> list[str]:
     return []
 
 
-async def vectorise(configs: Config) -> int:
-    assert configs.project_root is not None
-    client = await get_client(configs)
+async def vectorise(db: VectorStore, configs: Config) -> int:
     try:
-        collection = await get_collection(client, configs, True)
+        collection = await db.get_collection(True)
     except IndexError:
         print("Failed to get/create the collection. Please check your config.")
         return 1
@@ -202,6 +201,7 @@ async def vectorise(configs: Config) -> int:
         specs = [
             gitignore_path,
         ]
+        assert configs.project_root is not None
         exclude_spec_path = os.path.join(
             configs.project_root, ".vectorcode", "vectorcode.exclude"
         )

@@ -71,11 +71,10 @@ async def async_main():
 
             return await hooks(cli_args)
 
-    from vectorcode.common import start_server, try_server
+    from vectorcode.db.factory import VectorStoreFactory
 
-    server_process = None
-    if not await try_server(final_configs.db_url):
-        server_process = await start_server(final_configs)
+    db = VectorStoreFactory.create_store(final_configs)
+    await db.connect()
 
     if final_configs.pipe:
         # NOTE: NNCF (intel GPU acceleration for sentence transformer) keeps showing logs.
@@ -92,7 +91,7 @@ async def async_main():
             case CliAction.vectorise:
                 from vectorcode.subcommands import vectorise
 
-                return_val = await vectorise(final_configs)
+                return_val = await vectorise(db, final_configs)
             case CliAction.drop:
                 from vectorcode.subcommands import drop
 
@@ -113,10 +112,7 @@ async def async_main():
         return_val = 1
         logger.error(traceback.format_exc())
     finally:
-        if server_process is not None:
-            logger.info("Shutting down the bundled Chromadb instance.")
-            server_process.terminate()
-            await server_process.wait()
+        await db.disconnect()
         return return_val
 
 
