@@ -102,7 +102,12 @@ async def init(configs: Config) -> int:
         is_initialised = 1
     else:
         os.makedirs(project_config_dir, exist_ok=True)
-        for item in ("config.json", "vectorcode.include", "vectorcode.exclude"):
+        for item in (
+            "config.json5",
+            "config.json",
+            "vectorcode.include",
+            "vectorcode.exclude",
+        ):
             local_file_path = os.path.join(project_config_dir, item)
             global_file_path = os.path.join(
                 os.path.expanduser("~"), ".config", "vectorcode", item

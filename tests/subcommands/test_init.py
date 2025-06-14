@@ -60,6 +60,7 @@ async def test_init_copies_global_config(capsys):
         # Create mock global config files
         config_items = {
             "config.json": '{"test": "value"}',
+            "config.json5": '{"test": "value"}',
             "vectorcode.include": "*.py",
             "vectorcode.exclude": "*/tests/*",
         }
