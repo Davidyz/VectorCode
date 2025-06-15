@@ -5,8 +5,7 @@ from typing import cast
 
 from chromadb import GetResult, Where
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException, InvalidDimensionException
+from chromadb.errors import InvalidDimensionException, NotFoundError
 
 from vectorcode.chunking import StringChunker
 from vectorcode.cli_utils import (
@@ -67,9 +66,9 @@ async def get_query_result_files(
             query_texts=query_chunks,
             n_results=num_query,
             include=[
-                IncludeEnum.metadatas,
-                IncludeEnum.distances,
-                IncludeEnum.documents,
+                "metadatas",
+                "distances",
+                "documents",
             ],
             where=cast(Where, filter) or None,
         )
@@ -100,14 +99,14 @@ async def build_query_results(
                 {str(key): full_result[str(key)] for key in configs.include}
             )
         elif QueryInclude.chunk in configs.include:
-            chunks: GetResult = await collection.get(
-                identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
+            chunk: GetResult = await collection.get(
+                identifier, include=["metadatas", "documents"]
             )
-            meta = chunks.get(
+            meta = chunk.get(
                 "metadatas",
             )
             if meta is not None and len(meta) != 0:
-                chunk_texts = chunks.get("documents")
+                chunk_texts = chunk.get("documents")
                 assert chunk_texts is not None, (
                     "QueryResult does not contain `documents`!"
                 )
@@ -115,8 +114,8 @@ async def build_query_results(
                 if meta[0].get("start") is not None and meta[0].get("end") is not None:
                     path = str(meta[0].get("path"))
                     with open(path) as fin:
-                        start: int = int(meta[0]["start"])
-                        end: int = int(meta[0]["end"])
+                        start = int(meta[0]["start"])  # type:ignore
+                        end = int(meta[0]["end"])  # type:ignore
                         full_result["chunk"] = "".join(fin.readlines()[start : end + 1])
                     full_result["start_line"] = start
                     full_result["end_line"] = end
@@ -159,7 +158,7 @@ async def query(configs: Config) -> int:
         collection = await get_collection(client, configs, False)
         if not verify_ef(collection, configs):
             return 1
-    except (ValueError, InvalidCollectionException):
+    except (ValueError, NotFoundError):
         logger.error(
             f"There's no existing collection for {configs.project_root}",
         )
