@@ -218,6 +218,123 @@ async def test_execute_command_ls(mock_language_server, mock_config):
 
 
 @pytest.mark.asyncio
+async def test_execute_command_vectorise(mock_language_server, mock_config: Config):
+    mock_config.action = CliAction.vectorise  # Set action to vectorise
+    mock_config.project_root = "/test/project"  # Ensure project_root is set
+    mock_config.files = None  # Simulate no files explicitly passed, so load_files_from_include is called
+    mock_config.recursive = True
+    mock_config.include_hidden = False
+    mock_config.force = False  # To test exclude_paths_by_spec path
+
+    # Files that load_files_from_include will return and expand_globs will process
+    dummy_initial_files = ["file_a.py", "file_b.txt"]
+    # Files after expand_globs
+    dummy_expanded_files = ["/test/project/file_a.py", "/test/project/file_b.txt"]
+
+    # Mock dependencies
+    with (
+        patch(
+            "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
+        ) as mock_parse_cli_args,
+        patch(
+            "vectorcode.lsp_main.get_client", new_callable=AsyncMock
+        ) as mock_get_client,
+        patch(
+            "vectorcode.lsp_main.get_collection", new_callable=AsyncMock
+        ) as mock_get_collection,
+        patch(
+            "vectorcode.lsp_main.expand_globs", new_callable=AsyncMock
+        ) as mock_expand_globs,
+        patch(
+            "vectorcode.lsp_main.find_exclude_specs", return_value=[]
+        ) as mock_find_exclude_specs,
+        patch(
+            "vectorcode.lsp_main.exclude_paths_by_spec",
+            side_effect=lambda files, spec: files,
+        ) as mock_exclude_paths_by_spec,
+        patch(
+            "vectorcode.lsp_main.chunked_add", new_callable=AsyncMock
+        ) as mock_chunked_add,
+        patch("vectorcode.lsp_main.try_server", return_value=True),
+        patch("vectorcode.lsp_main.cached_project_configs", {}),
+        patch(
+            "vectorcode.lsp_main.load_files_from_include",
+            return_value=dummy_initial_files,
+        ) as mock_load_files_from_include,
+        patch("os.cpu_count", return_value=1),  # For asyncio.Semaphore
+        patch(
+            "vectorcode.lsp_main.make_caches", new_callable=AsyncMock
+        ),  # Mock make_caches to avoid actual file system ops
+    ):
+        from unittest.mock import ANY
+
+        from lsprotocol import types
+
+        from vectorcode.lsp_main import cached_project_configs
+
+        cached_project_configs.clear()
+        cached_project_configs["/test/project"] = mock_config  # Add config to cache
+
+        # Set return values for mocks
+        mock_parse_cli_args.return_value = mock_config
+        mock_client = AsyncMock()
+        mock_get_client.return_value = mock_client
+        mock_collection = MagicMock()
+        mock_get_collection.return_value = mock_collection
+        mock_client.get_max_batch_size.return_value = 100  # Mock batch size
+
+        mock_expand_globs.return_value = (
+            dummy_expanded_files  # What expand_globs should return
+        )
+
+        # Mock merge_from as it's called
+        mock_config.merge_from = AsyncMock(return_value=mock_config)
+
+        # Execute the command
+        await execute_command(mock_language_server, ["vectorise", "/test/project"])
+
+        # Assertions
+        mock_language_server.progress.create_async.assert_called_once()
+        mock_language_server.progress.begin.assert_called_once_with(
+            ANY,  # progress_token
+            types.WorkDoneProgressBegin(
+                title="VectorCode", message="Vectorising files...", percentage=0
+            ),
+        )
+
+        mock_load_files_from_include.assert_called_once_with(
+            str(mock_config.project_root)
+        )
+        mock_expand_globs.assert_called_once_with(
+            dummy_initial_files,  # Should be the result of load_files_from_include
+            recursive=mock_config.recursive,
+            include_hidden=mock_config.include_hidden,
+        )
+        mock_find_exclude_specs.assert_called_once_with(mock_config)
+        mock_exclude_paths_by_spec.assert_not_called()  # Because mock_find_exclude_specs returns empty list (no specs to exclude by)
+        mock_client.get_max_batch_size.assert_called_once()
+
+        # Check chunked_add calls
+        assert mock_chunked_add.call_count == len(dummy_expanded_files)
+        for file_path in dummy_expanded_files:
+            mock_chunked_add.assert_any_call(
+                file_path,
+                mock_collection,
+                ANY,  # asyncio.Lock object
+                ANY,  # stats dict
+                ANY,  # stats_lock
+                mock_config,
+                100,  # max_batch_size
+                ANY,  # semaphore
+            )
+        # Check progress report calls
+        assert mock_language_server.progress.report.call_count == len(
+            dummy_expanded_files
+        )
+        mock_language_server.progress.end.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_execute_command_unsupported_action(
     mock_language_server, mock_config, capsys
 ):

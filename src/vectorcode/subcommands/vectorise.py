@@ -141,10 +141,15 @@ def show_stats(configs: Config, stats):
         )
 
 
-def exclude_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> list[str]:
+def exclude_paths_by_spec(
+    paths: Iterable[str], specs: pathspec.PathSpec | str
+) -> list[str]:
     """
     Files matched by the specs will be excluded.
     """
+    if isinstance(specs, str):
+        with open(specs) as fin:
+            specs = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
     return [path for path in paths if not specs.match_file(path)]
 
 
@@ -180,6 +185,25 @@ def load_files_from_include(project_root: str) -> list[str]:
     return []
 
 
+def find_exclude_specs(configs: Config) -> list[str]:
+    """
+    Load a list of paths to exclude specs.
+    Can be `.gitignore` or local/global `vectorcode.exclude`
+    """
+    gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
+    specs = [
+        gitignore_path,
+    ]
+    exclude_spec_path = os.path.join(
+        str(configs.project_root), ".vectorcode", "vectorcode.exclude"
+    )
+    if os.path.isfile(exclude_spec_path):
+        specs.append(exclude_spec_path)
+    elif os.path.isfile(GLOBAL_EXCLUDE_SPEC):
+        specs.append(GLOBAL_EXCLUDE_SPEC)
+    return specs
+
+
 async def vectorise(configs: Config) -> int:
     assert configs.project_root is not None
     client = await get_client(configs)
@@ -198,23 +222,10 @@ async def vectorise(configs: Config) -> int:
     )
 
     if not configs.force:
-        gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
-        specs = [
-            gitignore_path,
-        ]
-        exclude_spec_path = os.path.join(
-            configs.project_root, ".vectorcode", "vectorcode.exclude"
-        )
-        if os.path.isfile(exclude_spec_path):
-            specs.append(exclude_spec_path)
-        elif os.path.isfile(GLOBAL_EXCLUDE_SPEC):
-            specs.append(GLOBAL_EXCLUDE_SPEC)
-        for spec_path in specs:
+        for spec_path in find_exclude_specs(configs):
             if os.path.isfile(spec_path):
                 logger.info(f"Loading ignore specs from {spec_path}.")
-                with open(spec_path) as fin:
-                    spec = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
-                files = exclude_paths_by_spec((str(i) for i in files), spec)
+                files = exclude_paths_by_spec((str(i) for i in files), spec_path)
     else:  # pragma: nocover
         logger.info("Ignoring exclude specs.")
 
