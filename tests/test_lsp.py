@@ -349,6 +349,9 @@ async def test_execute_command_unsupported_action(
         patch(
             "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
         ) as mock_parse_cli_args,
+        patch(
+            "vectorcode.lsp_main.get_collection", new_callable=AsyncMock
+        ) as mock_get_collection,
         patch("vectorcode.lsp_main.cached_project_configs", {}),
         patch("vectorcode.lsp_main.try_server", return_value=True),
     ):
@@ -359,6 +362,8 @@ async def test_execute_command_unsupported_action(
 
         # Add a mock config to cached_project_configs
         cached_project_configs["/test/project"] = mock_config
+        mock_collection = MagicMock()
+        mock_get_collection.return_value = mock_collection
 
         # Mock the merge_from method
         mock_config.merge_from = AsyncMock(return_value=mock_config)
