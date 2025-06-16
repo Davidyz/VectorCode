@@ -136,12 +136,12 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 )
                 final_results = []
                 try:
-                    if collection is None:
-                        print("Please specify a project to search in.", file=sys.stderr)
-                    else:
-                        final_results.extend(
-                            await build_query_results(collection, final_configs)
-                        )
+                    assert collection is not None, (
+                        "Failed to find the correct collection."
+                    )
+                    final_results.extend(
+                        await build_query_results(collection, final_configs)
+                    )
                 finally:
                     log_message = f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
                     ls.progress.end(
@@ -169,8 +169,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     logger.info(f"Retrieved {len(projects)} project(s).")
                 return projects
             case CliAction.vectorise:
-                if collection is None:
-                    raise ValueError("Failed to find the correct collection.")
+                assert collection is not None, "Failed to find the correct collection."
                 ls.progress.begin(
                     progress_token,
                     types.WorkDoneProgressBegin(
@@ -184,7 +183,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     include_hidden=final_configs.include_hidden,
                 )
                 if not final_configs.force:
-                    for spec in find_exclude_specs(final_configs):
+                    for spec in find_exclude_specs(
+                        final_configs
+                    ):  # pragma: nocover, tested in 'vectorise.py'
                         if os.path.isfile(spec):
                             logger.info(f"Loading ignore specs from {spec}.")
                             files = exclude_paths_by_spec((str(i) for i in files), spec)
