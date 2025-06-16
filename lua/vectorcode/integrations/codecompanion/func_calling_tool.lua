@@ -207,7 +207,7 @@ return check_cli_wrap(function(opts)
         guidelines,
         vim.tbl_map(function(line)
           return "  - " .. line
-        end, require("vectorcode").prompts())
+        end, require("vectorcode").prompts({ "query", "ls" }))
       )
       if opts.ls_on_start then
         job_runner = cc_common.initialise_runner(opts.use_lsp)

@@ -201,9 +201,19 @@ function M.check(check_item, stdout_cb)
   return return_code == 0
 end
 
+---@alias prompt_type "ls"|"query"|"vectorise"
+---@param item prompt_type|prompt_type[]|nil
 ---@return string[]
-M.prompts = vc_config.check_cli_wrap(function()
-  local result, error = jobrunner.run({ "prompts", "-p" }, -1, 0)
+M.prompts = vc_config.check_cli_wrap(function(item)
+  local args = { "prompts", "-p" }
+  if item then
+    if type(item) == "string" then
+      table.insert(args, item)
+    else
+      vim.list_extend(args, item)
+    end
+  end
+  local result, error = jobrunner.run(args, -1, 0)
   if result == nil or vim.tbl_isempty(result) then
     logger.warn(vim.inspect(error))
     if vc_config.get_user_config().notify then
