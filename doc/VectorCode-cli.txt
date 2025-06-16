@@ -765,9 +765,8 @@ Note that:
 
 1. For easier parsing, `--pipe` is assumed to be enabled in LSP mode;
 2. At the time this only work with vectorcode setup that uses a **standalone ChromaDB server**, which is not difficult to setup using docker;
-3. At the time this only work with `query` subcommand. I will consider adding
-support for other subcommand but first I need to figure out how to properly
-manage `project_root` across different requests if they change.
+3. The LSP server supports `vectorise`, `query` and `ls` subcommands. The other
+subcommands may be added in the future.
 
 
 MCP SERVER ~
