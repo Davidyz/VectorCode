@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pygls.exceptions import JsonRpcInvalidRequest
+from pygls.exceptions import JsonRpcInternalError
 from pygls.server import LanguageServer
 
 from vectorcode import __version__
@@ -363,7 +363,7 @@ async def test_execute_command_unsupported_action(
         # Mock the merge_from method
         mock_config.merge_from = AsyncMock(return_value=mock_config)
 
-        with pytest.raises(JsonRpcInvalidRequest):
+        with pytest.raises(JsonRpcInternalError):
             await execute_command(mock_language_server, ["invalid_action"])
 
 
