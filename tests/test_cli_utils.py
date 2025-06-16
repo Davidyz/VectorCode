@@ -9,6 +9,7 @@ from vectorcode import cli_utils
 from vectorcode.cli_utils import (
     CliAction,
     Config,
+    PromptCategory,
     QueryInclude,
     cleanup_path,
     expand_envs_in_dict,
@@ -480,6 +481,14 @@ async def test_parse_cli_args_init():
     with patch("sys.argv", ["vectorcode", "init"]):
         config = await parse_cli_args()
         assert config.action == CliAction.init
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_prompts():
+    with patch("sys.argv", ["vectorcode", "prompts", "ls"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.prompts
+        assert config.prompt_categories == [PromptCategory.ls]
 
 
 @pytest.mark.asyncio
