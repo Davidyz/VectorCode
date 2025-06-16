@@ -101,14 +101,7 @@ function jobrunner.run_async(args, callback, bufnr)
         end
         vim.schedule_wrap(callback)(result, err_message, code)
         if result then
-          logger.debug(
-            "lsp jobrunner result:\n",
-            vim.tbl_map(function(item)
-              item.document = nil
-              item.chunk = nil
-              return item
-            end, vim.deepcopy(result))
-          )
+          logger.debug("lsp jobrunner result:\n", result)
         end
         if err then
           logger.info("lsp jobrunner error:\n", err)
