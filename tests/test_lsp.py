@@ -291,7 +291,10 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         mock_config.merge_from = AsyncMock(return_value=mock_config)
 
         # Execute the command
-        await execute_command(mock_language_server, ["vectorise", "/test/project"])
+        result = await execute_command(
+            mock_language_server, ["vectorise", "/test/project"]
+        )
+        assert isinstance(result, dict)
 
         # Assertions
         mock_language_server.progress.create_async.assert_called_once()

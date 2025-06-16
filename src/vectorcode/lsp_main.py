@@ -182,10 +182,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     recursive=final_configs.recursive,
                     include_hidden=final_configs.include_hidden,
                 )
-                if not final_configs.force:
-                    for spec in find_exclude_specs(
-                        final_configs
-                    ):  # pragma: nocover, tested in 'vectorise.py'
+                if not final_configs.force:  # pragma: nocover
+                    # tested in 'vectorise.py'
+                    for spec in find_exclude_specs(final_configs):
                         if os.path.isfile(spec):
                             logger.info(f"Loading ignore specs from {spec}.")
                             files = exclude_paths_by_spec((str(i) for i in files), spec)
@@ -224,17 +223,18 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         message=f"Vectorised {stats['add'] + stats['update']} files."
                     ),
                 )
-            case _ as c:
+                return stats
+            case _ as c:  # pragma: nocover
                 error_message = f"Unsupported vectorcode subcommand: {str(c)}"
                 logger.error(
                     error_message,
                 )
                 raise JsonRpcInvalidRequest(error_message)
-    except Exception as e:
+    except Exception as e:  # pragma: nocover
         if isinstance(e, JsonRpcException):
             # pygls exception. raise it as is.
             raise
-        else:  # pragma: nocover
+        else:
             # wrap non-pygls errors for error codes.
             raise JsonRpcInternalError(message=traceback.format_exc()) from e
 
