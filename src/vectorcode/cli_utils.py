@@ -47,6 +47,12 @@ class QueryInclude(StrEnum):
         return f"{self.value.capitalize()}: "
 
 
+class PromptCategory(StrEnum):
+    query = "query"
+    vectorise = "vectorise"
+    ls = "ls"
+
+
 class CliAction(Enum):
     vectorise = "vectorise"
     query = "query"
@@ -96,6 +102,7 @@ class Config:
     filetype_map: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
     hooks: bool = False
+    prompt_categories: Optional[list[str]] = None
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -344,10 +351,18 @@ def get_cli_parser():
         help="Remove empty collections in the database.",
     )
 
-    subparsers.add_parser(
+    prompts_parser = subparsers.add_parser(
         "prompts",
         parents=[shared_parser],
         help="Print a list of guidelines intended to be used as system prompts for an LLM.",
+    )
+    prompts_parser.add_argument(
+        "prompt_categories",
+        choices=PromptCategory,
+        type=PromptCategory,
+        nargs="*",
+        help="The subcommand(s) to get the prompts for. When not provided, VectorCode will print the prompts for `query`.",
+        default=None,
     )
 
     chunks_parser = subparsers.add_parser(
@@ -400,6 +415,8 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["chunk_size"] = main_args.chunk_size
             configs_items["overlap_ratio"] = main_args.overlap
             configs_items["encoding"] = main_args.encoding
+        case "prompts":
+            configs_items["prompt_categories"] = main_args.prompt_categories
     return Config(**configs_items)
 
 

@@ -31,7 +31,7 @@ from vectorcode.cli_utils import (
     load_config_file,
 )
 from vectorcode.common import get_client, get_collection, get_collections
-from vectorcode.subcommands.prompt import prompt_strings
+from vectorcode.subcommands.prompt import prompt_by_categories
 from vectorcode.subcommands.query import get_query_result_files
 
 logger = logging.getLogger(name=__name__)
@@ -167,7 +167,9 @@ async def mcp_server():
         except InvalidCollectionException:  # pragma: nocover
             default_collection = None
 
-    default_instructions = "\n".join(prompt_strings)
+    default_instructions = "\n".join(
+        "\n".join(i) for i in prompt_by_categories.values()
+    )
     if default_client is None:
         if mcp_config.ls_on_start:  # pragma: nocover
             logger.warning(
