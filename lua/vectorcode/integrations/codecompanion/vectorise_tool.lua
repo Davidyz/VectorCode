@@ -55,6 +55,16 @@ return function(opts)
           local stat = vim.uv.fs_stat(project_root)
           if stat and stat.type == "directory" then
             vim.list_extend(args, { "--project_root", project_root })
+          else
+            return { status = "error", data = "Invalid path " .. project_root }
+          end
+        else
+          project_root = vim.fs.root(".", { ".vectorcode", ".git" })
+          if project_root == nil then
+            return {
+              status = "error",
+              data = "Please specify a project root. You may use the `vectorcode_ls` tool to find a list of existing projects.",
+            }
           end
         end
         vim.list_extend(
