@@ -35,12 +35,15 @@ return {
       }
     end),
 
+    ---@param subcommand "ls"|"query"
     ---@param opts VectorCode.CodeCompanion.QueryToolOpts|VectorCode.CodeCompanion.LsToolOpts
     ---@return CodeCompanion.Agent.Tool
-    make_tool = function(opts)
+    make_tool = function(subcommand, opts)
       local has = require("codecompanion").has
       if has ~= nil and has("function-calling") then
-        return require("vectorcode.integrations.codecompanion.func_calling_tool")(opts)
+        return require(
+          string.format("vectorcode.integrations.codecompanion.%s_tool", subcommand)
+        )(opts)
       else
         error("Unsupported version of codecompanion!")
       end

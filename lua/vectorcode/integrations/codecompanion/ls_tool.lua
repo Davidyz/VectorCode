@@ -1,4 +1,4 @@
----@module "codecopmanion"
+---@module "codecompanion"
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vectorcode = require("vectorcode")
@@ -45,9 +45,10 @@ return function(opts)
       },
     },
     output = {
+      ---@param self CodeCompanion.Agent.Tool
       ---@param agent CodeCompanion.Agent
       ---@param stdout VectorCode.LsResult[][]
-      success = function(agent, _, stdout)
+      success = function(self, agent, _, stdout)
         stdout = stdout[1]
         local user_message
         for i, col in ipairs(stdout) do
