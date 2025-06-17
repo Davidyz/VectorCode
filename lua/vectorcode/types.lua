@@ -101,3 +101,5 @@
 ---@field enabled boolean
 --- Whether to show the individual tools in the references
 ---@field collapse boolean
+--- Other tools that you'd like to include in `vectorcode_toolbox`
+---@field extras string[]

@@ -15,7 +15,7 @@ local logger = vc_config.logger
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
   tool_opts = { ls = {}, query = {}, vectorise = {} },
-  tool_group = { enabled = true, collapse = true },
+  tool_group = { enabled = true, collapse = true, extras = {} },
 }
 
 ---@type sub_cmd[]
@@ -56,15 +56,25 @@ local M = {
     end
 
     if opts.tool_group.enabled then
+      local included_tools = vim
+        .iter(valid_tools)
+        :map(function(s)
+          return "vectorcode_" .. s
+        end)
+        :totable()
+      if opts.tool_group.extras and not vim.tbl_isempty(opts.tool_group.extras) then
+        vim.list_extend(included_tools, opts.tool_group.extras)
+      end
+      logger.info(
+        string.format(
+          "Loading the following tools into `vectorcode_toolbox` tool group:\n%s",
+          vim.inspect(included_tools)
+        )
+      )
       cc_config.strategies.chat.tools.groups["vectorcode_toolbox"] = {
         opts = { collapse_tools = opts.tool_group.collapse },
         description = "Use VectorCode to automatically build and retrieve repository-level context.",
-        tools = vim
-          .iter(valid_tools)
-          :map(function(s)
-            return "vectorcode_" .. s
-          end)
-          :totable(),
+        tools = included_tools,
       }
     end
   end),
