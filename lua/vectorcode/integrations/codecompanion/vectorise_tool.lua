@@ -108,11 +108,11 @@ return function(opts)
           self,
           string.format(
             [[**VectorCode Vectorise Tool**:
-  - Added: %d
-  - Updated: %d
-  - Removed: %d
-  - Skipped: %d
-  - Failed: %d
+  - New files added: %d
+  - Existing files updated: %d
+  - Orphaned files removed: %d
+  - Up-to-date files skipped: %d
+  - Failed to decode: %d
   ]],
             stdout.add,
             stdout.update,
