@@ -37,7 +37,10 @@ class VectoriseStats:
     failed: int = 0
 
     def to_json(self) -> str:
-        return json.dumps({i.name: getattr(self, i.name) for i in fields(self)})
+        return json.dumps(self.to_dict())
+
+    def to_dict(self) -> dict[str, int]:
+        return {i.name: getattr(self, i.name) for i in fields(self)}
 
     def to_table(self) -> str:
         _fields = fields(self)

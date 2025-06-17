@@ -224,7 +224,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         message=f"Vectorised {stats.add + stats.update} files."
                     ),
                 )
-                return stats
+                return stats.to_dict()
             case _ as c:  # pragma: nocover
                 error_message = f"Unsupported vectorcode subcommand: {str(c)}"
                 logger.error(
