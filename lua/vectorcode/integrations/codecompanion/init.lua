@@ -35,7 +35,7 @@ return {
       }
     end),
 
-    ---@param subcommand "ls"|"query"
+    ---@param subcommand "ls"|"query"|"vectorise"
     ---@param opts VectorCode.CodeCompanion.QueryToolOpts|VectorCode.CodeCompanion.LsToolOpts
     ---@return CodeCompanion.Agent.Tool
     make_tool = function(subcommand, opts)

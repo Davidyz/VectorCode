@@ -17,6 +17,9 @@ local default_query_options = {
 ---@type VectorCode.CodeCompanion.LsToolOpts
 local default_ls_options = { use_lsp = false, include_stderr = false }
 
+---@type VectorCode.CodeCompanion.VectoriseToolOpts
+local default_vectorise_options = { use_lsp = false, include_stderr = false }
+
 return {
   tool_result_source = "VectorCodeToolResult",
   ---@param t table|string
@@ -32,6 +35,12 @@ return {
   ---@return VectorCode.CodeCompanion.LsToolOpts
   get_ls_tool_opts = function(opts)
     return vim.tbl_deep_extend("force", default_ls_options, opts or {})
+  end,
+
+  ---@param opts VectorCode.CodeCompanion.VectoriseToolOpts|{}|nil
+  ---@return VectorCode.CodeCompanion.VectoriseToolOpts
+  get_vectorise_tool_opts = function(opts)
+    return vim.tbl_deep_extend("force", default_vectorise_options, opts or {})
   end,
 
   ---@param opts VectorCode.CodeCompanion.QueryToolOpts|{}|nil

@@ -15,7 +15,7 @@ local M = {
   setup = vc_config.check_cli_wrap(function(opts)
     opts = vim.tbl_deep_extend(
       "force",
-      { add_tools = { "ls", "query" }, add_slash_command = false },
+      { add_tools = { "ls", "query", "vectorise" }, add_slash_command = false },
       opts or {}
     )
     logger.info("Received codecompanion extension opts:\n", opts)

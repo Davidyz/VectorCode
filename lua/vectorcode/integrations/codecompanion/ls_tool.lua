@@ -45,10 +45,9 @@ return function(opts)
       },
     },
     output = {
-      ---@param self CodeCompanion.Agent.Tool
       ---@param agent CodeCompanion.Agent
       ---@param stdout VectorCode.LsResult[][]
-      success = function(self, agent, _, stdout)
+      success = function(_, agent, _, stdout)
         stdout = stdout[1]
         local user_message
         for i, col in ipairs(stdout) do
