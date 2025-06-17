@@ -47,7 +47,7 @@ return function(opts)
     cmds = {
       ---@param agent CodeCompanion.Agent
       ---@param action VectoriseToolArgs
-      ---@return nil|{ status: string, msg: string }
+      ---@return nil|{ status: string, data: string }
       function(agent, action, _, cb)
         local args = { "vectorise", "--pipe" }
         local project_root = action.project_root or ""
@@ -78,7 +78,6 @@ return function(opts)
           args,
           ---@param result VectoriseResult
           function(result, error, code, _)
-            vim.schedule_wrap(vim.notify)(vim.inspect(result))
             if result then
               cb({ status = "success", data = result })
             else
@@ -86,6 +85,31 @@ return function(opts)
             end
           end,
           agent.chat.bufnr
+        )
+      end,
+    },
+    output = {
+      ---@param self CodeCompanion.Agent.Tool
+      ---@param agent CodeCompanion.Agent
+      ---@param stdout VectorCode.VectoriseResult[]
+      success = function(self, agent, _, stdout)
+        stdout = stdout[1]
+        agent.chat:add_tool_output(
+          self,
+          string.format(
+            [[**VectorCode Vectorise Tool**:
+  - Added: %d
+  - Updated: %d
+  - Removed: %d
+  - Skipped: %d
+  - Failed: %d
+  ]],
+            stdout.add,
+            stdout.update,
+            stdout.removed,
+            stdout.skipped,
+            stdout.failed
+          )
         )
       end,
     },

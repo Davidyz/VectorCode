@@ -37,7 +37,7 @@ return check_cli_wrap(function(opts)
     cmds = {
       ---@param agent CodeCompanion.Agent
       ---@param action QueryToolArgs
-      ---@return nil|{ status: string, msg: string }
+      ---@return nil|{ status: string, data: string }
       function(agent, action, _, cb)
         logger.info(
           "CodeCompanion query tool called with the following arguments:\n",

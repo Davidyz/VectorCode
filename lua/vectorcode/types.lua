@@ -9,6 +9,13 @@
 ---@class VectorCode.LsResult
 ---@field project-root string
 
+---@class VectorCode.VectoriseResult
+---@field add integer
+---@field update integer
+---@field removed integer
+---@field skipped integer
+---@field failed integer
+
 ---Type definitions for the cache of a buffer.
 ---@class VectorCode.Cache
 ---@field enabled boolean Whether the async jobs are enabled or not. If the buffer is disabled, no cache will be generated for it.

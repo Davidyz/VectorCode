@@ -17,7 +17,7 @@ return function(opts)
     name = tool_name,
     cmds = {
       ---@param agent CodeCompanion.Agent
-      ---@return nil|{ status: string, msg: string }
+      ---@return nil|{ status: string, data: string }
       function(agent, _, _, cb)
         job_runner.run_async({ "ls", "--pipe" }, function(result, error)
           if vim.islist(result) and #result > 0 then
