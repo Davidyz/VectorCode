@@ -7,10 +7,10 @@ local logger = vc_config.logger
 
 local job_runner = nil
 
----@param opts VectorCode.CodeCompanion.ToolOpts?
+---@param opts VectorCode.CodeCompanion.QueryToolOpts?
 ---@return CodeCompanion.Agent.Tool
 return check_cli_wrap(function(opts)
-  opts = cc_common.get_tool_opts(opts)
+  opts = cc_common.get_query_tool_opts(opts)
   assert(
     type(opts.max_num) == "number" and type(opts.default_num) == "number",
     string.format("Options are not correctly formatted:%s", vim.inspect(opts))
@@ -43,13 +43,13 @@ return check_cli_wrap(function(opts)
           type(cb) == "function",
           "Please upgrade CodeCompanion.nvim to at least 13.5.0"
         )
-        if not (vim.list_contains({ "ls", "query" }, action.command)) then
+        if "query" ~= action.command then
           if action.options.query ~= nil then
             action.command = "query"
           else
             return {
               status = "error",
-              data = "Need to specify the command (`ls` or `query`).",
+              data = "Need to specify the command (`query`).",
             }
           end
         end
@@ -119,21 +119,7 @@ return check_cli_wrap(function(opts)
           )
 
           job_runner.run_async(args, function(result, error)
-            if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
-              cb({ status = "success", data = result })
-            else
-              if type(error) == "table" then
-                error = cc_common.flatten_table_to_string(error)
-              end
-              cb({
-                status = "error",
-                data = error,
-              })
-            end
-          end, agent.chat.bufnr)
-        elseif action.command == "ls" then
-          job_runner.run_async({ "ls", "--pipe" }, function(result, error)
-            if vim.islist(result) and #result > 0 then
+            if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.QueryResult[]
               cb({ status = "success", data = result })
             else
               if type(error) == "table" then
@@ -158,8 +144,8 @@ return check_cli_wrap(function(opts)
           properties = {
             command = {
               type = "string",
-              enum = { "query", "ls" },
-              description = "Action to perform: 'query' for semantic search or 'ls' to list projects",
+              enum = { "query" },
+              description = "Action to perform: 'query' for semantic search",
             },
             options = {
               type = "object",
@@ -209,23 +195,6 @@ return check_cli_wrap(function(opts)
           return "  - " .. line
         end, require("vectorcode").prompts({ "query", "ls" }))
       )
-      if opts.ls_on_start then
-        job_runner = cc_common.initialise_runner(opts.use_lsp)
-        if job_runner ~= nil then
-          local projects = job_runner.run({ "ls", "--pipe" }, -1, 0)
-          if vim.islist(projects) and #projects > 0 then
-            vim.list_extend(guidelines, {
-              "  - The following projects are indexed by VectorCode and are available for you to search in:",
-            })
-            vim.list_extend(
-              guidelines,
-              vim.tbl_map(function(s)
-                return string.format("    - %s", s["project-root"])
-              end, projects)
-            )
-          end
-        end
-      end
       local root = vim.fs.root(0, { ".vectorcode", ".git" })
       if root ~= nil then
         vim.list_extend(guidelines, {
@@ -272,56 +241,40 @@ return check_cli_wrap(function(opts)
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
         )
         local user_message
-        if cmd.command == "query" then
-          local max_result = #stdout
-          if opts.max_num > 0 then
-            max_result = math.min(opts.max_num or 1, max_result)
-          end
-          for i, file in pairs(stdout) do
-            if i <= max_result then
-              if i == 1 then
-                user_message = string.format(
-                  "**VectorCode Tool**: Retrieved %d %s(s)",
-                  max_result,
-                  mode
-                )
-                if cmd.options.project_root then
-                  user_message = user_message .. " from " .. cmd.options.project_root
-                end
-                user_message = user_message .. "\n"
-              else
-                user_message = ""
-              end
-              agent.chat:add_tool_output(
-                self,
-                cc_common.process_result(file),
-                user_message
-              )
-              if not opts.chunk_mode then
-                -- skip referencing because there will be multiple chunks with the same path (id).
-                -- TODO: figure out a way to deduplicate.
-                agent.chat.references:add({
-                  source = cc_common.tool_result_source,
-                  id = file.path,
-                  path = file.path,
-                  opts = { visible = false },
-                })
-              end
-            end
-          end
-        elseif cmd.command == "ls" then
-          for i, col in pairs(stdout) do
+        local max_result = #stdout
+        if opts.max_num > 0 then
+          max_result = math.min(opts.max_num or 1, max_result)
+        end
+        for i, file in pairs(stdout) do
+          if i <= max_result then
             if i == 1 then
-              user_message =
-                string.format("Fetched %s indexed project from VectorCode.", #stdout)
+              user_message = string.format(
+                "**VectorCode Tool**: Retrieved %d %s(s)",
+                max_result,
+                mode
+              )
+              if cmd.options.project_root then
+                user_message = user_message .. " from " .. cmd.options.project_root
+              end
+              user_message = user_message .. "\n"
             else
               user_message = ""
             end
             agent.chat:add_tool_output(
               self,
-              string.format("<collection>%s</collection>", col["project-root"]),
+              cc_common.process_result(file),
               user_message
             )
+            if not opts.chunk_mode then
+              -- skip referencing because there will be multiple chunks with the same path (id).
+              -- TODO: figure out a way to deduplicate.
+              agent.chat.references:add({
+                source = cc_common.tool_result_source,
+                id = file.path,
+                path = file.path,
+                opts = { visible = false },
+              })
+            end
           end
         end
       end,

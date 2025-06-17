@@ -5,7 +5,7 @@ local check_cli_wrap = vc_config.check_cli_wrap
 
 return {
   chat = {
-    ---@param component_cb (fun(result:VectorCode.Result):string)?
+    ---@param component_cb (fun(result:VectorCode.QueryResult):string)?
     make_slash_command = check_cli_wrap(function(component_cb)
       return {
         description = "Add relevant files from the codebase.",
@@ -35,7 +35,7 @@ return {
       }
     end),
 
-    ---@param opts VectorCode.CodeCompanion.ToolOpts
+    ---@param opts VectorCode.CodeCompanion.QueryToolOpts|VectorCode.CodeCompanion.LsToolOpts
     ---@return CodeCompanion.Agent.Tool
     make_tool = function(opts)
       local has = require("codecompanion").has

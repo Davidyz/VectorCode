@@ -3,8 +3,8 @@ local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
 
----@type VectorCode.CodeCompanion.ToolOpts
-local default_options = {
+---@type VectorCode.CodeCompanion.QueryToolOpts
+local default_query_options = {
   max_num = { chunk = -1, document = -1 },
   default_num = { chunk = 50, document = 10 },
   include_stderr = false,
@@ -13,6 +13,9 @@ local default_options = {
   no_duplicate = true,
   chunk_mode = false,
 }
+
+---@type VectorCode.CodeCompanion.LsToolOpts
+local default_ls_options = { use_lsp = false, include_stderr = false }
 
 return {
   tool_result_source = "VectorCodeToolResult",
@@ -25,9 +28,15 @@ return {
     return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
   end,
 
-  ---@param opts VectorCode.CodeCompanion.ToolOpts|{}|nil
-  ---@return VectorCode.CodeCompanion.ToolOpts
-  get_tool_opts = function(opts)
+  ---@param opts VectorCode.CodeCompanion.LsToolOpts|{}|nil
+  ---@return VectorCode.CodeCompanion.LsToolOpts
+  get_ls_tool_opts = function(opts)
+    return vim.tbl_deep_extend("force", default_ls_options, opts or {})
+  end,
+
+  ---@param opts VectorCode.CodeCompanion.QueryToolOpts|{}|nil
+  ---@return VectorCode.CodeCompanion.QueryToolOpts
+  get_query_tool_opts = function(opts)
     if opts == nil or opts.use_lsp == nil then
       opts = vim.tbl_deep_extend(
         "force",
@@ -35,7 +44,7 @@ return {
         { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
       )
     end
-    opts = vim.tbl_deep_extend("force", default_options, opts)
+    opts = vim.tbl_deep_extend("force", default_query_options, opts)
     if type(opts.default_num) == "table" then
       if opts.chunk_mode then
         opts.default_num = opts.default_num.chunk
@@ -48,7 +57,7 @@ return {
       )
     end
     if type(opts.max_num) == "table" then
-      if opts.chunk_mode then
+      if opts._ then
         opts.max_num = opts.max_num.chunk
       else
         opts.max_num = opts.max_num.document
@@ -61,7 +70,7 @@ return {
     return opts
   end,
 
-  ---@param result VectorCode.Result
+  ---@param result VectorCode.QueryResult
   ---@return string
   process_result = function(result)
     local llm_message

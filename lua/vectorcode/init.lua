@@ -14,8 +14,8 @@ M.query = vc_config.check_cli_wrap(
   ---callback).
   ---@param query_message string|string[] Query message(s) to send to the `vecctorcode query` command
   ---@param opts VectorCode.QueryOpts? A table of config options. If nil, the default config or `setup` config will be used.
-  ---@param callback fun(result:VectorCode.Result[])? Use the result async style.
-  ---@return VectorCode.Result[]? An array of results.
+  ---@param callback fun(result:VectorCode.QueryResult[])? Use the result async style.
+  ---@return VectorCode.QueryResult[]? An array of results.
   function(query_message, opts, callback)
     logger.info("vectorcode.query: ", query_message, opts, callback)
     opts = vim.tbl_deep_extend("force", vc_config.get_query_opts(), opts or {})
