@@ -50,7 +50,7 @@ return function(opts)
       ---@return nil|{ status: string, data: string }
       function(agent, action, _, cb)
         local args = { "vectorise", "--pipe" }
-        local project_root = action.project_root or ""
+        local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root or ""))
         if project_root ~= "" then
           local stat = vim.uv.fs_stat(project_root)
           if stat and stat.type == "directory" then
@@ -59,8 +59,8 @@ return function(opts)
             return { status = "error", data = "Invalid path " .. project_root }
           end
         else
-          project_root = vim.fs.root(".", { ".vectorcode", ".git" })
-          if project_root == nil then
+          project_root = vim.fs.root(".", { ".vectorcode", ".git" }) or ""
+          if project_root == "" then
             return {
               status = "error",
               data = "Please specify a project root. You may use the `vectorcode_ls` tool to find a list of existing projects.",

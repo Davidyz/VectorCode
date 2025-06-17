@@ -74,6 +74,7 @@ return check_cli_wrap(function(opts)
             vim.uv.fs_stat(action.project_root) ~= nil
             and vim.uv.fs_stat(action.project_root).type == "directory"
           then
+            action.project_root = vim.fs.abspath(vim.fs.normalize(action.project_root))
             vim.list_extend(args, { "--project_root", action.project_root })
           else
             return {
