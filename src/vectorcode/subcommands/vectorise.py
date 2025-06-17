@@ -6,6 +6,7 @@ import os
 import sys
 import uuid
 from asyncio import Lock
+from dataclasses import dataclass, fields
 from typing import Iterable, Optional
 
 import pathspec
@@ -25,6 +26,28 @@ from vectorcode.cli_utils import (
 from vectorcode.common import get_client, get_collection, verify_ef
 
 logger = logging.getLogger(name=__name__)
+
+
+@dataclass
+class VectoriseStats:
+    add: int = 0
+    update: int = 0
+    removed: int = 0
+    skipped: int = 0
+    failed: int = 0
+
+    def to_json(self) -> str:
+        return json.dumps({i.name: getattr(self, i.name) for i in fields(self)})
+
+    def to_table(self) -> str:
+        _fields = fields(self)
+        return tabulate.tabulate(
+            [
+                [i.name.capitalize() for i in _fields],
+                [getattr(self, i.name) for i in _fields],
+            ],
+            headers="firstrow",
+        )
 
 
 def hash_str(string: str) -> str:
@@ -53,7 +76,7 @@ async def chunked_add(
     file_path: str,
     collection: AsyncCollection,
     collection_lock: Lock,
-    stats: dict[str, int],
+    stats: VectoriseStats,
     stats_lock: Lock,
     configs: Config,
     max_batch_size: int,
@@ -74,6 +97,7 @@ async def chunked_add(
         logger.debug(
             f"Skipping {full_path_str} because it's unchanged since last vectorisation."
         )
+        stats.skipped += 1
         return
 
     if num_existing_chunks:
@@ -92,6 +116,7 @@ async def chunked_add(
             if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
                 # empty file
                 logger.debug(f"Skipping {full_path_str} because it's empty.")
+                stats.skipped += 1
                 return
             chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
             logger.debug(f"Chunked into {len(chunks)} pieces.")
@@ -116,29 +141,22 @@ async def chunked_add(
                     )
     except (UnicodeDecodeError, UnicodeError):  # pragma: nocover
         logger.warning(f"Failed to decode {full_path_str}.")
+        stats.failed += 1
         return
 
     if num_existing_chunks:
         async with stats_lock:
-            stats["update"] += 1
+            stats.update += 1
     else:
         async with stats_lock:
-            stats["add"] += 1
+            stats.add += 1
 
 
-def show_stats(configs: Config, stats):
+def show_stats(configs: Config, stats: VectoriseStats):
     if configs.pipe:
-        print(json.dumps(stats))
+        print(stats.to_json())
     else:
-        print(
-            tabulate.tabulate(
-                [
-                    ["Added", "Updated", "Removed"],
-                    [stats["add"], stats["update"], stats["removed"]],
-                ],
-                headers="firstrow",
-            )
-        )
+        print(stats.to_table())
 
 
 def exclude_paths_by_spec(
@@ -229,7 +247,7 @@ async def vectorise(configs: Config) -> int:
     else:  # pragma: nocover
         logger.info("Ignoring exclude specs.")
 
-    stats = {"add": 0, "update": 0, "removed": 0}
+    stats = VectoriseStats()
     collection_lock = Lock()
     stats_lock = Lock()
     max_batch_size = await client.get_max_batch_size()
@@ -270,7 +288,7 @@ async def vectorise(configs: Config) -> int:
                 if isinstance(path, str) and not os.path.isfile(path):
                     orphans.add(path)
             async with stats_lock:
-                stats["removed"] = len(orphans)
+                stats.removed = len(orphans)
             if len(orphans):
                 logger.info(f"Removing {len(orphans)} orphaned files from database.")
                 await collection.delete(where={"path": {"$in": list(orphans)}})

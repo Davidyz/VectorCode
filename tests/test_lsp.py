@@ -11,6 +11,7 @@ from vectorcode.lsp_main import (
     lsp_start,
     make_caches,
 )
+from vectorcode.subcommands.vectorise import VectoriseStats
 
 
 @pytest.fixture
@@ -294,7 +295,7 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         result = await execute_command(
             mock_language_server, ["vectorise", "/test/project"]
         )
-        assert isinstance(result, dict)
+        assert isinstance(result, VectoriseStats)
 
         # Assertions
         mock_language_server.progress.create_async.assert_called_once()

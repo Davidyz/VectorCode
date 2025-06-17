@@ -10,6 +10,7 @@ import uuid
 import shtab
 
 from vectorcode.subcommands.vectorise import (
+    VectoriseStats,
     chunked_add,
     exclude_paths_by_spec,
     find_exclude_specs,
@@ -188,7 +189,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         if os.path.isfile(spec):
                             logger.info(f"Loading ignore specs from {spec}.")
                             files = exclude_paths_by_spec((str(i) for i in files), spec)
-                stats = {"add": 0, "update": 0, "removed": 0}
+                stats = VectoriseStats()
                 collection_lock = asyncio.Lock()
                 stats_lock = asyncio.Lock()
                 max_batch_size = await client.get_max_batch_size()
@@ -220,7 +221,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 ls.progress.end(
                     progress_token,
                     types.WorkDoneProgressEnd(
-                        message=f"Vectorised {stats['add'] + stats['update']} files."
+                        message=f"Vectorised {stats.add + stats.update} files."
                     ),
                 )
                 return stats

@@ -10,7 +10,7 @@ from chromadb.errors import InvalidCollectionException
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import get_client, get_collection, verify_ef
-from vectorcode.subcommands.vectorise import chunked_add, show_stats
+from vectorcode.subcommands.vectorise import VectoriseStats, chunked_add, show_stats
 
 logger = logging.getLogger(name=__name__)
 
@@ -43,7 +43,7 @@ async def update(configs: Config) -> int:
         else:
             orphanes.add(file)
 
-    stats = {"add": 0, "update": 0, "removed": len(orphanes)}
+    stats = VectoriseStats(removed=len(orphanes))
     collection_lock = Lock()
     stats_lock = Lock()
     max_batch_size = await client.get_max_batch_size()

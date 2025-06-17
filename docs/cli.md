@@ -616,6 +616,10 @@ The output is in JSON format. It contains a dictionary with the following fields
 - `"add"`: number of added documents;
 - `"update"`: number of updated documents;
 - `"removed"`: number of removed documents;
+- `"skipped"`: number of skipped documents (because it's empty or its hash
+  matches the metadata saved in the database);
+- `"failed"`: number of documents that failed to be vectorised. This is usually
+  due to encoding issues.
 
 #### `vectorcode ls`
 A JSON array of collection information of the following format will be printed:

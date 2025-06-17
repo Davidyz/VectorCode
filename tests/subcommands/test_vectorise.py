@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import json
 import os
 import socket
 import tempfile
@@ -15,6 +14,7 @@ from tree_sitter import Point
 from vectorcode.chunking import Chunk
 from vectorcode.cli_utils import Config
 from vectorcode.subcommands.vectorise import (
+    VectoriseStats,
     chunked_add,
     exclude_paths_by_spec,
     get_uuid,
@@ -74,7 +74,7 @@ async def test_chunked_add():
     file_path = "test_file.py"
     collection = AsyncMock()
     collection_lock = asyncio.Lock()
-    stats = {"add": 0, "update": 0}
+    stats = VectoriseStats()
     stats_lock = asyncio.Lock()
     configs = Config(chunk_size=100, overlap_ratio=0.2, project_root=".")
     max_batch_size = 50
@@ -97,8 +97,8 @@ async def test_chunked_add():
             semaphore,
         )
 
-    assert stats["add"] == 1
-    assert stats["update"] == 0
+    assert stats.add == 1
+    assert stats.update == 0
     collection.add.assert_called()
     assert collection.add.call_count == 1
 
@@ -110,7 +110,7 @@ async def test_chunked_add_with_existing():
     collection.get = AsyncMock()
     collection.get.return_value = {"ids": ["id1"], "metadatas": [{"sha256": "hash1"}]}
     collection_lock = asyncio.Lock()
-    stats = {"add": 0, "update": 0}
+    stats = VectoriseStats()
     stats_lock = asyncio.Lock()
     configs = Config(chunk_size=100, overlap_ratio=0.2, project_root=".")
     max_batch_size = 50
@@ -133,8 +133,8 @@ async def test_chunked_add_with_existing():
             semaphore,
         )
 
-    assert stats["add"] == 0
-    assert stats["update"] == 0
+    assert stats.add == 0
+    assert stats.update == 0
     collection.add.assert_not_called()
 
 
@@ -145,7 +145,7 @@ async def test_chunked_add_update_existing():
     collection.get = AsyncMock()
     collection.get.return_value = {"ids": ["id1"], "metadatas": [{"sha256": "hash1"}]}
     collection_lock = asyncio.Lock()
-    stats = {"add": 0, "update": 0}
+    stats = VectoriseStats()
     stats_lock = asyncio.Lock()
     configs = Config(chunk_size=100, overlap_ratio=0.2, project_root=".")
     max_batch_size = 50
@@ -168,8 +168,8 @@ async def test_chunked_add_update_existing():
             semaphore,
         )
 
-    assert stats["add"] == 0
-    assert stats["update"] == 1
+    assert stats.add == 0
+    assert stats.update == 1
     collection.add.assert_called()
 
 
@@ -178,7 +178,7 @@ async def test_chunked_add_empty_file():
     file_path = "test_file.py"
     collection = AsyncMock()
     collection_lock = asyncio.Lock()
-    stats = {"add": 0, "update": 0}
+    stats = VectoriseStats(**{"add": 0, "update": 0})
     stats_lock = asyncio.Lock()
     configs = Config(chunk_size=100, overlap_ratio=0.2, project_root=".")
     max_batch_size = 50
@@ -201,25 +201,25 @@ async def test_chunked_add_empty_file():
             semaphore,
         )
 
-    assert stats["add"] == 0
-    assert stats["update"] == 0
+    assert stats.add == 0
+    assert stats.update == 0
     assert collection.add.call_count == 0
 
 
 @patch("tabulate.tabulate")
 def test_show_stats_pipe_false(mock_tabulate, capsys):
     configs = Config(pipe=False)
-    stats = {"add": 1, "update": 2, "removed": 3}
+    stats = VectoriseStats(**{"add": 1, "update": 2, "removed": 3})
     show_stats(configs, stats)
     mock_tabulate.assert_called_once()
 
 
 def test_show_stats_pipe_true(capsys):
     configs = Config(pipe=True)
-    stats = {"add": 1, "update": 2, "removed": 3}
+    stats = VectoriseStats(**{"add": 1, "update": 2, "removed": 3})
     show_stats(configs, stats)
     captured = capsys.readouterr()
-    assert captured.out == json.dumps(stats) + "\n"
+    assert captured.out.strip() == (stats.to_json())
 
 
 def test_exclude_paths_by_spec():
