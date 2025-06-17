@@ -36,7 +36,7 @@ return {
     end),
 
     ---@param subcommand "ls"|"query"|"vectorise"
-    ---@param opts VectorCode.CodeCompanion.QueryToolOpts|VectorCode.CodeCompanion.LsToolOpts
+    ---@param opts VectorCode.CodeCompanion.ToolOpts
     ---@return CodeCompanion.Agent.Tool
     make_tool = function(subcommand, opts)
       local has = require("codecompanion").has

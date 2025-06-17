@@ -1,23 +1,24 @@
 ---@module "codecompanion"
 
+---@alias sub_cmd "ls"|"query"|"vectorise"
+
 ---@class VectorCode.CodeCompanion.ExtensionOpts
----@field register_tools ("ls"|"query")[]
----@field query_tool_opts VectorCode.CodeCompanion.QueryToolOpts
----@field ls_tool_opts VectorCode.CodeCompanion.LsToolOpts
+---@field register_tools sub_cmd[]
+---@field tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
 ---@field add_slash_command boolean
 
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
 
+---@type VectorCode.CodeCompanion.ExtensionOpts|{}
+local default_extension_opts =
+  { add_tools = { "ls", "query", "vectorise" }, add_slash_command = false }
+
 ---@type CodeCompanion.Extension
 local M = {
   ---@param opts VectorCode.CodeCompanion.ExtensionOpts
   setup = vc_config.check_cli_wrap(function(opts)
-    opts = vim.tbl_deep_extend(
-      "force",
-      { add_tools = { "ls", "query", "vectorise" }, add_slash_command = false },
-      opts or {}
-    )
+    opts = vim.tbl_deep_extend("force", default_extension_opts, opts or {})
     logger.info("Received codecompanion extension opts:\n", opts)
     local cc_config = require("codecompanion.config").config
     local cc_integration = require("vectorcode.integrations").codecompanion.chat
@@ -25,20 +26,23 @@ local M = {
       local tool_name = string.format("vectorcode_%s", sub_cmd)
       if cc_config.strategies.chat.tools[tool_name] ~= nil then
         vim.notify(
-          "There's an existing tool named `vectorcode`. Please either remove it or rename it.",
+          string.format(
+            "There's an existing tool named `%s`. Please either remove it or rename it.",
+            tool_name
+          ),
           vim.log.levels.ERROR,
           vc_config.notify_opts
         )
         logger.warn(
           string.format(
-            "Not creating a tool because there is an existing tool named %s.",
+            "Not creating this tool because there is an existing tool named %s.",
             tool_name
           )
         )
       else
         cc_config.strategies.chat.tools[tool_name] = {
           description = string.format("Run VectorCode %s tool", sub_cmd),
-          callback = cc_integration.make_tool(sub_cmd, opts.tool_opts),
+          callback = cc_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
         }
         logger.info(string.format("%s tool has been created.", tool_name))
       end
