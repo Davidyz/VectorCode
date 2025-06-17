@@ -3,16 +3,23 @@
 ---@alias sub_cmd "ls"|"query"|"vectorise"
 
 ---@class VectorCode.CodeCompanion.ExtensionOpts
----@field register_tools sub_cmd[]
+--- A table where the keys are the subcommand name (`ls`, `query`, `vectorise`)
+--- and the values are their config options.
 ---@field tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
----@field add_slash_command boolean
+--- Whether to add a tool group that contains all vectorcode tools.
+---@field tool_group VectorCode.CodeCompanion.ToolGroupOpts
 
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
 
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
-local default_extension_opts =
-  { add_tools = { "ls", "query", "vectorise" }, add_slash_command = false }
+local default_extension_opts = {
+  tool_opts = { ls = {}, query = {}, vectorise = {} },
+  tool_group = { enabled = true, collapse = true },
+}
+
+---@type sub_cmd[]
+local valid_tools = { "ls", "query", "vectorise" }
 
 ---@type CodeCompanion.Extension
 local M = {
@@ -22,7 +29,7 @@ local M = {
     logger.info("Received codecompanion extension opts:\n", opts)
     local cc_config = require("codecompanion.config").config
     local cc_integration = require("vectorcode.integrations").codecompanion.chat
-    for _, sub_cmd in pairs(opts.add_tools) do
+    for _, sub_cmd in pairs(valid_tools) do
       local tool_name = string.format("vectorcode_%s", sub_cmd)
       if cc_config.strategies.chat.tools[tool_name] ~= nil then
         vim.notify(
@@ -47,28 +54,18 @@ local M = {
         logger.info(string.format("%s tool has been created.", tool_name))
       end
     end
-    if opts.add_slash_command then
-      local command_name = "vectorcode"
-      if type(opts.add_slash_command) == "string" then
-        command_name = tostring(opts.add_slash_command)
-      end
-      if cc_config.strategies.chat.slash_commands[command_name] ~= nil then
-        vim.notify(
-          "There's an existing slash command named `vectorcode`. Please either remove it or rename it.",
-          vim.log.levels.ERROR,
-          vc_config.notify_opts
-        )
-        logger.warn(
-          string.format(
-            "Not creating a command because there is an existing slash command named %s.",
-            command_name
-          )
-        )
-      else
-        cc_config.strategies.chat.slash_commands[command_name] =
-          cc_integration.make_slash_command()
-        logger.info(string.format("%s command has been created.", command_name))
-      end
+
+    if opts.tool_group.enabled then
+      cc_config.strategies.chat.tools.groups["vectorcode_toolbox"] = {
+        opts = { collapse_tools = opts.tool_group.collapse },
+        description = "Use VectorCode to automatically build and retrieve repository-level context.",
+        tools = vim
+          .iter(valid_tools)
+          :map(function(s)
+            return "vectorcode_" .. s
+          end)
+          :totable(),
+      }
     end
   end),
 }

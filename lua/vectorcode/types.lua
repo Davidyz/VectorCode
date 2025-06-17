@@ -95,3 +95,9 @@
 ---@field chunk_mode boolean?
 
 ---@class VectorCode.CodeCompanion.VectoriseToolOpts: VectorCode.CodeCompanion.ToolOpts
+
+---@class VectorCode.CodeCompanion.ToolGroupOpts
+--- Whether to register the tool group
+---@field enabled boolean
+--- Whether to show the individual tools in the references
+---@field collapse boolean
