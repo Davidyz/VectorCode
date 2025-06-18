@@ -69,8 +69,6 @@
 
 --- This class defines the options available to the CodeCompanion tool.
 ---@class VectorCode.CodeCompanion.ToolOpts
---- Whether the stderr should be provided back to the chat
----@field include_stderr boolean?
 --- Whether to use the LSP backend. Default: `false`
 ---@field use_lsp boolean?
 

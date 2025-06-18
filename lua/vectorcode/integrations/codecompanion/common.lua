@@ -7,7 +7,6 @@ local logger = vc_config.logger
 local default_query_options = {
   max_num = { chunk = -1, document = -1 },
   default_num = { chunk = 50, document = 10 },
-  include_stderr = false,
   use_lsp = false,
   ls_on_start = false,
   no_duplicate = true,
@@ -15,10 +14,10 @@ local default_query_options = {
 }
 
 ---@type VectorCode.CodeCompanion.LsToolOpts
-local default_ls_options = { use_lsp = false, include_stderr = false }
+local default_ls_options = { use_lsp = false }
 
 ---@type VectorCode.CodeCompanion.VectoriseToolOpts
-local default_vectorise_options = { use_lsp = false, include_stderr = false }
+local default_vectorise_options = { use_lsp = false }
 
 return {
   tool_result_source = "VectorCodeToolResult",
@@ -34,13 +33,27 @@ return {
   ---@param opts VectorCode.CodeCompanion.LsToolOpts|{}|nil
   ---@return VectorCode.CodeCompanion.LsToolOpts
   get_ls_tool_opts = function(opts)
-    return vim.tbl_deep_extend("force", default_ls_options, opts or {})
+    opts = vim.tbl_deep_extend("force", default_ls_options, opts or {})
+    logger.info(
+      string.format(
+        "Loading `vectorcode_ls` with the following opts:\n%s",
+        vim.inspect(opts)
+      )
+    )
+    return opts
   end,
 
   ---@param opts VectorCode.CodeCompanion.VectoriseToolOpts|{}|nil
   ---@return VectorCode.CodeCompanion.VectoriseToolOpts
   get_vectorise_tool_opts = function(opts)
-    return vim.tbl_deep_extend("force", default_vectorise_options, opts or {})
+    opts = vim.tbl_deep_extend("force", default_vectorise_options, opts or {})
+    logger.info(
+      string.format(
+        "Loading `vectorcode_vectorise` with the following opts:\n%s",
+        vim.inspect(opts)
+      )
+    )
+    return opts
   end,
 
   ---@param opts VectorCode.CodeCompanion.QueryToolOpts|{}|nil
@@ -76,6 +89,12 @@ return {
         "max_num should be an integer or a table: {chunk: integer, document: integer}"
       )
     end
+    logger.info(
+      string.format(
+        "Loading `vectorcode_query` with the following opts:\n%s",
+        vim.inspect(opts)
+      )
+    )
     return opts
   end,
 
