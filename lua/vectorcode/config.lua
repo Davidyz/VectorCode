@@ -49,13 +49,6 @@ local lsp_configs = function()
     -- nvim >= 0.11.0
     cfg = vim.tbl_deep_extend("force", cfg, vim.lsp.config.vectorcode_server)
     logger.debug("Using vim.lsp.config.vectorcode_server for LSP config:\n", cfg)
-  else
-    -- nvim < 0.11.0
-    local ok, lspconfig = pcall(require, "lspconfig.configs")
-    if ok and lspconfig.vectorcode_server ~= nil then
-      cfg = lspconfig.vectorcode_server.config_def.default_config
-      logger.debug("Using nvim-lspconfig for LSP config:\n", cfg)
-    end
   end
   cfg.name = "vectorcode_server"
   if setup_config.sync_log_env_var then
