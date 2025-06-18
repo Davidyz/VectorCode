@@ -182,18 +182,25 @@ For example, you should include `parameter`, `arguments` and `return value` for 
         )
         stderr = cc_common.flatten_table_to_string(stderr)
         if string.find(stderr, "InvalidCollectionException") then
-          agent.chat:add_tool_output(
-            self,
-            string.format(
-              "`%s` hasn't been vectorised. Please use the `vectorcode_vectorise` tool or vectorise it from the CLI.",
-              cmd.project_root
+          if cmd.project_root then
+            agent.chat:add_tool_output(
+              self,
+              string.format(
+                "`%s` hasn't been vectorised. Please use the `vectorcode_vectorise` tool or vectorise it from the CLI.",
+                cmd.project_root
+              )
             )
-          )
+          else
+            agent.chat:add_tool_output(
+              self,
+              "Failed to query from the requested project. Please verify the available projects via the `vectorcode_ls` tool or run it from the CLI."
+            )
+          end
         else
           agent.chat:add_tool_output(
             self,
             string.format(
-              "**VectorCode Tool**: Failed with error:\n```\n%s\n```",
+              "**VectorCode `query` Tool**: Failed with error:\n```\n%s\n```",
               stderr
             )
           )
