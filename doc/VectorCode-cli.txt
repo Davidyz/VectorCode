@@ -781,7 +781,8 @@ features:
 
 - `ls`list local collections, similar to the `ls` subcommand in the CLI;
 - `query`query from a given collection, similar to the `query` subcommand in
-    the CLI.
+    the CLI;
+- `vectorise`vectorise files into a given project.
 
 To try it out, install the `vectorcode[mcp]` dependency group and the MCP
 server is available in the shell as `vectorcode-mcp-server`, and make sure
