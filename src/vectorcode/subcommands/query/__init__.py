@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import cast
+from typing import Any, cast
 
 from chromadb import GetResult, Where
 from chromadb.api.models.AsyncCollection import AsyncCollection
@@ -49,12 +49,15 @@ async def get_query_result_files(
     try:
         if len(configs.query_exclude):
             logger.info(f"Excluding {len(configs.query_exclude)} files from the query.")
-            filter: dict[str, dict] = {"path": {"$nin": configs.query_exclude}}
+            filter: dict[str, Any] = {"path": {"$nin": configs.query_exclude}}
         else:
             filter = {}
         num_query = configs.n_result
         if QueryInclude.chunk in configs.include:
-            filter["start"] = {"$gte": 0}
+            if filter:
+                filter = {"$and": [filter.copy(), {"$gte": 0}]}
+            else:
+                filter["start"] = {"$gte": 0}
         else:
             num_query = await collection.count()
             if configs.query_multiplier > 0:

@@ -119,7 +119,7 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
                 message=f"{e.__class__.__name__}: Failed to create the collection at {project_root}.",
             )
         )
-    if collection is None:
+    if collection is None:  # pragma: nocover
         raise McpError(
             ErrorData(
                 code=1,

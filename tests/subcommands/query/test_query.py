@@ -206,6 +206,36 @@ async def test_get_query_result_files_with_query_exclude(mock_collection, mock_c
 
 
 @pytest.mark.asyncio
+async def test_get_query_result_chunks_with_query_exclude(mock_collection, mock_config):
+    # Setup query_exclude
+    mock_config.query_exclude = ["/excluded/path.py"]
+    mock_config.include = [QueryInclude.chunk, QueryInclude.path]
+
+    with (
+        patch("vectorcode.subcommands.query.expand_path") as mock_expand_path,
+        patch("vectorcode.subcommands.query.expand_globs") as mock_expand_globs,
+        patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker,
+        patch("os.path.isfile", return_value=True),  # Add this line to mock isfile
+    ):
+        mock_expand_globs.return_value = ["/excluded/path.py"]
+        mock_expand_path.return_value = "/excluded/path.py"
+
+        mock_reranker_instance = MagicMock()
+        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
+        MockReranker.return_value = mock_reranker_instance
+
+        # Call the function
+        await get_query_result_files(mock_collection, mock_config)
+
+        # Check that query was called with the right parameters including the where clause
+        mock_collection.query.assert_called_once()
+        _, kwargs = mock_collection.query.call_args
+        assert kwargs["where"] == {
+            "$and": [{"path": {"$nin": ["/excluded/path.py"]}}, {"$gte": 0}]
+        }
+
+
+@pytest.mark.asyncio
 async def test_get_query_reranker_initialisation_error(mock_collection, mock_config):
     # Configure to use CrossEncoder reranker
     mock_config.reranker = "cross-encoder/model-name"
