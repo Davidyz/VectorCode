@@ -188,7 +188,7 @@ async def test_mcp_server():
 
         await mcp_server()
 
-        assert mock_add_tool.call_count == 2
+        assert mock_add_tool.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -223,7 +223,7 @@ async def test_mcp_server_ls_on_start():
 
         await mcp_server()
 
-        assert mock_add_tool.call_count == 2
+        assert mock_add_tool.call_count == 3
         mock_get_collections.assert_called()
 
 

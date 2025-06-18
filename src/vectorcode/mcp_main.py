@@ -12,6 +12,13 @@ from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.errors import InvalidCollectionException
 
+from vectorcode.subcommands.vectorise import (
+    VectoriseStats,
+    chunked_add,
+    exclude_paths_by_spec,
+    find_exclude_specs,
+)
+
 try:  # pragma: nocover
     from mcp import ErrorData, McpError
     from mcp.server.fastmcp import FastMCP
@@ -26,6 +33,7 @@ from vectorcode.cli_utils import (
     Config,
     cleanup_path,
     config_logging,
+    expand_globs,
     find_project_config_dir,
     get_project_config,
     load_config_file,
@@ -87,6 +95,69 @@ async def list_collections() -> list[str]:
             names.append(cleanup_path(str(col.metadata.get("path"))))
     logger.info("Retrieved the following collections: %s", names)
     return names
+
+
+async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]:
+    logger.info(
+        f"vectorise tool called with the following args: {paths=}, {project_root=}"
+    )
+    project_root = os.path.expanduser(project_root)
+    if not os.path.isdir(project_root):
+        logger.error(f"Invalid project root: {project_root}")
+        raise McpError(
+            ErrorData(code=1, message=f"{project_root} is not a valid path.")
+        )
+    config = await get_project_config(project_root)
+    try:
+        client = await get_client(config)
+        collection = await get_collection(client, config, True)
+    except Exception as e:
+        logger.error("Failed to access collection at %s", project_root)
+        raise McpError(
+            ErrorData(
+                code=1,
+                message=f"{e.__class__.__name__}: Failed to create the collection at {project_root}.",
+            )
+        )
+    if collection is None:
+        raise McpError(
+            ErrorData(
+                code=1,
+                message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
+            )
+        )
+
+    paths = [os.path.expanduser(i) for i in await expand_globs(paths)]
+    final_config = await config.merge_from(
+        Config(files=[i for i in paths if os.path.isfile(i)], project_root=project_root)
+    )
+    for ignore_spec in find_exclude_specs(final_config):
+        if os.path.isfile(ignore_spec):
+            logger.info(f"Loading ignore specs from {ignore_spec}.")
+            paths = exclude_paths_by_spec((str(i) for i in paths), ignore_spec)
+    stats = VectoriseStats()
+    collection_lock = asyncio.Lock()
+    stats_lock = asyncio.Lock()
+    max_batch_size = await client.get_max_batch_size()
+    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+    tasks = [
+        asyncio.create_task(
+            chunked_add(
+                str(file),
+                collection,
+                collection_lock,
+                stats,
+                stats_lock,
+                final_config,
+                max_batch_size,
+                semaphore,
+            )
+        )
+        for file in paths
+    ]
+    for i, task in enumerate(asyncio.as_completed(tasks), start=1):
+        await task
+    return stats.to_dict()
 
 
 async def query_tool(
@@ -196,6 +267,14 @@ async def mcp_server():
         name="query",
         description="\n".join(
             prompt_by_categories["query"] + prompt_by_categories["general"]
+        ),
+    )
+
+    mcp.add_tool(
+        fn=vectorise_files,
+        name="vectorise",
+        description="\n".join(
+            prompt_by_categories["vectorise"] + prompt_by_categories["general"]
         ),
     )
 
