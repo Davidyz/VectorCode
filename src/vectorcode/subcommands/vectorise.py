@@ -230,8 +230,10 @@ async def vectorise(configs: Config) -> int:
     client = await get_client(configs)
     try:
         collection = await get_collection(client, configs, True)
-    except IndexError:
-        print("Failed to get/create the collection. Please check your config.")
+    except IndexError as e:
+        print(
+            f"{e.__class__.__name__}: Failed to get/create the collection. Please check your config."
+        )
         return 1
     if not verify_ef(collection, configs):
         return 1

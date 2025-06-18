@@ -17,6 +17,8 @@ async def drop(config: Config) -> int:
         print(f"Collection for {collection_path} has been deleted.")
         logger.info(f"Deteted collection at {collection_path}.")
         return 0
-    except (ValueError, InvalidCollectionException):
-        logger.error(f"There's no existing collection for {config.project_root}")
+    except (ValueError, InvalidCollectionException) as e:
+        logger.error(
+            f"{e.__class__.__name__}: There's no existing collection for {config.project_root}"
+        )
         return 1

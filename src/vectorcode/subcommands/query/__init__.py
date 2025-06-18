@@ -159,18 +159,20 @@ async def query(configs: Config) -> int:
         collection = await get_collection(client, configs, False)
         if not verify_ef(collection, configs):
             return 1
-    except (ValueError, InvalidCollectionException):
+    except (ValueError, InvalidCollectionException) as e:
         logger.error(
-            f"There's no existing collection for {configs.project_root}",
+            f"{e.__class__.__name__}: There's no existing collection for {configs.project_root}",
         )
         return 1
-    except InvalidDimensionException:
+    except InvalidDimensionException as e:
         logger.error(
-            "The collection was embedded with a different embedding model.",
+            f"{e.__class__.__name__}: The collection was embedded with a different embedding model.",
         )
         return 1
-    except IndexError:  # pragma: nocover
-        logger.error("Failed to get the collection. Please check your config.")
+    except IndexError as e:  # pragma: nocover
+        logger.error(
+            f"{e.__class__.__name__}: Failed to get the collection. Please check your config."
+        )
         return 1
 
     if not configs.pipe:
@@ -187,8 +189,9 @@ Please re-vectorise it to use `--include chunk`.""",
 
     try:
         structured_result = await build_query_results(collection, configs)
-    except RerankerError:  # pragma: nocover
+    except RerankerError as e:  # pragma: nocover
         # error logs should be handled where they're raised
+        logger.error(f"{e.__class__.__name__}")
         return 1
 
     if configs.pipe:

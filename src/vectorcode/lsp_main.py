@@ -25,9 +25,9 @@ try:  # pragma: nocover
         JsonRpcInvalidRequest,
     )
     from pygls.server import LanguageServer
-except ModuleNotFoundError:  # pragma: nocover
+except ModuleNotFoundError as e:  # pragma: nocover
     print(
-        "Please install the `vectorcode[lsp]` dependency group to use the LSP feature.",
+        f"{e.__class__.__name__}: Please install the `vectorcode[lsp]` dependency group to use the LSP feature.",
         file=sys.stderr,
     )
     sys.exit(1)

@@ -141,8 +141,8 @@ async def test_query_tool_collection_access_failure():
 
         assert exc_info.value.error.code == 1
         assert (
-            exc_info.value.error.message
-            == "Failed to access the collection at /valid/path. Use `list_collections` tool to get a list of valid paths for this field."
+            "Failed to access the collection at /valid/path. Use `list_collections` tool to get a list of valid paths for this field."
+            in exc_info.value.error.message
         )
 
 

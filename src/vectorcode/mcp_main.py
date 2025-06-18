@@ -15,9 +15,9 @@ from chromadb.errors import InvalidCollectionException
 try:  # pragma: nocover
     from mcp import ErrorData, McpError
     from mcp.server.fastmcp import FastMCP
-except ModuleNotFoundError:  # pragma: nocover
+except ModuleNotFoundError as e:  # pragma: nocover
     print(
-        "MCP Python SDK not installed. Please install it by installing `vectorcode[mcp]` dependency group.",
+        f"{e.__class__.__name__}:MCP Python SDK not installed. Please install it by installing `vectorcode[mcp]` dependency group.",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -114,12 +114,12 @@ async def query_tool(
         try:
             client = await get_client(config)
             collection = await get_collection(client, config, False)
-        except Exception:
+        except Exception as e:
             logger.error("Failed to access collection at %s", project_root)
             raise McpError(
                 ErrorData(
                     code=1,
-                    message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
+                    message=f"{e.__class__.__name__}: Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
                 )
             )
     if collection is None:

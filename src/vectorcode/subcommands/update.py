@@ -19,12 +19,14 @@ async def update(configs: Config) -> int:
     client = await get_client(configs)
     try:
         collection = await get_collection(client, configs, False)
-    except IndexError:
-        print("Failed to get/create the collection. Please check your config.")
-        return 1
-    except (ValueError, InvalidCollectionException):
+    except IndexError as e:
         print(
-            f"There's no existing collection for {configs.project_root}",
+            f"{e.__class__.__name__}: Failed to get/create the collection. Please check your config."
+        )
+        return 1
+    except (ValueError, InvalidCollectionException) as e:
+        print(
+            f"{e.__class__.__name__}: There's no existing collection for {configs.project_root}",
             file=sys.stderr,
         )
         return 1

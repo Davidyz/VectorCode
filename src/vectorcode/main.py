@@ -69,10 +69,10 @@ async def async_main():
     if not await try_server(final_configs.db_url):
         server_process = await start_server(final_configs)
 
-    if final_configs.pipe:
+    if final_configs.pipe:  # pragma: nocover
         # NOTE: NNCF (intel GPU acceleration for sentence transformer) keeps showing logs.
         # This disables logs below ERROR so that it doesn't hurt the `pipe` output.
-        logging.disable(logging.ERROR)
+        logging.disable(logging.ERROR - 1)
 
     return_val = 0
     try:

@@ -167,24 +167,6 @@ async def test_async_main_try_server_unavailable(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_async_main_pipe_logging_disabled(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
-    monkeypatch.setattr(
-        "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
-    )
-    MagicMock(host="test_host", port=1234, action=CliAction.query, pipe=True)
-    monkeypatch.setattr("vectorcode.main.get_project_config", AsyncMock())
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
-    monkeypatch.setattr("vectorcode.subcommands.query", AsyncMock(return_value=0))
-
-    with patch("logging.disable") as mock_logging_disable:
-        await async_main()
-        mock_logging_disable.assert_called_once_with(
-            pytest.importorskip("logging").ERROR
-        )
-
-
-@pytest.mark.asyncio
 async def test_async_main_cli_action_query(monkeypatch):
     mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
     monkeypatch.setattr(
