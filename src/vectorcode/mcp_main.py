@@ -186,18 +186,17 @@ async def mcp_server():
     mcp.add_tool(
         fn=list_collections,
         name="ls",
-        description="List all projects indexed by VectorCode. Call this before making queries.",
+        description="\n".join(
+            prompt_by_categories["ls"] + prompt_by_categories["general"]
+        ),
     )
 
     mcp.add_tool(
         fn=query_tool,
         name="query",
-        description=f"""
-Use VectorCode to perform vector similarity search on repositories and return a list of relevant file paths and contents. 
-Make sure `project_root` is one of the values from the `ls` tool. 
-Unless the user requested otherwise, start your retrievals by {mcp_config.n_results} files.
-The result contains the relative paths for the files and their corresponding contents.
-""",
+        description="\n".join(
+            prompt_by_categories["query"] + prompt_by_categories["general"]
+        ),
     )
 
     return mcp
