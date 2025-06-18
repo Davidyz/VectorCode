@@ -105,6 +105,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             )
             DEFAULT_PROJECT_ROOT = str(parsed_args.project_root)
 
+        collection = None
         if parsed_args.project_root is not None:
             parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
             await make_caches(parsed_args.project_root)
@@ -113,11 +114,12 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             ].merge_from(parsed_args)
             final_configs.pipe = True
             client = await get_client(final_configs)
-            collection = await get_collection(
-                client=client,
-                configs=final_configs,
-                make_if_missing=final_configs.action in {CliAction.vectorise},
-            )
+            if final_configs.action in {CliAction.vectorise, CliAction.query}:
+                collection = await get_collection(
+                    client=client,
+                    configs=final_configs,
+                    make_if_missing=final_configs.action in {CliAction.vectorise},
+                )
         else:
             final_configs = parsed_args
             client = await get_client(parsed_args)
