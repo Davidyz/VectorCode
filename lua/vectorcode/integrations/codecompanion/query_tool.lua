@@ -181,10 +181,23 @@ For example, you should include `parameter`, `arguments` and `return value` for 
           )
         )
         stderr = cc_common.flatten_table_to_string(stderr)
-        agent.chat:add_tool_output(
-          self,
-          string.format("**VectorCode Tool**: Failed with error:\n```\n%s\n```", stderr)
-        )
+        if string.find(stderr, "InvalidCollectionException") then
+          agent.chat:add_tool_output(
+            self,
+            string.format(
+              "`%s` hasn't been vectorised. Please use the `vectorcode_vectorise` tool or vectorise it from the CLI.",
+              cmd.project_root
+            )
+          )
+        else
+          agent.chat:add_tool_output(
+            self,
+            string.format(
+              "**VectorCode Tool**: Failed with error:\n```\n%s\n```",
+              stderr
+            )
+          )
+        end
       end,
       ---@param agent CodeCompanion.Agent
       ---@param cmd QueryToolArgs
