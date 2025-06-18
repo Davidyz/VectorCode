@@ -26,10 +26,6 @@ return check_cli_wrap(function(opts)
   end
 
   logger.info("Creating CodeCompanion tool with the following args:\n", opts)
-  local capping_message = ""
-  if opts.max_num > 0 then
-    capping_message = ("  - Request for at most %d documents"):format(opts.max_num)
-  end
 
   local tool_name = "vectorcode_query"
   return {
@@ -131,25 +127,40 @@ return check_cli_wrap(function(opts)
       type = "function",
       ["function"] = {
         name = tool_name,
-        description = "Retrieves code documents using semantic search or lists indexed projects",
+        description = [[Retrieves code documents using semantic search.
+The path of a retrieved file will be wrapped in `<path>` and `</path>` tags.
+Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags.
+Do not include the xml tags in your answers when you mention the paths.
+The results may also be chunks of the source code.
+In this case, the text chunks will be wrapped in <chunk></chunk>.
+If the starting and ending line ranges are available, they will be wrapped in <start_line></start_line> and <end_line></end_line> tags.
+Make use of the line numbers (NOT THE XML TAGS) when you're quoting the source code.
+Include one single command call for VectorCode each time.
+You may include multiple keywords in the command.
+**The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `vectorcode_ls` tool or from user input**
+        ]],
         parameters = {
           type = "object",
           properties = {
             query = {
               type = "array",
               items = { type = "string" },
-              description = "Query messages used for the search.",
+              description = [[
+Query messages used for the search. They should also contain relevant keywords.
+For example, you should include `parameter`, `arguments` and `return value` for the query `function`.
+              ]],
             },
             count = {
               type = "integer",
               description = string.format(
-                "Number of documents to retrieve, must be positive. Use %d by default",
-                tonumber(opts.default_num)
+                "Number of documents or chunks to retrieve, must be positive. Use %d by default. Do not query for more than %d.",
+                tonumber(opts.default_num),
+                tonumber(opts.max_num)
               ),
             },
             project_root = {
               type = "string",
-              description = "Project path to search within (must be from 'ls' results). Use empty string for the current project.",
+              description = "Project path to search within (must be from 'ls' results or user instructions). Use empty string for the current project.",
             },
           },
           required = { "query", "count", "project_root" },
@@ -158,47 +169,6 @@ return check_cli_wrap(function(opts)
         strict = true,
       },
     },
-    system_prompt = function()
-      local guidelines = {
-        "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags. Do not include the `<path>``</path>` tags in your answers when you mention the paths.",
-        "  - The results may also be chunks of the source code. In this case, the text chunks will be wrapped in <chunk></chunk>. If the starting and ending line ranges are available, they will be wrapped in <start_line></start_line> and <end_line></end_line> tags. Make use of the line numbers (NOT THE XML TAGS) when you're quoting the source code.",
-        "  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running",
-        "  - Include one single command call for VectorCode each time. You may include multiple keywords in the command",
-        "  - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks",
-        "  - Use the `ls` command to retrieve a list of indexed project and pick one that may be relevant, unless the user explicitly mentioned 'this project' (or in other equivalent expressions)",
-        "  - **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `ls` command or from user input**",
-        capping_message,
-        ("  - If the user did not specify how many documents to retrieve, **start with %d documents**"):format(
-          opts.default_num
-        ),
-        "  - If you decide to call VectorCode tool, do not start answering the question until you have the results. Provide answers based on the results and let the user decide whether to run the tool again",
-      }
-      vim.list_extend(
-        guidelines,
-        vim.tbl_map(function(line)
-          return "  - " .. line
-        end, require("vectorcode").prompts({ "query", "ls" }))
-      )
-      local root = vim.fs.root(0, { ".vectorcode", ".git" })
-      if root ~= nil then
-        vim.list_extend(guidelines, {
-          string.format(
-            "  - The current working directory is %s. Assume the user query is about this project, unless the user asked otherwise or queries from the current project fails to return useful results.",
-            root
-          ),
-        })
-      end
-      return string.format(
-        [[### VectorCode, a repository indexing and query tool.
-
-1. **Purpose**: This gives you the ability to access the repository to find information that you may need to assist the user.
-
-2. **Key Points**:
-%s 
-]],
-        table.concat(guidelines, "\n")
-      )
-    end,
     output = {
       ---@param agent CodeCompanion.Agent
       ---@param cmd QueryToolArgs
