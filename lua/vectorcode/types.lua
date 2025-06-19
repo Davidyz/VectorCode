@@ -71,6 +71,7 @@
 ---@class VectorCode.CodeCompanion.ToolOpts
 --- Whether to use the LSP backend. Default: `false`
 ---@field use_lsp boolean?
+---@field requires_approval boolean?
 
 ---@class VectorCode.CodeCompanion.LsToolOpts: VectorCode.CodeCompanion.ToolOpts
 

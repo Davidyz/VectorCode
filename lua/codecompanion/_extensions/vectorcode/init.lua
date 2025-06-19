@@ -14,7 +14,7 @@ local logger = vc_config.logger
 
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
-  tool_opts = { ls = {}, query = {}, vectorise = {} },
+  tool_opts = { ls = {}, query = {}, vectorise = { requires_approval = true } },
   tool_group = { enabled = true, collapse = true, extras = {} },
 }
 
@@ -50,6 +50,7 @@ local M = {
         cc_config.strategies.chat.tools[tool_name] = {
           description = string.format("Run VectorCode %s tool", sub_cmd),
           callback = cc_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
+          opts = { requires_approval = opts.tool_opts[sub_cmd].requires_approval },
         }
         logger.info(string.format("%s tool has been created.", tool_name))
       end

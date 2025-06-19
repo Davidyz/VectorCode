@@ -35,7 +35,7 @@ return function(opts)
             },
             project_root = {
               type = "string",
-              description = "The project that the files belong to. Either use a path from the `vectorcode_ls` tool, or leave empty to use the current git project.",
+              description = "The project that the files belong to. Either use a path from the `vectorcode_ls` tool, or leave empty to use the current git project. If the user did not specify a path, use empty string for this parameter.",
             },
           },
           required = { "paths", "project_root" },
@@ -99,6 +99,10 @@ return function(opts)
       end,
     },
     output = {
+      ---@param self CodeCompanion.Agent.Tool
+      prompt = function(self, _)
+        return string.format("Vectorise %d files with VectorCode?", #self.args.paths)
+      end,
       ---@param self CodeCompanion.Agent.Tool
       ---@param agent CodeCompanion.Agent
       ---@param stdout VectorCode.VectoriseResult[]

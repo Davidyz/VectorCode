@@ -160,7 +160,7 @@ For example, you should include `parameter`, `arguments` and `return value` for 
             },
             project_root = {
               type = "string",
-              description = "Project path to search within (must be from 'ls' results or user instructions). Use empty string for the current project.",
+              description = "Project path to search within (must be from 'ls' results or user instructions). Use empty string for the current project. If the user did not specify a project, assume that they're referring to the current project and use an empty string for this parameter. If this fails, use the `vectorcode_ls` tool and ask the user to clarify the project.",
             },
           },
           required = { "query", "count", "project_root" },
