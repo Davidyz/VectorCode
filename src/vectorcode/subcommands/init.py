@@ -92,6 +92,8 @@ class HookFile:
             self.lines.extend(i if i.endswith("\n") else i + "\n" for i in content)
             self.lines.append(self.suffix + "\n")
         with open(self.path, "w") as fin:
+            if os.path.islink(self.path):  # pragma: nocover
+                logger.warning(f"{self.path} is a symlink.")
             fin.writelines(self.lines)
         if platform.system() != "Windows":
             # for unix systems, set the executable bit.
