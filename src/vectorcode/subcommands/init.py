@@ -20,11 +20,19 @@ __GLOBAL_HOOKS_PATH = Path(GLOBAL_CONFIG_DIR) / "hooks"
 __HOOK_CONTENTS: dict[str, list[str]] = {
     "pre-commit": [
         "diff_files=$(git diff --cached --name-only)",
-        '[ -z "$diff_files" ] || vectorcode vectorise $diff_files',
+        'if [ -d ".vectorcode" ] && [ ! -z "$diff_files" ]; then',
+        "  vectorcode vectorise $diff_files",
+        "fi",
     ],
     "post-checkout": [
-        'files=$(git diff --name-only "$1" "$2")',
-        '[ -z "$files" ] || vectorcode vectorise $files',
+        'if [ -z "$(echo $1|grep [^0])" ]; then',
+        '  files=""',
+        "else",
+        '  files=$(git diff --name-only "$1" "$2")',
+        "fi",
+        'if [ -d ".vectorcode" ] && [ ! -z "$files" ]; then',
+        "  vectorcode vectorise $files",
+        "fi",
     ],
 }
 
