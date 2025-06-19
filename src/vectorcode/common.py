@@ -12,6 +12,7 @@ import chromadb
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
+from chromadb.api.types import IncludeEnum
 from chromadb.config import APIVersion, Settings
 from chromadb.utils import embedding_functions
 
@@ -248,3 +249,15 @@ def verify_ef(collection: AsyncCollection, configs: Config):
             f"The collection was embedded with a different set of configurations: {collection_ep}. The result may be inaccurate.",
         )
     return True
+
+
+async def list_collection_files(collection: AsyncCollection) -> list[str]:
+    return list(
+        set(
+            str(c.get("path", None))
+            for c in (await collection.get(include=[IncludeEnum.metadatas])).get(
+                "metadatas"
+            )
+            or []
+        )
+    )

@@ -23,7 +23,12 @@ from vectorcode.cli_utils import (
     expand_globs,
     expand_path,
 )
-from vectorcode.common import get_client, get_collection, verify_ef
+from vectorcode.common import (
+    get_client,
+    get_collection,
+    list_collection_files,
+    verify_ef,
+)
 
 logger = logging.getLogger(name=__name__)
 
@@ -155,6 +160,25 @@ async def chunked_add(
             stats.add += 1
 
 
+async def remove_orphanes(
+    collection: AsyncCollection,
+    collection_lock: Lock,
+    stats: VectoriseStats,
+    stats_lock: Lock,
+):
+    async with collection_lock:
+        paths = await list_collection_files(collection)
+        orphans = set()
+        for path in paths:
+            if isinstance(path, str) and not os.path.isfile(path):
+                orphans.add(path)
+        async with stats_lock:
+            stats.removed = len(orphans)
+        if len(orphans):
+            logger.info(f"Removing {len(orphans)} orphaned files from database.")
+            await collection.delete(where={"path": {"$in": list(orphans)}})
+
+
 def show_stats(configs: Config, stats: VectoriseStats):
     if configs.pipe:
         print(stats.to_json())
@@ -284,19 +308,7 @@ async def vectorise(configs: Config) -> int:
             print("Abort.", file=sys.stderr)
             return 1
 
-    async with collection_lock:
-        all_results = await collection.get(include=[IncludeEnum.metadatas])
-        if all_results is not None and all_results.get("metadatas"):
-            paths = (meta["path"] for meta in (all_results["metadatas"] or []))
-            orphans = set()
-            for path in paths:
-                if isinstance(path, str) and not os.path.isfile(path):
-                    orphans.add(path)
-            async with stats_lock:
-                stats.removed = len(orphans)
-            if len(orphans):
-                logger.info(f"Removing {len(orphans)} orphaned files from database.")
-                await collection.delete(where={"path": {"$in": list(orphans)}})
+    await remove_orphanes(collection, collection_lock, stats, stats_lock)
 
     show_stats(configs=configs, stats=stats)
     return 0

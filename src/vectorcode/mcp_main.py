@@ -17,6 +17,7 @@ from vectorcode.subcommands.vectorise import (
     chunked_add,
     exclude_paths_by_spec,
     find_exclude_specs,
+    remove_orphanes,
 )
 
 try:  # pragma: nocover
@@ -157,6 +158,9 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
     ]
     for i, task in enumerate(asyncio.as_completed(tasks), start=1):
         await task
+
+    await remove_orphanes(collection, collection_lock, stats, stats_lock)
+
     return stats.to_dict()
 
 

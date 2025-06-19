@@ -15,6 +15,7 @@ from vectorcode.subcommands.vectorise import (
     exclude_paths_by_spec,
     find_exclude_specs,
     load_files_from_include,
+    remove_orphanes,
 )
 
 try:  # pragma: nocover
@@ -220,6 +221,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                             percentage=int(100 * i / len(tasks)),
                         ),
                     )
+
+                await remove_orphanes(collection, collection_lock, stats, stats_lock)
+
                 ls.progress.end(
                     progress_token,
                     types.WorkDoneProgressEnd(

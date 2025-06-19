@@ -265,6 +265,9 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         patch(
             "vectorcode.lsp_main.make_caches", new_callable=AsyncMock
         ),  # Mock make_caches to avoid actual file system ops
+        patch(
+            "vectorcode.lsp_main.remove_orphanes", new_callable=AsyncMock
+        ) as mock_remove_orphanes,
     ):
         from unittest.mock import ANY
 
@@ -279,7 +282,7 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         mock_parse_cli_args.return_value = mock_config
         mock_client = AsyncMock()
         mock_get_client.return_value = mock_client
-        mock_collection = MagicMock()
+        mock_collection = AsyncMock()
         mock_get_collection.return_value = mock_collection
         mock_client.get_max_batch_size.return_value = 100  # Mock batch size
 
@@ -337,6 +340,7 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         assert mock_language_server.progress.report.call_count == len(
             dummy_expanded_files
         )
+        mock_remove_orphanes.assert_called_once()
         mock_language_server.progress.end.assert_called_once()
 
 
