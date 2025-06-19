@@ -27,6 +27,7 @@ __HOOK_CONTENTS: dict[str, list[str]] = {
     "post-checkout": [
         'if [ -z "$(echo $1|grep [^0])" ]; then',
         '  files=""',
+        "  ( [ -f .vectorcode/vectorcode.include ] || [ -f ~/.config/vectorcode/vectorcode.include ] ) && vectorcode vectorise || true",
         "else",
         '  files=$(git diff --name-only "$1" "$2")',
         "fi",
