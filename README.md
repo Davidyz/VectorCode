@@ -37,7 +37,7 @@ releases. Their capabilities on these projects are quite limited. With
 VectorCode, you can easily (and programmatically) inject task-relevant context
 from the project into the prompt. This significantly improves the quality of the
 model output and reduce hallucination.
-![](./images/codecompanion_chat.png)
+[![asciicast](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD.svg)](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD?t=3)
 
 ## Documentation
 

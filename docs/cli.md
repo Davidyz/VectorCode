@@ -99,9 +99,8 @@ set up a standalone local server (they provides detailed instructions through
 will significantly reduce the IO overhead and avoid potential race condition.
 
 > If you're setting up a standalone ChromaDB server, I recommend sticking to
-> v0.6.3.
-> ChromaDB recently released v1.0.0, which may not work with VectorCode. I'm
-> testing with v1.0.0 and will publish a new release when it's ready.
+> v0.6.3,
+> because VectorCode is not ready for the upgrade to ChromaDB 1.0 yet.
 
 ### For Windows Users
 
@@ -120,7 +119,9 @@ architecture, python version and the vectorcode virtual environment
 ### Nix
 
 A community-maintained Nix package is available 
-[here](https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=vectorcode).
+[here](https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=vectorcode). 
+If you're using nix to install a standalone Chromadb server, make sure to stick
+to [0.6.3](https://github.com/NixOS/nixpkgs/pull/412528).
 
 ## Getting Started
 
@@ -226,29 +227,21 @@ hooks. The `init` subcommand provides a `--hooks` flag which helps you manage
 hooks when working with a git repository. You can put some custom hooks in
 `~/.config/vectorcode/hooks/` and the `vectorcode init --hooks` command will 
 pick them up and append them to your existing hooks, or create new hook scripts 
-if they don't exist yet. The hook files should be named the same as they would 
-be under the `.git/hooks` directory. For example, a pre-commit hook would be named 
-`~/.config/vectorcode/hooks/pre-commit`. 
+if they don't exist yet. The custom hook files should be named the same as they 
+would be under the `.git/hooks` directory. For example, a pre-commit hook would 
+be named `~/.config/vectorcode/hooks/pre-commit`. 
 
 By default, there are 2 pre-defined hooks:
-```bash
-# pre-commit hook that vectorise changed files before you commit.
-diff_files=$(git diff --cached --name-only)
-[ -z "$diff_files" ] || vectorcode vectorise $diff_files
-```
-```bash
-# post-checkout hook that vectorise changed files when you checkout to a
-# different branch/tag/commit
-files=$(git diff --name-only "$1" "$2")
-[ -z "$files" ] || vectorcode vectorise $files
-```
-When you run `vectorcode init --hooks` in a git repo, these 2 hooks will be added 
-to your `.git/hooks/`. Hooks that are managed by VectorCode will be wrapped by 
-`# VECTORCODE_HOOK_START` and `# VECTORCODE_HOOK_END` comment lines. They help 
-VectorCode determine whether hooks have been added, so don't delete the markers 
-unless you know what you're doing. To remove the hooks, simply delete the lines
-wrapped by these 2 comment strings.
 
+1. A pre-commit hook that vectorises the modified files.
+2. A post-checkout hook that:
+    - vectorises the full repository if it's an initial commit/clone and a
+      `vectorcode.include` spec is available (either locally in the project or
+      globally);
+    - vectorises the files changed by the checkout.
+
+Both hooks will only be triggered on repositories that have a `.vectorcode`
+directory in them.
 
 ### Configuring VectorCode
 Since 0.6.4, VectorCode adapted a [json5 parser](https://github.com/dpranke/pyjson5) 

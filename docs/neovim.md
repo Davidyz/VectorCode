@@ -14,11 +14,11 @@
 * [Installation](#installation)
   * [Nix](#nix)
 * [Integrations](#integrations)
+* [Configuration](#configuration)
+  * [`setup(opts?)`](#setupopts)
 * [User Command](#user-command)
   * [`VectorCode register`](#vectorcode-register)
   * [`VectorCode deregister`](#vectorcode-deregister)
-* [Configuration](#configuration)
-  * [`setup(opts?)`](#setupopts)
 * [API Usage](#api-usage)
   * [Synchronous API](#synchronous-api)
     * [`query(query_message, opts?, callback?)`](#queryquery_message-opts-callback)
@@ -55,7 +55,7 @@ together because the neovim plugin is built for a newer CLI release and depends
 on newer features/breaking changes.
 
 To ensure maximum compatibility, please either:
-1. Use release build for VectorCode CLI and pin to the release tags for the
+1. Use release build for VectorCode CLI and pin to the releases for the
    neovim plugin;
 
 **OR**
@@ -91,48 +91,13 @@ submitted by [@sarahec](https://github.com/sarahec) for the Neovim plugin.
 contains instructions to integrate VectorCode with the following plugins:
 
 - [milanglacier/minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim);
-- [olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim);
+- [olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim) [^⭐];
 - [nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim);
-- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim);
-- [ravitemer/mcphub.nvim](https://github.com/ravitemer/mcphub.nvim).
+- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim) [^⭐];
+- [ravitemer/mcphub.nvim](https://github.com/ravitemer/mcphub.nvim)[^⭐].
 
-## User Command
-### `VectorCode register`
-
-Register the current buffer for async caching. It's possible to register the
-current buffer to a different vectorcode project by passing the `project_root`
-parameter:
-```
-:VectorCode register project_root=path/to/another/project/
-```
-This is useful if you're working on a project that is closely related to a
-different project, for example a utility repository for a main library or a
-documentation repository. Alternatively, you can call the [lua API](#cached-asynchronous-api) in an autocmd:
-```lua
-vim.api.nvim_create_autocmd("LspAttach", {
-  callback = function()
-    local bufnr = vim.api.nvim_get_current_buf()
-    cacher.async_check("config", function()
-      cacher.register_buffer(
-        bufnr,
-        { 
-          n_query = 10,
-        }
-      )
-    end, nil)
-  end,
-  desc = "Register buffer for VectorCode",
-})
-```
-The latter avoids the manual registrations, but registering too many buffers
-means there will be a lot of background processes/requests being sent to
-VectorCode. Choose these based on your workflow and the capability of your
-system.
-
-### `VectorCode deregister`
-
-Deregister the current buffer. Any running jobs will be killed, cached results
-will be deleted, and no more queries will be run.
+⭐: For these plugins, having the plugin installed is sufficient. please go ahead to 
+the wiki for further instructions.
 
 ## Configuration
 
@@ -210,6 +175,44 @@ options are designated for the [Synchronous API](#synchronous-api) and the ones
 in `async_opts` is for the [Cached Asynchronous API](#cached-asynchronous-api).
 The `async_opts` will reuse the synchronous API options if not explicitly
 configured.
+
+## User Command
+### `VectorCode register`
+
+Register the current buffer for async caching. It's possible to register the
+current buffer to a different vectorcode project by passing the `project_root`
+parameter:
+```
+:VectorCode register project_root=path/to/another/project/
+```
+This is useful if you're working on a project that is closely related to a
+different project, for example a utility repository for a main library or a
+documentation repository. Alternatively, you can call the [lua API](#cached-asynchronous-api) in an autocmd:
+```lua
+vim.api.nvim_create_autocmd("LspAttach", {
+  callback = function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    cacher.async_check("config", function()
+      cacher.register_buffer(
+        bufnr,
+        { 
+          n_query = 10,
+        }
+      )
+    end, nil)
+  end,
+  desc = "Register buffer for VectorCode",
+})
+```
+The latter avoids the manual registrations, but registering too many buffers
+means there will be a lot of background processes/requests being sent to
+VectorCode. Choose these based on your workflow and the capability of your
+system.
+
+### `VectorCode deregister`
+
+Deregister the current buffer. Any running jobs will be killed, cached results
+will be deleted, and no more queries will be run.
 
 ## API Usage
 This plugin provides 2 sets of APIs that provides similar functionalities. The
