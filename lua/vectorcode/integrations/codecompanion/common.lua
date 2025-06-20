@@ -7,17 +7,15 @@ local logger = vc_config.logger
 local default_query_options = {
   max_num = { chunk = -1, document = -1 },
   default_num = { chunk = 50, document = 10 },
-  use_lsp = false,
-  ls_on_start = false,
   no_duplicate = true,
   chunk_mode = false,
 }
 
 ---@type VectorCode.CodeCompanion.LsToolOpts
-local default_ls_options = { use_lsp = false }
+local default_ls_options = {}
 
 ---@type VectorCode.CodeCompanion.VectoriseToolOpts
-local default_vectorise_options = { use_lsp = false }
+local default_vectorise_options = {}
 
 return {
   tool_result_source = "VectorCodeToolResult",

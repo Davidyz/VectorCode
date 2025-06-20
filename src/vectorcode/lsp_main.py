@@ -159,7 +159,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     progress_token,
                     types.WorkDoneProgressBegin(
                         "VectorCode",
-                        message="Looking for other projects indexed by VectorCode",
+                        message="Looking for available projects indexed by VectorCode",
                     ),
                 )
                 projects: list[dict] = []

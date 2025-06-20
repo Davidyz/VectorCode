@@ -12,9 +12,15 @@
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
 
+local use_lsp = vc_config.get_user_config().async_backend == "lsp"
+
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
-  tool_opts = { ls = {}, query = {}, vectorise = { requires_approval = true } },
+  tool_opts = {
+    ls = { use_lsp = use_lsp, requires_approval = false },
+    query = { use_lsp = use_lsp, requires_approval = false },
+    vectorise = { use_lsp = use_lsp, requires_approval = true },
+  },
   tool_group = { enabled = true, collapse = true, extras = {} },
 }
 

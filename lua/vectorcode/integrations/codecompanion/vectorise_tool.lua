@@ -67,6 +67,9 @@ return function(opts)
             }
           end
         end
+        if project_root ~= "" then
+          action.project_root = project_root
+        end
         vim.list_extend(
           args,
           vim
@@ -105,8 +108,9 @@ return function(opts)
       end,
       ---@param self CodeCompanion.Agent.Tool
       ---@param agent CodeCompanion.Agent
+      ---@param cmd VectoriseToolArgs
       ---@param stdout VectorCode.VectoriseResult[]
-      success = function(self, agent, _, stdout)
+      success = function(self, agent, cmd, stdout)
         stdout = stdout[1]
         agent.chat:add_tool_output(
           self,
@@ -125,6 +129,13 @@ return function(opts)
             stdout.failed
           )
         )
+        if cmd.project_root and cmd.project_root then
+          agent.chat:add_tool_output(
+            self,
+            string.format("\nThe files were added to `%s`", cmd.project_root),
+            ""
+          )
+        end
       end,
     },
   }
