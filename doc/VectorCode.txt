@@ -21,7 +21,8 @@ Table of Contents                               *VectorCode-table-of-contents*
   proceeding.
 
   [!NOTE] When the neovim plugin doesn’t work properly, please try upgrading
-  the CLI tool to the latest version before opening an issue.
+  both the CLI and the neovim plugin to the latest version before opening an
+  issue.
 - |VectorCode-installation|
     - |VectorCode-nix|
 - |VectorCode-integrations|
@@ -49,7 +50,7 @@ Table of Contents                               *VectorCode-table-of-contents*
 
 INSTALLATION                           *VectorCode-neovim-plugin-installation*
 
-Use your favorite plugin manager.
+Using Lazy:
 
 >lua
     {
@@ -75,7 +76,7 @@ VectorCode CLI and pin to the releases for the neovim plugin;
 the latest GitHub commit.
 
 It may be helpful to use a `build` hook to automatically upgrade the CLI when
-the neovim plugin updates. For example, if you’re using lazy.nvim and `pipx`,
+the neovim plugin updates. For example, if you’re using lazy.nvim and `uv`,
 you can use the following plugin spec:
 
 >lua
@@ -105,13 +106,10 @@ The wiki <https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations>
 contains instructions to integrate VectorCode with the following plugins:
 
 - milanglacier/minuet-ai.nvim <https://github.com/milanglacier/minuet-ai.nvim>;
-- olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim> [^];
+- olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim>;
 - nvim-lualine/lualine.nvim <https://github.com/nvim-lualine/lualine.nvim>;
-- CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim> [^];
-- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>[^].
-
-For these plugins, having the plugin installed is sufficient. please go ahead
-to the wiki for further instructions.
+- CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim>;
+- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>.
 
 
 CONFIGURATION                         *VectorCode-neovim-plugin-configuration*
@@ -176,9 +174,9 @@ wait for the server loading when making your first request. -
 `sync_log_env_var``boolean`. If true, this plugin will automatically set the
 `VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
 within your neovim session when logging is turned on for this plugin. Use at
-caution because the CLI write all logs to stderr, which _may_ make this plugin
-VERY verbose. See |VectorCode-debugging-and-logging| for details on how to turn
-on logging.
+caution because the non-LSP CLI write all logs to stderr, which _may_ make this
+plugin VERY verbose. See |VectorCode-debugging-and-logging| for details on how
+to turn on logging.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the
@@ -189,6 +187,9 @@ configured.
 
 
 USER COMMAND                           *VectorCode-neovim-plugin-user-command*
+
+The neovim plugin provides user commands to work with
+|VectorCode-async-caching|.
 
 
 VECTORCODE REGISTER ~
@@ -307,6 +308,9 @@ path/document content to the prompt like this:
     end
 <
 
+Keep in mind that this `query` function call will be synchronous and therefore
+block the neovim UI. This is where the async cache comes in.
+
 
 CHECK(CHECK_ITEM?)
 
@@ -370,8 +374,8 @@ path to the executable) by calling `vim.lsp.config('vectorcode_server', opts)`.
 
   Cons       Heavy IO overhead because the   Requires vectorcode-server; Only
              embedding model and database    works if you’re using a standalone
-             client need to be initialised   ChromaDB server; May contain bugs
-             for every query.                because it’s new.
+             client need to be initialised   ChromaDB server.
+             for every query.                
   -------------------------------------------------------------------------------
 You may choose which backend to use by setting the |VectorCode-`setup`| option
 `async_backend`, and acquire the corresponding backend by the following API:
@@ -400,9 +404,9 @@ This function registers a buffer to be cached by VectorCode.
 <
 
 The following are the available options for this function: - `bufnr`buffer
-number. Default: current buffer; - `opts`accepts a lua table with the following
-keys: - `project_root`a string of the path that overrides the detected project
-root. Default: `nil`. This is mostly intended to use with the
+number. Default: `0` (current buffer); - `opts`accepts a lua table with the
+following keys: - `project_root`a string of the path that overrides the
+detected project root. Default: `nil`. This is mostly intended to use with the
 |VectorCode-user-command|, and you probably should not use this directly in
 your config. **If you’re using the LSP backend and did not specify this
 value, it will be automatically detected based on .vectorcode or .git. If this
