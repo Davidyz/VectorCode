@@ -1,6 +1,7 @@
 This project uses [pre-commit](https://pre-commit.com/) to perform some
-formatting and linting that hasn't made its way into CI/CD. If you're
-contributing to this project, make sure you set it up before you make the commit. 
+formatting and linting. If you're
+contributing to this project, having it on your system will help you write code
+that passes the CI. 
 You can also see 
 [.pre-commit-config.yaml](https://github.com/Davidyz/VectorCode/blob/main/.pre-commit-config.yaml) 
 for a list of hooks enabled for the repo.
@@ -16,9 +17,9 @@ actually optional, but for convenience I decided to leave them here. This will
 include [pytest](https://docs.pytest.org/en/stable/), the testing framework, 
 and [coverage.py](https://coverage.readthedocs.io/en/7.7.1/), the coverage
 report tool. If you're not familiar with pytest or coverage.py, you can run `make test` to
-run tests, and `make coverage` to generate a coverage report. The testing and
-coverage report are also in the CI configuration, but it might still help to run
-them locally before you open the PR.
+run tests on all python code, and `make coverage` to generate a coverage report. 
+The testing and coverage report are also in the CI configuration, but it might 
+still help to run them locally before you open the PR.
 
 This project also runs static analysis with
 [basedpyright](https://docs.basedpyright.com). GitHub Action will also run the

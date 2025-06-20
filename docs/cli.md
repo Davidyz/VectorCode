@@ -174,9 +174,9 @@ reading or use the `--help` flag.
 
 To maintain the accuracy of the vector search, it's important to keep your
 embeddings up-to-date. You can simply run the `vectorise` subcommand on a file
-to refresh the embedding for a particular file, and the CLI provides a 
+to refresh the embedding for that file. Apart from that, the CLI provides a 
 `vectorcode update` subcommand, which updates the embeddings for all files that 
-are currently indexed by VectorCode for the current project. 
+are currently indexed by VectorCode for the current project.
 
 If you want something more automagic, check out 
 [the advanced usage section](#git-hooks) 
@@ -198,7 +198,7 @@ For each project, VectorCode creates a collection (similar to tables in
 traditional databases) and puts the code embeddings in the corresponding
 collection. In the root directory of a project, you may run `vectorcode init`.
 This will initialise the repository with a subdirectory
-`project_root/.vectorcode/`. This will mark this directory a _project root_, a
+`project_root/.vectorcode/`. This will mark this directory as a _project root_, a
 concept that will later be used to construct the collection. You may put a
 `config.json` file in `project_root/.vectorcode`. This file may be used to store
 project-specific settings such as embedding functions and database entry point
@@ -272,8 +272,9 @@ The JSON configuration file may hold the following values:
 - `db_url`: string, the url that points to the Chromadb server. VectorCode will start an
   HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
   configured `http://host:port` is not accessible. Default: `http://127.0.0.1:8000`;
-- `db_path`: string, Path to local persistent database. This is where the files for 
-  your database will be stored. Default: `~/.local/share/vectorcode/chromadb/`;
+- `db_path`: string, Path to local persistent database. If you didn't set up a standalone 
+  Chromadb server, this is where the files for your database will be stored. 
+  Default: `~/.local/share/vectorcode/chromadb/`;
 - `db_log_path`: string, path to the _directory_ where the built-in chromadb
   server will write the log to. Default: `~/.local/share/vectorcode/`;
 - `chunk_size`: integer, the maximum number of characters per chunk. A larger
@@ -281,7 +282,7 @@ The JSON configuration file may hold the following values:
   search, but at the cost of potentially truncated data and lost information.
   Default: `2500`. To disable chunking, set it to a negative number;
 - `overlap_ratio`: float between 0 and 1, the ratio of overlapping/shared content 
-  between 2 adjacent chunks. A larger ratio improves the coherences of chunks,
+  between 2 adjacent chunks. A larger ratio improves the coherence of chunks,
   but at the cost of increasing number of entries in the database and hence
   slowing down the search. Default: `0.2`. _Starting from 0.4.11, VectorCode
   will use treesitter to parse languages that it can automatically detect. It
@@ -316,7 +317,6 @@ The JSON configuration file may hold the following values:
     }
   }
   ```
-  ;
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
   for Chromadb client settings so that you can configure 
   [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
@@ -325,9 +325,8 @@ The JSON configuration file may hold the following values:
   that may improve the query performances or avoid runtime errors during
   queries. **It's recommended to re-vectorise the collection after modifying these
   options, because some of the options can only be set during collection
-  creation.** Example:
+  creation.** Example (and default):
   ```json5
-  // the following is the default value.
   "hnsw": {
     "hnsw:M": 64,
   }
@@ -509,13 +508,16 @@ When something doesn't work as expected, you can enable logging by setting the
 `VECTORCODE_LOG_LEVEL` variable to one of `ERROR`, `WARN` (`WARNING`), `INFO` or
 `DEBUG`. For the CLI that you interact with in your shell, this will output logs
 to `STDERR` and write a log file to `~/.local/share/vectorcode/logs/`. For LSP
-and MCP servers, because `STDIO` is used for the RPC, only the log file will be
-written.
+and MCP servers, because `STDIO` is used for the RPC, the logs will only be
+written to the log file, not `STDERR`.
 
 For example:
 ```bash
 VECTORCODE_LOG_LEVEL=INFO vectorcode vectorise file1.py file2.lua
 ```
+
+> Depending on the MCP/LSP client implementation, you may need to take extra
+> steps to make sure the environment variables are captured by VectorCode.
 
 ## Shell Completion
 
@@ -540,7 +542,7 @@ following options in the JSON config file:
 
 For Intel users, [sentence transformer](https://www.sbert.net/index.html)
 supports [OpenVINO](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) 
-backend for supported GPU. Run `pipx install vectorcode[intel]` which will 
+backend for supported GPU. Run `uv install vectorcode[intel]` which will 
 bundle the relevant libraries when you install VectorCode. After that, you will
 need to configure `SentenceTransformer` to use `openvino` backend. In your
 `config.json`, set `backend` key in `embedding_params` to `"openvino"`:
