@@ -6,8 +6,8 @@ Table of Contents                               *VectorCode-table-of-contents*
 1. NeoVim Plugin                                    |VectorCode-neovim-plugin|
   - Installation                       |VectorCode-neovim-plugin-installation|
   - Integrations                       |VectorCode-neovim-plugin-integrations|
-  - User Command                       |VectorCode-neovim-plugin-user-command|
   - Configuration                     |VectorCode-neovim-plugin-configuration|
+  - User Command                       |VectorCode-neovim-plugin-user-command|
   - API Usage                             |VectorCode-neovim-plugin-api-usage|
   - Debugging and Logging     |VectorCode-neovim-plugin-debugging-and-logging|
 2. Links                                                    |VectorCode-links|
@@ -25,11 +25,11 @@ Table of Contents                               *VectorCode-table-of-contents*
 - |VectorCode-installation|
     - |VectorCode-nix|
 - |VectorCode-integrations|
+- |VectorCode-configuration|
+    - |VectorCode-`setup(opts?)`|
 - |VectorCode-user-command|
     - |VectorCode-`vectorcode-register`|
     - |VectorCode-`vectorcode-deregister`|
-- |VectorCode-configuration|
-    - |VectorCode-`setup(opts?)`|
 - |VectorCode-api-usage|
     - |VectorCode-synchronous-api|
         - |VectorCode-`query(query_message,-opts?,-callback?)`|
@@ -67,7 +67,7 @@ together because the neovim plugin is built for a newer CLI release and depends
 on newer features/breaking changes.
 
 To ensure maximum compatibility, please either: 1. Use release build for
-VectorCode CLI and pin to the release tags for the neovim plugin;
+VectorCode CLI and pin to the releases for the neovim plugin;
 
 **OR**
 
@@ -105,57 +105,13 @@ The wiki <https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations>
 contains instructions to integrate VectorCode with the following plugins:
 
 - milanglacier/minuet-ai.nvim <https://github.com/milanglacier/minuet-ai.nvim>;
-- olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim>;
+- olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim> [^];
 - nvim-lualine/lualine.nvim <https://github.com/nvim-lualine/lualine.nvim>;
-- CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim>;
-- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>.
+- CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim> [^];
+- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>[^].
 
-
-USER COMMAND                           *VectorCode-neovim-plugin-user-command*
-
-
-VECTORCODE REGISTER ~
-
-Register the current buffer for async caching. It’s possible to register the
-current buffer to a different vectorcode project by passing the `project_root`
-parameter:
-
->
-    :VectorCode register project_root=path/to/another/project/
-<
-
-This is useful if you’re working on a project that is closely related to a
-different project, for example a utility repository for a main library or a
-documentation repository. Alternatively, you can call the |VectorCode-lua-api|
-in an autocmd:
-
->lua
-    vim.api.nvim_create_autocmd("LspAttach", {
-      callback = function()
-        local bufnr = vim.api.nvim_get_current_buf()
-        cacher.async_check("config", function()
-          cacher.register_buffer(
-            bufnr,
-            { 
-              n_query = 10,
-            }
-          )
-        end, nil)
-      end,
-      desc = "Register buffer for VectorCode",
-    })
-<
-
-The latter avoids the manual registrations, but registering too many buffers
-means there will be a lot of background processes/requests being sent to
-VectorCode. Choose these based on your workflow and the capability of your
-system.
-
-
-VECTORCODE DEREGISTER ~
-
-Deregister the current buffer. Any running jobs will be killed, cached results
-will be deleted, and no more queries will be run.
+For these plugins, having the plugin installed is sufficient. please go ahead
+to the wiki for further instructions.
 
 
 CONFIGURATION                         *VectorCode-neovim-plugin-configuration*
@@ -230,6 +186,53 @@ top-level options are designated for the |VectorCode-synchronous-api| and the
 ones in `async_opts` is for the |VectorCode-cached-asynchronous-api|. The
 `async_opts` will reuse the synchronous API options if not explicitly
 configured.
+
+
+USER COMMAND                           *VectorCode-neovim-plugin-user-command*
+
+
+VECTORCODE REGISTER ~
+
+Register the current buffer for async caching. It’s possible to register the
+current buffer to a different vectorcode project by passing the `project_root`
+parameter:
+
+>
+    :VectorCode register project_root=path/to/another/project/
+<
+
+This is useful if you’re working on a project that is closely related to a
+different project, for example a utility repository for a main library or a
+documentation repository. Alternatively, you can call the |VectorCode-lua-api|
+in an autocmd:
+
+>lua
+    vim.api.nvim_create_autocmd("LspAttach", {
+      callback = function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        cacher.async_check("config", function()
+          cacher.register_buffer(
+            bufnr,
+            { 
+              n_query = 10,
+            }
+          )
+        end, nil)
+      end,
+      desc = "Register buffer for VectorCode",
+    })
+<
+
+The latter avoids the manual registrations, but registering too many buffers
+means there will be a lot of background processes/requests being sent to
+VectorCode. Choose these based on your workflow and the capability of your
+system.
+
+
+VECTORCODE DEREGISTER ~
+
+Deregister the current buffer. Any running jobs will be killed, cached results
+will be deleted, and no more queries will be run.
 
 
 API USAGE                                 *VectorCode-neovim-plugin-api-usage*
