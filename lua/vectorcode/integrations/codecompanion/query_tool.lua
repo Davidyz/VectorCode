@@ -1,6 +1,9 @@
 ---@module "codecompanion"
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
+local cc_config = require("codecompanion.config").config
+local cc_schema = require("codecompanion.schema")
+local http_client = require("codecompanion.http")
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
 local logger = vc_config.logger
@@ -78,6 +81,79 @@ local filter_results = function(results, chat)
   end
 
   return filtered_results
+end
+
+--- Produce a callback function that triggers `cb` on the nth time this is called.
+---@param n integer
+---@param cb function
+local function cb_on_count(n, cb)
+  local count = n
+  return function()
+    count = count - 1
+    assert(
+      count >= 0,
+      string.format("This function should be called at most %d times.", n)
+    )
+    if count == 0 then
+      cb()
+    end
+  end
+end
+
+---@alias ChatMessage {role: string, content:string}
+
+---@param adapter CodeCompanion.Adapter
+---@param system_prompt string
+---@param user_messages string|string[]
+---@return {messages: ChatMessage[], tools:table?}
+local function make_oneshot_payload(adapter, system_prompt, user_messages)
+  if type(user_messages) == "string" then
+    user_messages = { user_messages }
+  end
+  local messages =
+    { { role = cc_config.constants.SYSTEM_ROLE, content = system_prompt } }
+  for _, m in pairs(user_messages) do
+    table.insert(messages, { role = cc_config.constants.USER_ROLE, content = m })
+  end
+  return { messages = adapter:map_roles(messages) }
+end
+
+---@param result VectorCode.QueryResult
+---@param summarise_opts VectorCode.CodeCompanion.SummariseOpts
+---@param callback fun(result: VectorCode.QueryResult)
+local function generate_summary(result, summarise_opts, callback)
+  if summarise_opts.enabled and type(callback) == "function" then
+    ---@type CodeCompanion.Adapter
+    local adapter =
+      vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
+
+    local payload = make_oneshot_payload(
+      adapter,
+      summarise_opts.system_prompt,
+      cc_common.process_result(result)
+    )
+    local settings =
+      vim.deepcopy(adapter:map_schema_to_params(cc_schema.get_default(adapter)))
+    settings.opts.stream = false
+
+    ---@type CodeCompanion.Client
+    local client = http_client.new({ adapter = settings })
+    client:request(payload, {
+      ---@param _adapter CodeCompanion.Adapter
+      callback = function(err, data, _adapter)
+        if data then
+          local res = _adapter.handlers.chat_output(_adapter, data)
+          if res and res.status == "success" then
+            local summary = vim.trim(res.output.content or "")
+            if summary ~= "" then
+              result.summary = summary
+            end
+          end
+        end
+        callback(result)
+      end,
+    }, { silent = true })
+  end
 end
 
 ---@param opts VectorCode.CodeCompanion.QueryToolOpts?
@@ -181,7 +257,12 @@ return check_cli_wrap(function(opts)
 
         job_runner.run_async(args, function(result, error)
           if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.QueryResult[]
-            cb({ status = "success", data = result })
+            local counted_cb = cb_on_count(#result, function()
+              cb({ status = "success", data = result })
+            end)
+            for _, res in pairs(result) do
+              generate_summary(res, opts.summarise, counted_cb)
+            end
           else
             if type(error) == "table" then
               error = cc_common.flatten_table_to_string(error)
