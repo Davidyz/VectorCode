@@ -21,6 +21,11 @@ local default_vectorise_options = {}
 
 local TOOL_RESULT_SOURCE = "VectorCodeToolResult"
 
+---@alias chat_id integer
+---@alias result_id string
+---@type <chat_id: result_id>
+local result_tracker = {}
+
 return {
   tool_result_source = TOOL_RESULT_SOURCE,
   ---@param t table|string
@@ -181,22 +186,40 @@ return {
       )
       :totable()
 
-    return vim
+    ---@type VectorCode.QueryResult[]
+    local filtered_results = vim
       .iter(results)
       :filter(
         ---@param res VectorCode.QueryResult
         function(res)
-          -- return true if res is not in refs
+          -- return true if res should be kept
           if res.chunk then
             if res.chunk_id == nil then
               return true
             end
+            if
+              result_tracker[chat.id] ~= nil and result_tracker[chat.id][res.chunk_id]
+            then
+              return false
+            end
             return not vim.tbl_contains(existing_refs, res.chunk_id)
           else
+            if result_tracker[chat.id] ~= nil and result_tracker[chat.id][res.path] then
+              return false
+            end
             return not vim.tbl_contains(existing_refs, res.path)
           end
         end
       )
       :totable()
+
+    for _, res in pairs(filtered_results) do
+      if result_tracker[chat.id] == nil then
+        result_tracker[chat.id] = {}
+      end
+      result_tracker[chat.id][res.chunk_id or res.path] = true
+    end
+
+    return filtered_results
   end,
 }
