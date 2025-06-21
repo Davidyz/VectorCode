@@ -160,10 +160,8 @@ return {
   ---@param chat CodeCompanion.Chat
   ---@return VectorCode.QueryResult[]
   filter_results = function(results, chat)
-    local existing_refs = chat.refs
-    if existing_refs == nil then
-      return results
-    end
+    local existing_refs = chat.refs or {}
+
     existing_refs = vim
       .iter(existing_refs)
       :filter(

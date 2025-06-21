@@ -148,6 +148,7 @@ You may include multiple keywords in the command.
               description = [[
 Query messages used for the search. They should also contain relevant keywords.
 For example, you should include `parameter`, `arguments` and `return value` for the query `function`.
+If a query returned empty or repeated results, you should avoid using these query keywords, unless the user instructed otherwise.
               ]],
             },
             count = {
@@ -219,7 +220,9 @@ For example, you should include `parameter`, `arguments` and `return value` for 
         if opts.max_num > 0 then
           max_result = math.min(opts.max_num or 1, max_result)
         end
-        stdout = cc_common.filter_results(stdout, agent.chat)
+        if opts.no_duplicate then
+          stdout = cc_common.filter_results(stdout, agent.chat)
+        end
         for i, file in pairs(stdout) do
           if i <= max_result then
             if i == 1 then
