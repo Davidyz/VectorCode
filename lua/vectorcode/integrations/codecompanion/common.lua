@@ -1,3 +1,5 @@
+---@module "codecompanion"
+
 local job_runner
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
@@ -17,8 +19,15 @@ local default_ls_options = {}
 ---@type VectorCode.CodeCompanion.VectoriseToolOpts
 local default_vectorise_options = {}
 
+local TOOL_RESULT_SOURCE = "VectorCodeToolResult"
+
+---@alias chat_id integer
+---@alias result_id string
+---@type <chat_id: result_id>
+local result_tracker = {}
+
 return {
-  tool_result_source = "VectorCodeToolResult",
+  tool_result_source = TOOL_RESULT_SOURCE,
   ---@param t table|string
   ---@return string
   flatten_table_to_string = function(t)
@@ -122,6 +131,7 @@ return {
     end
     return llm_message
   end,
+
   ---@param use_lsp boolean
   ---@return VectorCode.JobRunner
   initialise_runner = function(use_lsp)
@@ -144,5 +154,70 @@ return {
       end
     end
     return job_runner
+  end,
+
+  ---@param results VectorCode.QueryResult[]
+  ---@param chat CodeCompanion.Chat
+  ---@return VectorCode.QueryResult[]
+  filter_results = function(results, chat)
+    local existing_refs = chat.refs or {}
+
+    existing_refs = vim
+      .iter(existing_refs)
+      :filter(
+        ---@param ref CodeCompanion.Chat.Ref
+        function(ref)
+          return ref.source == TOOL_RESULT_SOURCE or ref.path or ref.bufnr
+        end
+      )
+      :map(
+        ---@param ref CodeCompanion.Chat.Ref
+        function(ref)
+          if ref.source == TOOL_RESULT_SOURCE then
+            return ref.id
+          elseif ref.path then
+            return ref.path
+          elseif ref.bufnr then
+            return vim.api.nvim_buf_get_name(ref.bufnr)
+          end
+        end
+      )
+      :totable()
+
+    ---@type VectorCode.QueryResult[]
+    local filtered_results = vim
+      .iter(results)
+      :filter(
+        ---@param res VectorCode.QueryResult
+        function(res)
+          -- return true if res should be kept
+          if res.chunk then
+            if res.chunk_id == nil then
+              return true
+            end
+            if
+              result_tracker[chat.id] ~= nil and result_tracker[chat.id][res.chunk_id]
+            then
+              return false
+            end
+            return not vim.tbl_contains(existing_refs, res.chunk_id)
+          else
+            if result_tracker[chat.id] ~= nil and result_tracker[chat.id][res.path] then
+              return false
+            end
+            return not vim.tbl_contains(existing_refs, res.path)
+          end
+        end
+      )
+      :totable()
+
+    for _, res in pairs(filtered_results) do
+      if result_tracker[chat.id] == nil then
+        result_tracker[chat.id] = {}
+      end
+      result_tracker[chat.id][res.chunk_id or res.path] = true
+    end
+
+    return filtered_results
   end,
 }

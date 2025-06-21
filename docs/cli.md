@@ -595,16 +595,20 @@ If you used `--include chunk path` parameters, the array will look like this:
         "chunk": "foo",
         "start_line": 1,
         "end_line": 1,
+        "chunk_id": "chunk_id_1"
     },
     {
         "path": "path_to_another_file.py",
         "chunk": "bar",
         "start_line": 1,
         "end_line": 1,
+        "chunk_id": "chunk_id_2"
     }
 ]
 ```
-Keep in mind that both `start_line` and `end_line` are inclusive.
+Keep in mind that both `start_line` and `end_line` are inclusive. The `chunk_id`
+is a random string that can be used as a unique identifier to distinguish
+between chunks. These are the same IDs used in the database.
 
 #### `vectorcode vectorise`
 The output is in JSON format. It contains a dictionary with the following fields:

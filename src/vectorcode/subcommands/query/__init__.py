@@ -114,7 +114,10 @@ async def build_query_results(
                 assert chunk_texts is not None, (
                     "QueryResult does not contain `documents`!"
                 )
-                full_result: dict[str, str | int] = {"chunk": str(chunk_texts[0])}
+                full_result: dict[str, str | int] = {
+                    "chunk": str(chunk_texts[0]),
+                    "chunk_id": identifier,
+                }
                 if meta[0].get("start") is not None and meta[0].get("end") is not None:
                     path = str(meta[0].get("path"))
                     with open(path) as fin:
