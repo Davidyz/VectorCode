@@ -1,7 +1,16 @@
+---@module "codecompanion"
+
 local job_runner
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
+
+---@class VectorCode.CodeCompanion.SummariseOpts
+---@field enabled boolean?
+---@field adapter string|CodeCompanion.Adapter|nil
+---@field threshold integer?
+---@field system_prompt string
+---@field timeout integer
 
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
@@ -9,6 +18,54 @@ local default_query_options = {
   default_num = { chunk = 50, document = 10 },
   no_duplicate = true,
   chunk_mode = false,
+  summarise = {
+    enabled = false,
+    timeout = 5000,
+    system_prompt = [[You are an expert and experienced code analyzer and summarizer. Your primary task is to analyze provided source code and generate a comprehensive, well-structured Markdown summary. This summary will serve as a concise source of information for others to quickly understand how the code works and how to interact with it, without needing to delve into the full source code. Adhere strictly to the following formatting and content guidelines:
+
+Markdown Structure:
+
+    Top-Level Header (#): The absolute file path of the source code.
+
+    Secondary Headers (##): For each top-level symbol (e.g., functions, classes, global variables) defined directly within the source code file that are importable or includable by other programs.
+
+    Tertiary Headers (###): For symbols nested one level deep within a secondary header's symbol (e.g., methods within a class, inner functions).
+
+    Quaternary Headers (####): For symbols nested two levels deep (e.g., a function defined within a method of a class).
+
+    Continue this pattern, incrementing the header level for each deeper level of nesting.
+
+Content for Each Section:
+
+    Descriptive Summary: Each header section (from secondary headers downwards) must contain a concise and informative summary of the symbol defined by that header.
+
+        For Functions/Methods: Explain their purpose, parameters (including types), return values (including types), high-level implementation details, and any significant side effects or core logic. For example, if summarizing a sorting function, include the sorting algorithm used. If summarizing a function that makes an HTTP request, mention the network library employed.
+
+        For Classes: Describe the class's role, its main responsibilities, and key characteristics.
+
+        For Variables (global or within scope): State their purpose, type (if discernible), and initial value or common usage.
+
+        For Modules/Files (under the top-level header): Provide an overall description of the file's purpose, its main components, and its role within the larger project (if context is available).
+
+General Guidelines:
+
+    Clarity and Conciseness: Summaries should be easy to understand, avoiding jargon where possible, and as brief as possible while retaining essential information.
+
+    Accuracy: Ensure the summary accurately reflects the code's functionality.
+
+    Focus on Public Interface/Behavior: Prioritize describing what a function/class does and how it's used. Only include details about symbols (variables, functions, classes) that are importable/includable by other programs. DO NOT include local variables and functions that are not accessible by other functions outside their immediate scope.
+
+    No Code Snippets: Do not include any actual code snippets in the summary. Focus solely on descriptive text. If you need to refer to a specific element for context (e.g., in an error description), describe it and provide line numbers for reference from the source code.
+
+    Syntax/Semantic Errors: If the code contains syntax or semantic errors, describe them clearly within the summary, indicating the nature of the error.
+
+    Language Agnostic: Adapt the summary to the specific programming language of the provided source code (e.g., Python, JavaScript, Java, C++, etc.).
+
+    Handle Edge Cases/Dependencies: If a symbol relies heavily on external dependencies or handles specific edge cases, briefly mention these if they are significant to its overall function.
+
+    Information Source: There will be no extra information available to you. Provide the summary solely based on the provided file.
+]],
+  },
 }
 
 ---@type VectorCode.CodeCompanion.LsToolOpts
@@ -19,6 +76,7 @@ local default_vectorise_options = {}
 
 return {
   tool_result_source = "VectorCodeToolResult",
+
   ---@param t table|string
   ---@return string
   flatten_table_to_string = function(t)
@@ -99,8 +157,15 @@ return {
   ---@param result VectorCode.QueryResult
   ---@return string
   process_result = function(result)
+    -- TODO: Unify the handling of summarised and non-summarised result
     local llm_message
-    if result.chunk then
+    if result.summary then
+      llm_message = string.format(
+        "<path>%s</path><summary>%s</summary>",
+        result.path,
+        result.summary
+      )
+    elseif result.chunk then
       -- chunk mode
       llm_message =
         string.format("<path>%s</path><chunk>%s</chunk>", result.path, result.chunk)
@@ -122,6 +187,7 @@ return {
     end
     return llm_message
   end,
+
   ---@param use_lsp boolean
   ---@return VectorCode.JobRunner
   initialise_runner = function(use_lsp)
