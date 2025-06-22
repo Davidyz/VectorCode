@@ -89,23 +89,6 @@ end
 ---@field count integer
 ---@field summary string|nil
 
---- Produce a callback function that triggers `cb` on the nth time this is called.
----@param n integer
----@param cb function
-local function cb_on_count(n, cb)
-  local count = n
-  return function()
-    count = count - 1
-    assert(
-      count >= 0,
-      string.format("This function should be called at most %d times.", n)
-    )
-    if count == 0 then
-      cb()
-    end
-  end
-end
-
 ---@alias ChatMessage {role: string, content:string}
 
 ---@param adapter CodeCompanion.Adapter
@@ -150,7 +133,7 @@ local function generate_summary(result, summarise_opts, callback)
     local client = http_client.new({ adapter = settings })
     client:request(payload, {
       ---@param _adapter CodeCompanion.Adapter
-      callback = function(err, data, _adapter)
+      callback = function(_, data, _adapter)
         if data then
           local res = _adapter.handlers.chat_output(_adapter, data)
           if res and res.status == "success" then

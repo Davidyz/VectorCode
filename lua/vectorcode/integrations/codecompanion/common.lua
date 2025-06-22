@@ -190,13 +190,7 @@ return {
   process_result = function(result)
     -- TODO: Unify the handling of summarised and non-summarised result
     local llm_message
-    if result.summary then
-      llm_message = string.format(
-        "<path>%s</path><summary>%s</summary>",
-        result.path,
-        result.summary
-      )
-    elseif result.chunk then
+    if result.chunk then
       -- chunk mode
       llm_message =
         string.format("<path>%s</path><chunk>%s</chunk>", result.path, result.chunk)
