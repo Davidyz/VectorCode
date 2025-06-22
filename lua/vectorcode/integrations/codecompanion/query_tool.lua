@@ -83,18 +83,6 @@ local filter_results = function(results, chat)
   return filtered_results
 end
 
---- The result of the query tool should be structured in the following table
----@class VectorCode.CodeCompanion.QueryToolResult
----@field raw_results VectorCode.QueryResult[]
----@field count integer
----@field summary string|nil
-
---- The result of the query tool should be structured in the following table
----@class VectorCode.CodeCompanion.QueryToolResult
----@field raw_results VectorCode.QueryResult[]
----@field count integer
----@field summary string|nil
-
 ---@alias ChatMessage {role: string, content:string}
 
 ---@param adapter CodeCompanion.Adapter
@@ -270,6 +258,9 @@ return check_cli_wrap(function(opts)
 
         job_runner.run_async(args, function(result, error)
           if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.QueryResult[]
+            if opts.no_duplicate then
+              result = filter_results(result, agent.chat)
+            end
             local max_result = #result
             if opts.max_num > 0 then
               max_result = math.min(tonumber(opts.max_num) or 1, max_result)

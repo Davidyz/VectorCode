@@ -87,24 +87,6 @@ local default_vectorise_options = {}
 
 local TOOL_RESULT_SOURCE = "VectorCodeToolResult"
 
----@alias ChatMessage {role: string, content:string}
-
----@param adapter CodeCompanion.Adapter
----@param system_prompt string
----@param user_messages string|string[]
----@return {messages: ChatMessage[], tools:table?}
-local function make_oneshot_payload(adapter, system_prompt, user_messages)
-  if type(user_messages) == "string" then
-    user_messages = { user_messages }
-  end
-  local messages =
-    { { role = cc_config.constants.SYSTEM_ROLE, content = system_prompt } }
-  for _, m in pairs(user_messages) do
-    table.insert(messages, { role = cc_config.constants.USER_ROLE, content = m })
-  end
-  return { messages = adapter:map_roles(messages) }
-end
-
 return {
   tool_result_source = TOOL_RESULT_SOURCE,
 
@@ -166,7 +148,7 @@ return {
       )
     end
     if type(opts.max_num) == "table" then
-      if opts._ then
+      if opts.chunk_mode then
         opts.max_num = opts.max_num.chunk
       else
         opts.max_num = opts.max_num.document
