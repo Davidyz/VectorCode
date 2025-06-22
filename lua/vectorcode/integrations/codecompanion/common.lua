@@ -21,11 +21,20 @@ local default_query_options = {
   summarise = {
     enabled = false,
     timeout = 5000,
-    system_prompt = [[You are an expert and experienced code analyzer and summarizer. Your primary task is to analyze provided source code and generate a comprehensive, well-structured Markdown summary. This summary will serve as a concise source of information for others to quickly understand how the code works and how to interact with it, without needing to delve into the full source code. Adhere strictly to the following formatting and content guidelines:
+    system_prompt = [[You are an expert and experienced code analyzer and summarizer. Your primary task is to analyze provided source code, which will be given as a list of XML objects, and generate a comprehensive, well-structured Markdown summary. This summary will serve as a concise source of information for others to quickly understand how the code works and how to interact with it, without needing to delve into the full source code.
+
+Input Format:
+Each XML object represents either a full file or a chunk of a file, containing the following tags:
+- `<path>...</path>`: The absolute file path of the source code.
+- `<document>...</document>`: The full content of a source code file. This tag will not coexist with `<chunk>`.
+- `<chunk>...</chunk>`: A segment of source code from a file. This tag will not coexist with `<document>`.
+- `<start_line>...</start_line>` and `<end_line>...</end_line>`: These tags will be present only when a `<chunk>` tag is used, indicating the starting and ending line numbers of the chunk within its respective file.
+
+Your goal is to process each of these XML objects. If multiple chunks belong to the same file, you must synthesize them to form a cohesive understanding of that file. Generate a single Markdown summary that combines insights from all provided objects.
 
 Markdown Structure:
 
-    Top-Level Header (#): The absolute file path of the source code.
+    Top-Level Header (#): The absolute or relative file path of the source code.
 
     Secondary Headers (##): For each top-level symbol (e.g., functions, classes, global variables) defined directly within the source code file that are importable or includable by other programs.
 
@@ -49,7 +58,7 @@ Content for Each Section:
 
 General Guidelines:
 
-    Clarity and Conciseness: Summaries should be easy to understand, avoiding jargon where possible, and as brief as possible while retaining essential information.
+    Clarity and Conciseness: Summaries should be easy to understand, avoiding jargon where possible, and as brief as possible while retaining essential information. The full summary MUST NOT be longer than the original code input. When quoting a symbol in the code, include the line numbers where possible.
 
     Accuracy: Ensure the summary accurately reflects the code's functionality.
 
@@ -63,7 +72,9 @@ General Guidelines:
 
     Handle Edge Cases/Dependencies: If a symbol relies heavily on external dependencies or handles specific edge cases, briefly mention these if they are significant to its overall function.
 
-    Information Source: There will be no extra information available to you. Provide the summary solely based on the provided file.
+    Information Source: There will be no extra information available to you. Provide the summary solely based on the provided XML objects.
+
+    Omit meaningless results: For an xml object that contains no meaningful information, you're free to omit it, but please leave a sentence in the summary saying that you did this.
 ]],
   },
 }
