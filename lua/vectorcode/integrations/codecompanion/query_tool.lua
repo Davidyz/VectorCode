@@ -129,17 +129,17 @@ end
 ---@param callback fun(summary:string)
 local function generate_summary(result, summarise_opts, callback)
   assert(vim.islist(result), "result should be a list of VectorCode.QueryResult")
+  local result_xml = table.concat(vim
+    .iter(result)
+    :map(function(res)
+      return cc_common.process_result(res)
+    end)
+    :totable())
   if summarise_opts.enabled and type(callback) == "function" then
     ---@type CodeCompanion.Adapter
     local adapter =
       vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
 
-    local result_xml = table.concat(vim
-      .iter(result)
-      :map(function(res)
-        return cc_common.process_result(res)
-      end)
-      :totable())
     local payload =
       make_oneshot_payload(adapter, summarise_opts.system_prompt, result_xml)
     local settings =
@@ -163,6 +163,8 @@ local function generate_summary(result, summarise_opts, callback)
         return callback(result_xml)
       end,
     }, { silent = true })
+  else
+    callback(result_xml)
   end
 end
 
