@@ -9,6 +9,77 @@ local job_runner = nil
 
 ---@alias QueryToolArgs { project_root:string, count: integer, query: string[] }
 
+---@alias chat_id integer
+---@alias result_id string
+---@type <chat_id: result_id>
+local result_tracker = {}
+
+---@param results VectorCode.QueryResult[]
+---@param chat CodeCompanion.Chat
+---@return VectorCode.QueryResult[]
+local filter_results = function(results, chat)
+  local existing_refs = chat.refs or {}
+
+  existing_refs = vim
+    .iter(existing_refs)
+    :filter(
+      ---@param ref CodeCompanion.Chat.Ref
+      function(ref)
+        return ref.source == cc_common.tool_result_source or ref.path or ref.bufnr
+      end
+    )
+    :map(
+      ---@param ref CodeCompanion.Chat.Ref
+      function(ref)
+        if ref.source == cc_common.tool_result_source then
+          return ref.id
+        elseif ref.path then
+          return ref.path
+        elseif ref.bufnr then
+          return vim.api.nvim_buf_get_name(ref.bufnr)
+        end
+      end
+    )
+    :totable()
+
+  ---@type VectorCode.QueryResult[]
+  local filtered_results = vim
+    .iter(results)
+    :filter(
+      ---@param res VectorCode.QueryResult
+      function(res)
+        -- return true if res should be kept
+        if res.chunk then
+          if res.chunk_id == nil then
+            -- no chunk_id, always include
+            return true
+          end
+          if
+            result_tracker[chat.id] ~= nil and result_tracker[chat.id][res.chunk_id]
+          then
+            return false
+          end
+          return not vim.tbl_contains(existing_refs, res.chunk_id)
+        else
+          if result_tracker[chat.id] ~= nil and result_tracker[chat.id][res.path] then
+            return false
+          end
+          return not vim.tbl_contains(existing_refs, res.path)
+        end
+      end
+    )
+    :totable()
+
+  for _, res in pairs(filtered_results) do
+    if result_tracker[chat.id] == nil then
+      result_tracker[chat.id] = {}
+    end
+    result_tracker[chat.id][res.chunk_id or res.path] = true
+  end
+
+  return filtered_results
+end
+
 ---@param opts VectorCode.CodeCompanion.QueryToolOpts?
 ---@return CodeCompanion.Agent.Tool
 return check_cli_wrap(function(opts)
@@ -221,7 +292,7 @@ If a query returned empty or repeated results, you should avoid using these quer
           max_result = math.min(opts.max_num or 1, max_result)
         end
         if opts.no_duplicate then
-          stdout = cc_common.filter_results(stdout, agent.chat)
+          stdout = filter_results(stdout, agent.chat)
         end
         for i, file in pairs(stdout) do
           if i <= max_result then
@@ -243,12 +314,11 @@ If a query returned empty or repeated results, you should avoid using these quer
               cc_common.process_result(file),
               user_message
             )
-            if (not opts.chunk_mode) or file.chunk_id ~= nil then
-              -- skip referencing because there will be multiple chunks with the same path (id).
-              -- TODO: figure out a way to deduplicate.
+            if not opts.chunk_mode then
+              -- only add to reference if running in full document mode
               local ref = {
                 source = cc_common.tool_result_source,
-                id = file.chunk_id or file.path,
+                id = file.path,
                 path = file.path,
                 opts = { visible = false },
               }
