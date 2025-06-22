@@ -114,9 +114,10 @@ local function make_oneshot_payload(adapter, system_prompt, user_messages)
 end
 
 ---@param result VectorCode.QueryResult[]
+---@param cmd QueryToolArgs
 ---@param summarise_opts VectorCode.CodeCompanion.SummariseOpts
 ---@param callback fun(summary:string)
-local function generate_summary(result, summarise_opts, callback)
+local function generate_summary(result, summarise_opts, cmd, callback)
   assert(vim.islist(result), "result should be a list of VectorCode.QueryResult")
   local result_xml = table.concat(vim
     .iter(result)
@@ -129,8 +130,19 @@ local function generate_summary(result, summarise_opts, callback)
     local adapter =
       vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
 
-    local payload =
-      make_oneshot_payload(adapter, summarise_opts.system_prompt, result_xml)
+    local system_prompt = summarise_opts.system_prompt
+    if summarise_opts.query_augmented then
+      system_prompt = string.format(
+        [[%s
+        
+The code provided to you is the result of a search in a codebase from the following query: %s.
+When summarising the code, pay extra attention on information related to the queries.
+      ]],
+        system_prompt,
+        table.concat(cmd.query, ", ")
+      )
+    end
+    local payload = make_oneshot_payload(adapter, system_prompt, result_xml)
     local settings =
       vim.deepcopy(adapter:map_schema_to_params(cc_schema.get_default(adapter)))
     settings.opts.stream = false
@@ -265,11 +277,11 @@ return check_cli_wrap(function(opts)
             while #result > max_result do
               table.remove(result)
             end
-            local summary_opts = vim.deepcopy(opts.summarise)
+            local summary_opts = vim.deepcopy(opts.summarise) or {}
             if type(summary_opts.enabled) == "function" then
               summary_opts.enabled = summary_opts.enabled(agent.chat, result)
             end
-            generate_summary(result, summary_opts, function(s)
+            generate_summary(result, summary_opts, action, function(s)
               cb({
                 status = "success",
                 ---@type VectorCode.CodeCompanion.QueryToolResult
