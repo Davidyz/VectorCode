@@ -107,3 +107,9 @@
 ---@field collapse boolean
 --- Other tools that you'd like to include in `vectorcode_toolbox`
 ---@field extras string[]
+
+--- The result of the query tool should be structured in the following table
+---@class VectorCode.CodeCompanion.QueryToolResult
+---@field raw_results VectorCode.QueryResult[]
+---@field count integer
+---@field summary string|nil

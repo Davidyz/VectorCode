@@ -6,11 +6,10 @@ local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
 
 ---@class VectorCode.CodeCompanion.SummariseOpts
----@field enabled boolean?
+---@field enabled boolean|fun(chat: CodeCompanion.Chat,results: VectorCode.QueryResult[]):boolean|nil
 ---@field adapter string|CodeCompanion.Adapter|nil
 ---@field threshold integer?
 ---@field system_prompt string
----@field timeout integer
 
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
@@ -20,7 +19,6 @@ local default_query_options = {
   chunk_mode = false,
   summarise = {
     enabled = false,
-    timeout = 5000,
     system_prompt = [[You are an expert and experienced code analyzer and summarizer. Your primary task is to analyze provided source code, which will be given as a list of XML objects, and generate a comprehensive, well-structured Markdown summary. This summary will serve as a concise source of information for others to quickly understand how the code works and how to interact with it, without needing to delve into the full source code.
 
 Input Format:
