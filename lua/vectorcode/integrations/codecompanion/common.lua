@@ -5,13 +5,6 @@ local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
 
----@class VectorCode.CodeCompanion.SummariseOpts
----@field enabled boolean|(fun(chat: CodeCompanion.Chat,results: VectorCode.QueryResult[]):boolean)|nil
----@field adapter string|CodeCompanion.Adapter|nil
----@field system_prompt string
----When set to true, include the query messages so that the LLM may make task-related summarisations.
----@field query_augmented boolean
-
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
   max_num = { chunk = -1, document = -1 },
@@ -75,6 +68,8 @@ General Guidelines:
     Information Source: There will be no extra information available to you. Provide the summary solely based on the provided XML objects.
 
     Omit meaningless results: For an xml object that contains no meaningful information, you're free to omit it, but please leave a sentence in the summary saying that you did this.
+
+    No extra reply: Your reply should solely consist of the summary. Do not say anything else.
 ]],
   },
 }

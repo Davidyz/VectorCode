@@ -113,3 +113,22 @@
 ---@field raw_results VectorCode.QueryResult[]
 ---@field count integer
 ---@field summary string|nil
+
+---@class VectorCode.CodeCompanion.SummariseOpts
+---A boolean flag that controls whether summarisation should be enabled.
+---This can also be a function that returns a boolean.
+---In this case, you can use this option to dynamically control whether summarisation is enabled during a chat.
+---
+---This function recieves 2 parameters:
+--- - `CodeCompanion.Chat`: the chat object;
+--- - `VectorCode.QueryResult[]`: a list of query results.
+---@field enabled boolean|(fun(chat: CodeCompanion.Chat, results: VectorCode.QueryResult[]):boolean)|nil
+---The adapter used for the summarisation task. When set to `nil`, the adapter from the current chat will be used.
+---@field adapter string|CodeCompanion.Adapter|nil
+---The system prompt sent to the summariser model.
+---When set to a function, it'll recieve the default system prompt as the only parameter,
+---and should return the new (full) system prompt. This allows you to customise or rewrite the system prompt.
+---@field system_prompt string|(fun(original_prompt: string): string)
+---When set to true, include the query messages so that the LLM may make task-related summarisations.
+---This happens __after__ the `system_prompt` callback processing
+---@field query_augmented boolean

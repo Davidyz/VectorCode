@@ -113,12 +113,23 @@ local function generate_summary(result, summarise_opts, cmd, callback)
       return cc_common.process_result(res)
     end)
     :totable())
+
   if summarise_opts.enabled and type(callback) == "function" then
     ---@type CodeCompanion.Adapter
     local adapter =
       vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
 
     local system_prompt = summarise_opts.system_prompt
+    if type(system_prompt) == "function" then
+      system_prompt = system_prompt(
+        cc_common.get_query_tool_opts().summarise.system_prompt --[[@as string]]
+      )
+    end
+
+    assert(
+      type(system_prompt) == "string",
+      "`system_prompt` should have been converted to a string."
+    )
     if summarise_opts.query_augmented then
       system_prompt = string.format(
         [[%s
