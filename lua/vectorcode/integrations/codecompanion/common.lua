@@ -70,6 +70,8 @@ General Guidelines:
     Omit meaningless results: For an xml object that contains no meaningful information, you're free to omit it, but please leave a sentence in the summary saying that you did this.
 
     No extra reply: Your reply should solely consist of the summary. Do not say anything else.
+
+    Merge chunks from the same file: When there are chunks that belong to the same file, merge their content so that they're grouped under the same top level header.
 ]],
   },
 }
