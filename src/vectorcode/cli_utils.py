@@ -358,7 +358,7 @@ def get_cli_parser():
     )
     prompts_parser.add_argument(
         "prompt_categories",
-        choices=PromptCategory,
+        choices=[str(i) for i in PromptCategory],
         type=PromptCategory,
         nargs="*",
         help="The subcommand(s) to get the prompts for. When not provided, VectorCode will print the prompts for `query`.",

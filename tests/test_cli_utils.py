@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 import tempfile
 from typing import Any, Dict
 from unittest.mock import patch
@@ -539,3 +541,15 @@ def test_cleanup_path():
         "~", "test_path"
     )
     assert cleanup_path("/etc/dir") == "/etc/dir"
+
+
+def test_shtab():
+    for shell in ("bash", "zsh", "tcsh"):
+        assert (
+            subprocess.Popen(
+                [sys.executable, "-m", "vectorcode.main", "-s", shell],
+                stderr=subprocess.PIPE,
+            )
+            .stderr.read()
+            .decode()
+        ) == ""
