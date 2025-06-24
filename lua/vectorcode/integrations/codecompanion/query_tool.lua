@@ -10,7 +10,7 @@ local logger = vc_config.logger
 
 local job_runner = nil
 
----@alias QueryToolArgs { project_root:string, count: integer, query: string[] }
+---@alias QueryToolArgs { project_root:string, count: integer, query: string[], allow_summary: boolean }
 
 ---@alias chat_id integer
 ---@alias result_id string
@@ -114,7 +114,7 @@ local function generate_summary(result, summarise_opts, cmd, callback)
     end)
     :totable())
 
-  if summarise_opts.enabled and type(callback) == "function" then
+  if summarise_opts.enabled and cmd.allow_summary and type(callback) == "function" then
     ---@type CodeCompanion.Adapter
     local adapter =
       vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
@@ -342,8 +342,16 @@ If a query returned empty or repeated results, you should avoid using these quer
               type = "string",
               description = "Project path to search within (must be from 'ls' results or user instructions). Use empty string for the current project. If the user did not specify a project, assume that they're referring to the current project and use an empty string for this parameter. If this fails, use the `vectorcode_ls` tool and ask the user to clarify the project.",
             },
+            allow_summary = {
+              type = "boolean",
+              description = [[
+When this option is set to `true`, you're allowing the retrieval results to be summarised.
+Leave this to `true` by default.
+Set this to `false` only if you've been instructed by the user to not enable summarisation, or if the summary is missing information that you'd need for the current task.
+]],
+            },
           },
-          required = { "query", "count", "project_root" },
+          required = { "query", "count", "project_root", "allow_summary" },
           additionalProperties = false,
         },
         strict = true,
