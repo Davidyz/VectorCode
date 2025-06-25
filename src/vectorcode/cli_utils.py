@@ -622,7 +622,7 @@ class LockManager:
     __singleton: "LockManager"
 
     def __new__(cls) -> "LockManager":
-        if cls.__singleton is None:
+        if not hasattr(cls, "__singleton") or cls.__singleton is None:
             cls.__singleton = super().__new__(cls)
             cls.__singleton.__locks = {}
         return cls.__singleton

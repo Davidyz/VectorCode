@@ -114,30 +114,24 @@ async def start_server(configs: Config):
     return process
 
 
-__CLIENT_CACHE: dict[str, AsyncClientAPI] = {}
-
-
 async def get_client(configs: Config) -> AsyncClientAPI:
-    client_entry = configs.db_url
-    if __CLIENT_CACHE.get(client_entry) is None:
-        settings: dict[str, Any] = {"anonymized_telemetry": False}
-        if isinstance(configs.db_settings, dict):
-            valid_settings = {
-                k: v for k, v in configs.db_settings.items() if k in Settings.__fields__
-            }
-            settings.update(valid_settings)
-        parsed_url = urlparse(configs.db_url)
-        settings["chroma_server_host"] = parsed_url.hostname or "127.0.0.1"
-        settings["chroma_server_http_port"] = parsed_url.port or 8000
-        settings["chroma_server_ssl_enabled"] = parsed_url.scheme == "https"
-        settings["chroma_server_api_default_path"] = parsed_url.path or APIVersion.V2
-        settings_obj = Settings(**settings)
-        __CLIENT_CACHE[client_entry] = await chromadb.AsyncHttpClient(
-            settings=settings_obj,
-            host=str(settings_obj.chroma_server_host),
-            port=int(settings_obj.chroma_server_http_port or 8000),
-        )
-    return __CLIENT_CACHE[client_entry]
+    settings: dict[str, Any] = {"anonymized_telemetry": False}
+    if isinstance(configs.db_settings, dict):
+        valid_settings = {
+            k: v for k, v in configs.db_settings.items() if k in Settings.__fields__
+        }
+        settings.update(valid_settings)
+    parsed_url = urlparse(configs.db_url)
+    settings["chroma_server_host"] = parsed_url.hostname or "127.0.0.1"
+    settings["chroma_server_http_port"] = parsed_url.port or 8000
+    settings["chroma_server_ssl_enabled"] = parsed_url.scheme == "https"
+    settings["chroma_server_api_default_path"] = parsed_url.path or APIVersion.V2
+    settings_obj = Settings(**settings)
+    return await chromadb.AsyncHttpClient(
+        settings=settings_obj,
+        host=str(settings_obj.chroma_server_host),
+        port=int(settings_obj.chroma_server_http_port or 8000),
+    )
 
 
 def get_collection_name(full_path: str) -> str:
@@ -277,7 +271,7 @@ class ClientManager:
     __clients: dict[str, _ClientModel]
 
     def __new__(cls) -> "ClientManager":
-        if cls.__singleton is None:
+        if not hasattr(cls, "__singleton") or cls.__singleton is None:
             cls.__singleton = super().__new__(cls)
             cls.__singleton.__clients = {}
         return cls.__singleton

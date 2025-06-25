@@ -40,7 +40,7 @@ from vectorcode.cli_utils import (
     get_project_config,
     load_config_file,
 )
-from vectorcode.common import ClientManager, get_client, get_collection, get_collections
+from vectorcode.common import ClientManager, get_collection, get_collections
 from vectorcode.subcommands.prompt import prompt_by_categories
 from vectorcode.subcommands.query import get_query_result_files
 
@@ -238,7 +238,7 @@ async def mcp_server():
         default_project_root = project_root
         default_config = await get_project_config(project_root)
         default_config.project_root = project_root
-        default_client = await get_client(default_config)
+        default_client = (await ClientManager().get_client(default_config)).client
         try:
             default_collection = await get_collection(default_client, default_config)
             logger.info("Collection initialised for %s.", project_root)
@@ -295,9 +295,16 @@ def parse_cli_args(args: Optional[list[str]] = None) -> MCPConfig:
 
 
 async def run_server():  # pragma: nocover
-    mcp = await mcp_server()
-    await mcp.run_stdio_async()
-    return 0
+    try:
+        mcp = await mcp_server()
+        await mcp.run_stdio_async()
+    finally:
+        termination_tasks: list[asyncio.Task] = []
+        for p in ClientManager().get_processes():
+            p.terminate()
+            termination_tasks.append(asyncio.create_task(p.wait()))
+        await asyncio.gather(*termination_tasks)
+        return 0
 
 
 def main():  # pragma: nocover
