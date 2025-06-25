@@ -413,14 +413,13 @@ Set this to `false` only if you've been instructed by the user to not enable sum
               :totable()),
           string.format("**VectorCode Tool**: Retrieved %d %s(s)", stdout.count, mode)
         )
-        for _, file in pairs(stdout) do
-          if not opts.chunk_mode then
+        if not opts.chunk_mode then
+          for _, result in pairs(stdout.raw_results) do
             -- skip referencing because there will be multiple chunks with the same path (id).
-            -- TODO: figure out a way to deduplicate.
             agent.chat.references:add({
               source = cc_common.tool_result_source,
-              id = file.path,
-              path = file.path,
+              id = result.path,
+              path = result.path,
               opts = { visible = false },
             })
           end
