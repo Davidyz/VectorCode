@@ -5,6 +5,7 @@ import os
 import socket
 import subprocess
 import sys
+from asyncio.subprocess import Process
 from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
@@ -261,3 +262,30 @@ async def list_collection_files(collection: AsyncCollection) -> list[str]:
             or []
         )
     )
+
+
+class ClientManager:
+    __singleton = None
+
+    # keys: project roots
+    # values: clients
+    __clients: dict[str, AsyncClientAPI] = {}
+    __server_processes = []
+
+    @classmethod
+    def get_instance(cls) -> "ClientManager":
+        if cls.__singleton is None:
+            cls.__singleton = ClientManager()
+        return cls.__singleton
+
+    async def get(self, configs: Config) -> AsyncClientAPI:
+        project_root = str(expand_path(str(configs.project_root), True))
+        if self.__clients.get(project_root) is None:
+            if not await try_server(configs.db_url):
+                self.__server_processes.append(await start_server(configs))
+
+            self.__clients[project_root] = await get_client(configs)
+        return self.__clients[project_root]
+
+    def get_processes(self) -> list[Process]:
+        return self.__server_processes

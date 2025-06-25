@@ -21,6 +21,7 @@ dependencies = [
     "charset-normalizer>=3.4.1",
     "json5",
     "posthog<6.0.0",
+    "filelock>=3.15.0",
 ]
 requires-python = ">=3.11,<3.14"
 readme = "README.md"

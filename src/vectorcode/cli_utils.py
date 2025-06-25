@@ -12,6 +12,7 @@ from typing import Any, Optional, Sequence, Union
 
 import json5
 import shtab
+from filelock import AsyncFileLock
 
 from vectorcode import __version__
 
@@ -610,3 +611,18 @@ def config_logging(
         handlers=handlers,
         level=level,
     )
+
+
+class LockManager:
+    """
+    A class that manages file locks that protects the database files in daemon processes (LSP, MCP).
+    """
+
+    def __init__(self) -> None:
+        self.__locks: dict[str, AsyncFileLock] = {}
+
+    def get(self, path: str | os.PathLike) -> AsyncFileLock:
+        path = str(expand_path(str(path), True))
+        if self.__locks.get(path) is None:
+            self.__locks[path] = AsyncFileLock(path)  # pyright: ignore[reportArgumentType]
+        return self.__locks[path]

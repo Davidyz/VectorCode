@@ -17,7 +17,7 @@ from vectorcode.cli_utils import (
     expand_path,
 )
 from vectorcode.common import (
-    get_client,
+    ClientManager,
     get_collection,
     verify_ef,
 )
@@ -160,7 +160,7 @@ async def query(configs: Config) -> int:
             "Having both chunk and document in the output is not supported!",
         )
         return 1
-    client = await get_client(configs)
+    client = await ClientManager.get_instance().get(configs)
     try:
         collection = await get_collection(client, configs, False)
         if not verify_ef(collection, configs):

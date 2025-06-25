@@ -12,6 +12,7 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
+from vectorcode.common import ClientManager
 
 logger = logging.getLogger(name=__name__)
 
@@ -63,12 +64,6 @@ async def async_main():
 
             return await chunks(final_configs)
 
-    from vectorcode.common import start_server, try_server
-
-    server_process = None
-    if not await try_server(final_configs.db_url):
-        server_process = await start_server(final_configs)
-
     if final_configs.pipe:  # pragma: nocover
         # NOTE: NNCF (intel GPU acceleration for sentence transformer) keeps showing logs.
         # This disables logs below ERROR so that it doesn't hurt the `pipe` output.
@@ -105,10 +100,9 @@ async def async_main():
         return_val = 1
         logger.error(traceback.format_exc())
     finally:
-        if server_process is not None:
-            logger.info("Shutting down the bundled Chromadb instance.")
-            server_process.terminate()
-            await server_process.wait()
+        for p in ClientManager.get_instance().get_processes():
+            p.terminate()
+            await p.wait()
         return return_val
 
 
