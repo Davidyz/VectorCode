@@ -6,7 +6,8 @@ import socket
 import subprocess
 import sys
 from asyncio.subprocess import Process
-from typing import Any, AsyncGenerator
+from dataclasses import dataclass
+from typing import Any, AsyncGenerator, Optional
 from urllib.parse import urlparse
 
 import chromadb
@@ -264,28 +265,37 @@ async def list_collection_files(collection: AsyncCollection) -> list[str]:
     )
 
 
+@dataclass
+class _ClientModel:
+    client: AsyncClientAPI
+    is_bundled: bool = False
+    process: Optional[Process] = None
+
+
 class ClientManager:
-    __singleton = None
+    __singleton: Optional["ClientManager"] = None
+    __clients: dict[str, _ClientModel]
 
-    # keys: project roots
-    # values: clients
-    __clients: dict[str, AsyncClientAPI] = {}
-    __server_processes = []
-
-    @classmethod
-    def get_instance(cls) -> "ClientManager":
+    def __new__(cls) -> "ClientManager":
         if cls.__singleton is None:
-            cls.__singleton = ClientManager()
+            cls.__singleton = super().__new__(cls)
+            cls.__singleton.__clients = {}
         return cls.__singleton
 
-    async def get(self, configs: Config) -> AsyncClientAPI:
+    async def get_client(self, configs: Config) -> _ClientModel:
         project_root = str(expand_path(str(configs.project_root), True))
         if self.__clients.get(project_root) is None:
+            is_bundled = False
+            process = None
             if not await try_server(configs.db_url):
-                self.__server_processes.append(await start_server(configs))
+                logger.info(f"Starting a new server at {configs.db_url}")
+                process = await start_server(configs)
+                is_bundled = True
 
-            self.__clients[project_root] = await get_client(configs)
+            self.__clients[project_root] = _ClientModel(
+                client=await get_client(configs), is_bundled=is_bundled, process=process
+            )
         return self.__clients[project_root]
 
     def get_processes(self) -> list[Process]:
-        return self.__server_processes
+        return [i.process for i in self.__clients.values() if i.process is not None]

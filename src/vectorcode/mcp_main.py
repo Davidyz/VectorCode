@@ -32,6 +32,7 @@ except ModuleNotFoundError as e:  # pragma: nocover
 
 from vectorcode.cli_utils import (
     Config,
+    LockManager,
     cleanup_path,
     config_logging,
     expand_globs,
@@ -39,11 +40,12 @@ from vectorcode.cli_utils import (
     get_project_config,
     load_config_file,
 )
-from vectorcode.common import get_client, get_collection, get_collections
+from vectorcode.common import ClientManager, get_client, get_collection, get_collections
 from vectorcode.subcommands.prompt import prompt_by_categories
 from vectorcode.subcommands.query import get_query_result_files
 
 logger = logging.getLogger(name=__name__)
+locks = LockManager()
 
 
 @dataclass
@@ -79,18 +81,17 @@ def get_arg_parser():
     return parser
 
 
+default_project_root: Optional[str] = None
 default_config: Optional[Config] = None
 default_client: Optional[AsyncClientAPI] = None
 default_collection: Optional[AsyncCollection] = None
 
 
 async def list_collections() -> list[str]:
-    global default_config, default_client, default_collection
     names: list[str] = []
-    client = default_client
-    if client is None:
-        # load from global config when failed to detect a project-local config.
-        client = await get_client(await load_config_file())
+    client = (
+        await ClientManager().get_client(await load_config_file(default_project_root))
+    ).client
     async for col in get_collections(client):
         if col.metadata is not None:
             names.append(cleanup_path(str(col.metadata.get("path"))))
@@ -110,7 +111,7 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
         )
     config = await get_project_config(project_root)
     try:
-        client = await get_client(config)
+        client = (await ClientManager().get_client(config)).client
         collection = await get_collection(client, config, True)
     except Exception as e:
         logger.error("Failed to access collection at %s", project_root)
@@ -136,6 +137,7 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
         if os.path.isfile(ignore_spec):
             logger.info(f"Loading ignore specs from {ignore_spec}.")
             paths = exclude_paths_by_spec((str(i) for i in paths), ignore_spec)
+
     stats = VectoriseStats()
     collection_lock = asyncio.Lock()
     stats_lock = asyncio.Lock()
@@ -187,7 +189,7 @@ async def query_tool(
     else:
         config = await get_project_config(project_root)
         try:
-            client = await get_client(config)
+            client = (await ClientManager().get_client(config)).client
             collection = await get_collection(client, config, False)
         except Exception as e:
             logger.error("Failed to access collection at %s", project_root)
@@ -225,7 +227,7 @@ async def query_tool(
 
 
 async def mcp_server():
-    global default_config, default_client, default_collection
+    global default_config, default_client, default_collection, default_project_root
 
     local_config_dir = await find_project_config_dir(".")
 
@@ -233,6 +235,7 @@ async def mcp_server():
         logger.info("Found project config: %s", local_config_dir)
         project_root = str(Path(local_config_dir).parent.resolve())
 
+        default_project_root = project_root
         default_config = await get_project_config(project_root)
         default_config.project_root = project_root
         default_client = await get_client(default_config)

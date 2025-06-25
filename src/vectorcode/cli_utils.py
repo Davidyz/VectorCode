@@ -618,8 +618,14 @@ class LockManager:
     A class that manages file locks that protects the database files in daemon processes (LSP, MCP).
     """
 
-    def __init__(self) -> None:
-        self.__locks: dict[str, AsyncFileLock] = {}
+    __locks: dict[str, AsyncFileLock]
+    __singleton: "LockManager"
+
+    def __new__(cls) -> "LockManager":
+        if cls.__singleton is None:
+            cls.__singleton = super().__new__(cls)
+            cls.__singleton.__locks = {}
+        return cls.__singleton
 
     def get(self, path: str | os.PathLike) -> AsyncFileLock:
         path = str(expand_path(str(path), True))
