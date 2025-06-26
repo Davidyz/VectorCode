@@ -13,7 +13,7 @@ from chromadb.utils import embedding_functions
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import (
-    get_client,
+    ClientManager,
     get_collection,
     get_collection_name,
     get_collections,
@@ -152,78 +152,75 @@ async def test_try_server_versions():
 
 @pytest.mark.asyncio
 async def test_get_client():
+    config = Config(db_url="https://test_host:1234", db_path="test_db")
+    config1 = Config(
+        db_url="http://test_host1:1234",
+        db_path="test_db",
+        db_settings={"anonymized_telemetry": True},
+    )
+    config1_alt = Config(
+        db_url="http://test_host1:1234",
+        db_path="test_db",
+        db_settings={"anonymized_telemetry": True, "other_setting": "value"},
+    )
     # Patch chromadb.AsyncHttpClient to avoid actual network calls
-    with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
+    with (
+        patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient,
+        patch("vectorcode.common.try_server", return_value=True),
+    ):
         mock_client = MagicMock(spec=AsyncClientAPI)
         MockAsyncHttpClient.return_value = mock_client
 
-        config = Config(db_url="https://test_host:1234", db_path="test_db")
-        client = await get_client(config)
+        async with (
+            ClientManager().get_client(config) as client,
+        ):
+            assert isinstance(client, AsyncClientAPI)
+            MockAsyncHttpClient.assert_called()
+            assert (
+                MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
+                == "test_host"
+            )
+            assert (
+                MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
+                == 1234
+            )
+            assert (
+                MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
+                is False
+            )
+            assert (
+                MockAsyncHttpClient.call_args.kwargs[
+                    "settings"
+                ].chroma_server_ssl_enabled
+                is True
+            )
 
-        assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called_once()
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
-            == "test_host"
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
-            == 1234
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
-            is False
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_ssl_enabled
-            is True
-        )
+            async with (
+                ClientManager().get_client(config1) as client1,
+                ClientManager().get_client(config1_alt) as client1_alt,
+            ):
+                assert isinstance(client1, AsyncClientAPI)
+                MockAsyncHttpClient.assert_called()
+                assert (
+                    MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
+                    == "test_host1"
+                )
+                assert (
+                    MockAsyncHttpClient.call_args.kwargs[
+                        "settings"
+                    ].chroma_server_http_port
+                    == 1234
+                )
+                assert (
+                    MockAsyncHttpClient.call_args.kwargs[
+                        "settings"
+                    ].anonymized_telemetry
+                    is True
+                )
 
-        # Test with valid db_settings (only anonymized_telemetry)
-        config = Config(
-            db_url="http://test_host1:1234",
-            db_path="test_db",
-            db_settings={"anonymized_telemetry": True},
-        )
-        client = await get_client(config)
-
-        assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called()
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
-            == "test_host1"
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
-            == 1234
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
-            is True
-        )
-
-        # Test with multiple db_settings, including an invalid one.  The invalid one
-        # should be filtered out inside get_client.
-        config = Config(
-            db_url="http://test_host2:1234",
-            db_path="test_db",
-            db_settings={"anonymized_telemetry": True, "other_setting": "value"},
-        )
-        client = await get_client(config)
-        assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called()
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
-            == "test_host2"
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
-            == 1234
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
-            is True
-        )
+                # Test with multiple db_settings, including an invalid one.  The invalid one
+                # should be filtered out inside get_client.
+                assert id(client1_alt) == id(client1)
 
 
 def test_verify_ef():
@@ -581,3 +578,32 @@ async def test_wait_for_server_timeout():
 
         # Verify try_server was called multiple times (due to retries)
         assert mock_try_server.call_count > 1
+
+
+@pytest.mark.asyncio
+async def test_client_manager_get_client():
+    ClientManager().clear()
+    with (
+        patch("vectorcode.common.try_server", return_value=False) as mock_try_server,
+        patch(
+            "vectorcode.common.start_server", return_value=MagicMock()
+        ) as mock_start_server,
+    ):
+        # need to start a new server
+        manager = ClientManager()
+        async with manager.get_client(Config()):
+            mock_try_server.assert_called_once()
+            mock_start_server.assert_called_once()
+
+    ClientManager().clear()
+    with (
+        patch("vectorcode.common.try_server", return_value=True) as mock_try_server,
+        patch(
+            "vectorcode.common.start_server", return_value=MagicMock()
+        ) as mock_start_server,
+    ):
+        # need to start a new server
+        manager = ClientManager()
+        async with manager.get_client(Config()):
+            mock_try_server.assert_called_once()
+            mock_start_server.assert_not_called()

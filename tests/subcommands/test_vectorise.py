@@ -370,9 +370,7 @@ async def test_vectorise(capsys):
 
     with ExitStack() as stack:
         stack.enter_context(
-            patch(
-                "vectorcode.subcommands.vectorise.get_client", return_value=mock_client
-            )
+            patch("vectorcode.subcommands.vectorise.ClientManager"),
         )
         stack.enter_context(patch("os.path.isfile", return_value=False))
         stack.enter_context(
@@ -427,7 +425,7 @@ async def test_vectorise_cancelled():
             "vectorcode.subcommands.vectorise.chunked_add", side_effect=mock_chunked_add
         ) as mock_add,
         patch("sys.stderr") as mock_stderr,
-        patch("vectorcode.subcommands.vectorise.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.vectorise.get_collection",
             return_value=mock_collection,
@@ -438,6 +436,7 @@ async def test_vectorise_cancelled():
             lambda x: not (x.endswith("gitignore") or x.endswith("vectorcode.exclude")),
         ),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         result = await vectorise(configs)
         assert result == 1
         mock_add.assert_called_once()
@@ -458,7 +457,7 @@ async def test_vectorise_orphaned_files():
         pipe=False,
     )
 
-    mock_client = AsyncMock()
+    AsyncMock()
     mock_collection = AsyncMock()
 
     # Define a mock response for collection.get in vectorise
@@ -494,7 +493,7 @@ async def test_vectorise_orphaned_files():
             "vectorcode.subcommands.vectorise.TreeSitterChunker",
             return_value=mock_chunker,
         ),
-        patch("vectorcode.subcommands.vectorise.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.vectorise.ClientManager"),
         patch(
             "vectorcode.subcommands.vectorise.get_collection",
             return_value=mock_collection,
@@ -532,10 +531,11 @@ async def test_vectorise_collection_index_error():
     mock_client = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.vectorise.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
         patch("vectorcode.subcommands.vectorise.get_collection") as mock_get_collection,
         patch("os.path.isfile", return_value=False),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         mock_get_collection.side_effect = IndexError("Collection not found")
         result = await vectorise(configs)
         assert result == 1
@@ -558,7 +558,7 @@ async def test_vectorise_verify_ef_false():
     mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.vectorise.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.vectorise.get_collection",
             return_value=mock_collection,
@@ -566,6 +566,7 @@ async def test_vectorise_verify_ef_false():
         patch("vectorcode.subcommands.vectorise.verify_ef", return_value=False),
         patch("os.path.isfile", return_value=False),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         result = await vectorise(configs)
         assert result == 1
 
@@ -588,7 +589,7 @@ async def test_vectorise_gitignore():
     mock_collection.get.return_value = {"metadatas": []}
 
     with (
-        patch("vectorcode.subcommands.vectorise.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.vectorise.get_collection",
             return_value=mock_collection,
@@ -608,6 +609,7 @@ async def test_vectorise_gitignore():
             "vectorcode.subcommands.vectorise.exclude_paths_by_spec"
         ) as mock_exclude_paths,
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         await vectorise(configs)
         mock_exclude_paths.assert_called_once()
 
@@ -635,7 +637,7 @@ async def test_vectorise_exclude_file(tmpdir):
     mock_collection.get.return_value = {"ids": []}
 
     with (
-        patch("vectorcode.subcommands.vectorise.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.vectorise.get_collection",
             return_value=mock_collection,
@@ -652,6 +654,7 @@ async def test_vectorise_exclude_file(tmpdir):
         ),
         patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         await vectorise(configs)
         # Assert that chunked_add is only called for test_file.py, not excluded_file.py
         call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
@@ -664,7 +667,6 @@ MOCK_GLOBAL_EXCLUDE_PATH = "/mock/global/.config/vectorcode/vectorcode.exclude"
 
 
 @pytest.mark.asyncio
-@patch("vectorcode.subcommands.vectorise.get_client", new_callable=AsyncMock)
 @patch("vectorcode.subcommands.vectorise.get_collection", new_callable=AsyncMock)
 @patch("vectorcode.subcommands.vectorise.expand_globs", new_callable=AsyncMock)
 @patch("vectorcode.subcommands.vectorise.chunked_add", new_callable=AsyncMock)
@@ -681,7 +683,6 @@ async def test_vectorise_uses_global_exclude_when_local_missing(
     mock_chunked_add,
     mock_expand_globs,
     mock_get_collection,
-    mock_get_client,
     tmp_path,
 ):
     """
@@ -712,14 +713,20 @@ async def test_vectorise_uses_global_exclude_when_local_missing(
 
     global_exclude_content = "*.bin"
     m_open = mock_open(read_data=global_exclude_content)
-    with patch("builtins.open", m_open):
+    with (
+        patch("builtins.open", m_open),
+        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
+    ):
         mock_spec_instance = MagicMock()
         mock_spec_instance.match_file = lambda path: str(path).endswith(".bin")
         mock_gitignore_spec.from_lines.return_value = mock_spec_instance
 
         mock_client_instance = AsyncMock()
         mock_client_instance.get_max_batch_size = AsyncMock(return_value=100)
-        mock_get_client.return_value = mock_client_instance
+
+        MockClientManager.return_value._create_client.return_value = (
+            mock_client_instance
+        )
 
         mock_collection_instance = AsyncMock()
         mock_collection_instance.get = AsyncMock(

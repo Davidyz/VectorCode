@@ -73,10 +73,10 @@ async def test_run_clean_on_removed_dir():
 
 @pytest.mark.asyncio
 async def test_clean():
-    mock_client = AsyncMock(spec=AsyncClientAPI)
+    AsyncMock(spec=AsyncClientAPI)
     mock_config = Config(pipe=False)
 
-    with patch("vectorcode.subcommands.clean.get_client", return_value=mock_client):
+    with patch("vectorcode.subcommands.clean.ClientManager"):
         result = await clean(mock_config)
 
     assert result == 0

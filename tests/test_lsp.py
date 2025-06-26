@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +10,6 @@ from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.lsp_main import (
     execute_command,
     lsp_start,
-    make_caches,
 )
 
 
@@ -40,65 +40,19 @@ def mock_config():
 
 
 @pytest.mark.asyncio
-async def test_make_caches(tmp_path):
-    project_root = str(tmp_path)
-    config_file = tmp_path / ".vectorcode" / "config.json"
-    config_file.parent.mkdir(exist_ok=True)
-    config_file.write_text('{"host": "test_host", "port": 9999}')
-    from vectorcode.lsp_main import cached_project_configs
-
-    with (
-        patch(
-            "vectorcode.lsp_main.get_project_config", new_callable=AsyncMock
-        ) as mock_get_project_config,
-        patch(
-            "vectorcode.lsp_main.try_server", new_callable=AsyncMock
-        ) as mock_try_server,
-    ):
-        mock_try_server.return_value = True
-        await make_caches(project_root)
-
-        mock_get_project_config.assert_called_once_with(project_root)
-        assert project_root in cached_project_configs
-
-
-@pytest.mark.asyncio
-async def test_make_caches_server_unavailable(tmp_path):
-    project_root = str(tmp_path)
-    config_file = tmp_path / ".vectorcode" / "config.json"
-    config_file.parent.mkdir(exist_ok=True)
-    config_file.write_text('{"host": "test_host", "port": 9999}')
-
-    with (
-        patch("vectorcode.lsp_main.get_project_config", new_callable=AsyncMock),
-        patch(
-            "vectorcode.lsp_main.try_server", new_callable=AsyncMock
-        ) as mock_try_server,
-    ):
-        mock_try_server.return_value = False
-        with pytest.raises(ConnectionError):
-            await make_caches(project_root)
-
-
-@pytest.mark.asyncio
 async def test_execute_command_query(mock_language_server, mock_config):
     with (
         patch(
             "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
         ) as mock_parse_cli_args,
-        patch("vectorcode.lsp_main.get_client", new_callable=AsyncMock),
+        patch("vectorcode.lsp_main.ClientManager"),
         patch("vectorcode.lsp_main.get_collection", new_callable=AsyncMock),
         patch(
             "vectorcode.lsp_main.build_query_results", new_callable=AsyncMock
         ) as mock_get_query_result_files,
         patch("os.path.isfile", return_value=True),
-        patch("vectorcode.lsp_main.try_server", return_value=True),
         patch("builtins.open", MagicMock()) as mock_open,
-        patch("vectorcode.lsp_main.cached_project_configs", {}),
     ):
-        from vectorcode.lsp_main import cached_project_configs
-
-        cached_project_configs.clear()
         mock_parse_cli_args.return_value = mock_config
         mock_get_query_result_files.return_value = ["/test/file.txt"]
 
@@ -109,9 +63,6 @@ async def test_execute_command_query(mock_language_server, mock_config):
 
         # Ensure parsed_args.project_root is not None
         mock_config.project_root = "/test/project"
-
-        # Add a mock config to cached_project_configs
-        cached_project_configs["/test/project"] = mock_config
 
         # Mock the merge_from method
         mock_config.merge_from = AsyncMock(return_value=mock_config)
@@ -131,22 +82,17 @@ async def test_execute_command_query_default_proj_root(
         patch(
             "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
         ) as mock_parse_cli_args,
-        patch("vectorcode.lsp_main.get_client", new_callable=AsyncMock),
+        patch("vectorcode.lsp_main.ClientManager"),
         patch("vectorcode.lsp_main.get_collection", new_callable=AsyncMock),
         patch(
             "vectorcode.lsp_main.build_query_results", new_callable=AsyncMock
         ) as mock_get_query_result_files,
         patch("os.path.isfile", return_value=True),
-        patch("vectorcode.lsp_main.try_server", return_value=True),
         patch("builtins.open", MagicMock()) as mock_open,
-        patch("vectorcode.lsp_main.cached_project_configs", {}),
     ):
-        from vectorcode.lsp_main import cached_project_configs
-
         global DEFAULT_PROJECT_ROOT
 
         mock_config.project_root = None
-        cached_project_configs.clear()
         mock_parse_cli_args.return_value = mock_config
         mock_get_query_result_files.return_value = ["/test/file.txt"]
 
@@ -157,9 +103,6 @@ async def test_execute_command_query_default_proj_root(
 
         # Ensure parsed_args.project_root is not None
         DEFAULT_PROJECT_ROOT = "/test/project"
-
-        # Add a mock config to cached_project_configs
-        cached_project_configs["/test/project"] = mock_config
 
         # Mock the merge_from method
         mock_config.merge_from = AsyncMock(return_value=mock_config)
@@ -183,25 +126,17 @@ async def test_execute_command_ls(mock_language_server, mock_config):
         patch(
             "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
         ) as mock_parse_cli_args,
-        patch("vectorcode.lsp_main.get_client", new_callable=AsyncMock),
+        patch("vectorcode.lsp_main.ClientManager"),
         patch(
             "vectorcode.lsp_main.get_collection_list", new_callable=AsyncMock
         ) as mock_get_collection_list,
-        patch("vectorcode.lsp_main.cached_project_configs", {}),
         patch("vectorcode.common.get_embedding_function") as mock_embedding_function,
         patch("vectorcode.common.get_collection") as mock_get_collection,
-        patch("vectorcode.lsp_main.try_server", return_value=True),
     ):
-        from vectorcode.lsp_main import cached_project_configs
-
-        cached_project_configs.clear()
         mock_parse_cli_args.return_value = mock_config
 
         # Ensure parsed_args.project_root is not None
         mock_config.project_root = "/test/project"
-
-        # Add a mock config to cached_project_configs
-        cached_project_configs["/test/project"] = mock_config
 
         # Mock the merge_from method
         mock_config.merge_from = AsyncMock(return_value=mock_config)
@@ -236,9 +171,7 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         patch(
             "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
         ) as mock_parse_cli_args,
-        patch(
-            "vectorcode.lsp_main.get_client", new_callable=AsyncMock
-        ) as mock_get_client,
+        patch("vectorcode.lsp_main.ClientManager") as MockClientManager,
         patch(
             "vectorcode.lsp_main.get_collection", new_callable=AsyncMock
         ) as mock_get_collection,
@@ -255,16 +188,11 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         patch(
             "vectorcode.lsp_main.chunked_add", new_callable=AsyncMock
         ) as mock_chunked_add,
-        patch("vectorcode.lsp_main.try_server", return_value=True),
-        patch("vectorcode.lsp_main.cached_project_configs", {}),
         patch(
             "vectorcode.lsp_main.load_files_from_include",
             return_value=dummy_initial_files,
         ) as mock_load_files_from_include,
         patch("os.cpu_count", return_value=1),  # For asyncio.Semaphore
-        patch(
-            "vectorcode.lsp_main.make_caches", new_callable=AsyncMock
-        ),  # Mock make_caches to avoid actual file system ops
         patch(
             "vectorcode.lsp_main.remove_orphanes", new_callable=AsyncMock
         ) as mock_remove_orphanes,
@@ -273,15 +201,14 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
 
         from lsprotocol import types
 
-        from vectorcode.lsp_main import cached_project_configs
-
-        cached_project_configs.clear()
-        cached_project_configs["/test/project"] = mock_config  # Add config to cache
+        @asynccontextmanager
+        async def _get_client(*args):
+            yield mock_client
 
         # Set return values for mocks
         mock_parse_cli_args.return_value = mock_config
         mock_client = AsyncMock()
-        mock_get_client.return_value = mock_client
+        MockClientManager.return_value.get_client.side_effect = _get_client
         mock_collection = AsyncMock()
         mock_get_collection.return_value = mock_collection
         mock_client.get_max_batch_size.return_value = 100  # Mock batch size
@@ -319,7 +246,7 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
             recursive=mock_config.recursive,
             include_hidden=mock_config.include_hidden,
         )
-        mock_find_exclude_specs.assert_called_once_with(mock_config)
+        mock_find_exclude_specs.assert_called_once()
         mock_exclude_paths_by_spec.assert_not_called()  # Because mock_find_exclude_specs returns empty list (no specs to exclude by)
         mock_client.get_max_batch_size.assert_called_once()
 
@@ -332,7 +259,7 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
                 ANY,  # asyncio.Lock object
                 ANY,  # stats dict
                 ANY,  # stats_lock
-                mock_config,
+                ANY,
                 100,  # max_batch_size
                 ANY,  # semaphore
             )
@@ -362,16 +289,9 @@ async def test_execute_command_unsupported_action(
         patch(
             "vectorcode.lsp_main.get_collection", new_callable=AsyncMock
         ) as mock_get_collection,
-        patch("vectorcode.lsp_main.cached_project_configs", {}),
-        patch("vectorcode.lsp_main.try_server", return_value=True),
     ):
-        from vectorcode.lsp_main import cached_project_configs
-
-        cached_project_configs.clear()
         mock_parse_cli_args.return_value = mock_config
 
-        # Add a mock config to cached_project_configs
-        cached_project_configs["/test/project"] = mock_config
         mock_collection = MagicMock()
         mock_get_collection.return_value = mock_collection
 
@@ -449,7 +369,6 @@ async def test_execute_command_no_default_project_root(
         patch(
             "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
         ) as mock_parse_cli_args,
-        patch("vectorcode.lsp_main.get_client", new_callable=AsyncMock),
     ):
         mock_parse_cli_args.return_value = mock_config
         with pytest.raises((AssertionError, JsonRpcInternalError)):

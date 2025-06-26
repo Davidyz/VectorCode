@@ -19,7 +19,7 @@ async def test_update_success():
     mock_client.get_max_batch_size.return_value = 100
 
     with (
-        patch("vectorcode.subcommands.update.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.update.ClientManager"),
         patch(
             "vectorcode.subcommands.update.get_collection", return_value=mock_collection
         ),
@@ -50,7 +50,7 @@ async def test_update_with_orphans():
     mock_client.get_max_batch_size.return_value = 100
 
     with (
-        patch("vectorcode.subcommands.update.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.update.ClientManager"),
         patch(
             "vectorcode.subcommands.update.get_collection", return_value=mock_collection
         ),
@@ -78,10 +78,11 @@ async def test_update_index_error():
     # mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.update.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.update.ClientManager") as MockClientManager,
         patch("vectorcode.subcommands.update.get_collection", side_effect=IndexError),
         patch("sys.stderr"),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         config = Config(project_root="/test/project", pipe=False)
         result = await update(config)
 
@@ -94,10 +95,11 @@ async def test_update_value_error():
     # mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.update.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.update.ClientManager") as MockClientManager,
         patch("vectorcode.subcommands.update.get_collection", side_effect=ValueError),
         patch("sys.stderr"),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         config = Config(project_root="/test/project", pipe=False)
         result = await update(config)
 
@@ -110,13 +112,14 @@ async def test_update_invalid_collection_exception():
     # mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.update.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.update.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.update.get_collection",
             side_effect=InvalidCollectionException,
         ),
         patch("sys.stderr"),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         config = Config(project_root="/test/project", pipe=False)
         result = await update(config)
 
