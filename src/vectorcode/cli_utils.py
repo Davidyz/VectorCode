@@ -627,8 +627,14 @@ class LockManager:
             cls.__singleton.__locks = {}
         return cls.__singleton
 
-    def get(self, path: str | os.PathLike) -> AsyncFileLock:
+    def get_lock(self, path: str | os.PathLike) -> AsyncFileLock:
         path = str(expand_path(str(path), True))
+        if os.path.isdir(path):
+            lock_file = os.path.join(path, "vectorcode.lock")
+            logger.info(f"Creating {lock_file} for locking.")
+            with open(lock_file, mode="w") as fin:
+                fin.write("")
+            path = lock_file
         if self.__locks.get(path) is None:
             self.__locks[path] = AsyncFileLock(path)  # pyright: ignore[reportArgumentType]
         return self.__locks[path]

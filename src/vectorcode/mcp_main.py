@@ -8,9 +8,6 @@ from pathlib import Path
 from typing import Optional
 
 import shtab
-from chromadb.api import AsyncClientAPI
-from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.errors import InvalidCollectionException
 
 from vectorcode.subcommands.vectorise import (
     VectoriseStats,
@@ -83,20 +80,18 @@ def get_arg_parser():
 
 default_project_root: Optional[str] = None
 default_config: Optional[Config] = None
-default_client: Optional[AsyncClientAPI] = None
-default_collection: Optional[AsyncCollection] = None
 
 
 async def list_collections() -> list[str]:
     names: list[str] = []
-    client = (
-        await ClientManager().get_client(await load_config_file(default_project_root))
-    ).client
-    async for col in get_collections(client):
-        if col.metadata is not None:
-            names.append(cleanup_path(str(col.metadata.get("path"))))
-    logger.info("Retrieved the following collections: %s", names)
-    return names
+    async with ClientManager().get_client(
+        await load_config_file(default_project_root)
+    ) as client:
+        async for col in get_collections(client):
+            if col.metadata is not None:
+                names.append(cleanup_path(str(col.metadata.get("path"))))
+        logger.info("Retrieved the following collections: %s", names)
+        return names
 
 
 async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]:
@@ -111,8 +106,53 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
         )
     config = await get_project_config(project_root)
     try:
-        client = (await ClientManager().get_client(config)).client
-        collection = await get_collection(client, config, True)
+        async with ClientManager().get_client(config) as client:
+            collection = await get_collection(client, config, True)
+            if collection is None:  # pragma: nocover
+                raise McpError(
+                    ErrorData(
+                        code=1,
+                        message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
+                    )
+                )
+            paths = [os.path.expanduser(i) for i in await expand_globs(paths)]
+            final_config = await config.merge_from(
+                Config(
+                    files=[i for i in paths if os.path.isfile(i)],
+                    project_root=project_root,
+                )
+            )
+            for ignore_spec in find_exclude_specs(final_config):
+                if os.path.isfile(ignore_spec):
+                    logger.info(f"Loading ignore specs from {ignore_spec}.")
+                    paths = exclude_paths_by_spec((str(i) for i in paths), ignore_spec)
+
+            stats = VectoriseStats()
+            collection_lock = asyncio.Lock()
+            stats_lock = asyncio.Lock()
+            max_batch_size = await client.get_max_batch_size()
+            semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+            tasks = [
+                asyncio.create_task(
+                    chunked_add(
+                        str(file),
+                        collection,
+                        collection_lock,
+                        stats,
+                        stats_lock,
+                        final_config,
+                        max_batch_size,
+                        semaphore,
+                    )
+                )
+                for file in paths
+            ]
+            for i, task in enumerate(asyncio.as_completed(tasks), start=1):
+                await task
+
+            await remove_orphanes(collection, collection_lock, stats, stats_lock)
+
+        return stats.to_dict()
     except Exception as e:
         logger.error("Failed to access collection at %s", project_root)
         raise McpError(
@@ -121,49 +161,6 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
                 message=f"{e.__class__.__name__}: Failed to create the collection at {project_root}.",
             )
         )
-    if collection is None:  # pragma: nocover
-        raise McpError(
-            ErrorData(
-                code=1,
-                message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
-            )
-        )
-
-    paths = [os.path.expanduser(i) for i in await expand_globs(paths)]
-    final_config = await config.merge_from(
-        Config(files=[i for i in paths if os.path.isfile(i)], project_root=project_root)
-    )
-    for ignore_spec in find_exclude_specs(final_config):
-        if os.path.isfile(ignore_spec):
-            logger.info(f"Loading ignore specs from {ignore_spec}.")
-            paths = exclude_paths_by_spec((str(i) for i in paths), ignore_spec)
-
-    stats = VectoriseStats()
-    collection_lock = asyncio.Lock()
-    stats_lock = asyncio.Lock()
-    max_batch_size = await client.get_max_batch_size()
-    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
-    tasks = [
-        asyncio.create_task(
-            chunked_add(
-                str(file),
-                collection,
-                collection_lock,
-                stats,
-                stats_lock,
-                final_config,
-                max_batch_size,
-                semaphore,
-            )
-        )
-        for file in paths
-    ]
-    for i, task in enumerate(asyncio.as_completed(tasks), start=1):
-        await task
-
-    await remove_orphanes(collection, collection_lock, stats, stats_lock)
-
-    return stats.to_dict()
 
 
 async def query_tool(
@@ -186,51 +183,55 @@ async def query_tool(
                 message="Use `list_collections` tool to get a list of valid paths for this field.",
             )
         )
-    else:
-        config = await get_project_config(project_root)
-        try:
-            client = (await ClientManager().get_client(config)).client
+    config = await get_project_config(project_root)
+    try:
+        async with ClientManager().get_client(config) as client:
             collection = await get_collection(client, config, False)
-        except Exception as e:
-            logger.error("Failed to access collection at %s", project_root)
-            raise McpError(
-                ErrorData(
-                    code=1,
-                    message=f"{e.__class__.__name__}: Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
+
+            if collection is None:
+                raise McpError(
+                    ErrorData(
+                        code=1,
+                        message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
+                    )
                 )
+            query_config = await config.merge_from(
+                Config(n_result=n_query, query=query_messages)
             )
-    if collection is None:
+            logger.info("Built the final config: %s", query_config)
+            result_paths = await get_query_result_files(
+                collection=collection,
+                configs=query_config,
+            )
+            results: list[str] = []
+            for path in result_paths:
+                if os.path.isfile(path):
+                    with open(path) as fin:
+                        rel_path = os.path.relpath(path, config.project_root)
+                        results.append(
+                            f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
+                        )
+            logger.info("Retrieved the following files: %s", result_paths)
+            return results
+
+    except Exception as e:
+        logger.error("Failed to access collection at %s", project_root)
         raise McpError(
             ErrorData(
                 code=1,
-                message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
+                message=f"{e.__class__.__name__}: Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
             )
         )
-    query_config = await config.merge_from(
-        Config(n_result=n_query, query=query_messages)
-    )
-    logger.info("Built the final config: %s", query_config)
-    result_paths = await get_query_result_files(
-        collection=collection,
-        configs=query_config,
-    )
-    results: list[str] = []
-    for path in result_paths:
-        if os.path.isfile(path):
-            with open(path) as fin:
-                rel_path = os.path.relpath(path, config.project_root)
-                results.append(
-                    f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
-                )
-    logger.info("Retrieved the following files: %s", result_paths)
-    return results
 
 
 async def mcp_server():
-    global default_config, default_client, default_collection, default_project_root
+    global default_config, default_project_root
 
     local_config_dir = await find_project_config_dir(".")
 
+    default_instructions = "\n".join(
+        "\n".join(i) for i in prompt_by_categories.values()
+    )
     if local_config_dir is not None:
         logger.info("Found project config: %s", local_config_dir)
         project_root = str(Path(local_config_dir).parent.resolve())
@@ -238,27 +239,24 @@ async def mcp_server():
         default_project_root = project_root
         default_config = await get_project_config(project_root)
         default_config.project_root = project_root
-        default_client = (await ClientManager().get_client(default_config)).client
-        try:
-            default_collection = await get_collection(default_client, default_config)
+        async with ClientManager().get_client(default_config) as client:
             logger.info("Collection initialised for %s.", project_root)
-        except InvalidCollectionException:  # pragma: nocover
-            default_collection = None
 
-    default_instructions = "\n".join(
-        "\n".join(i) for i in prompt_by_categories.values()
-    )
-    if default_client is None:
-        if mcp_config.ls_on_start:  # pragma: nocover
-            logger.warning(
-                "Failed to initialise a chromadb client. Ignoring --ls-on-start flag."
-            )
-    else:
-        if mcp_config.ls_on_start:
-            logger.info("Adding available collections to the server instructions.")
-            default_instructions += "\nYou have access to the following collections:\n"
-            for name in await list_collections():
-                default_instructions += f"<collection>{name}</collection>"
+            if client is None:
+                if mcp_config.ls_on_start:  # pragma: nocover
+                    logger.warning(
+                        "Failed to initialise a chromadb client. Ignoring --ls-on-start flag."
+                    )
+            else:
+                if mcp_config.ls_on_start:
+                    logger.info(
+                        "Adding available collections to the server instructions."
+                    )
+                    default_instructions += (
+                        "\nYou have access to the following collections:\n"
+                    )
+                    for name in await list_collections():
+                        default_instructions += f"<collection>{name}</collection>"
 
     mcp = FastMCP("VectorCode", instructions=default_instructions)
     mcp.add_tool(

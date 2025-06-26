@@ -24,7 +24,7 @@ from vectorcode.cli_utils import (
     expand_path,
 )
 from vectorcode.common import (
-    get_client,
+    ClientManager,
     get_collection,
     list_collection_files,
     verify_ef,
@@ -251,64 +251,64 @@ def find_exclude_specs(configs: Config) -> list[str]:
 
 async def vectorise(configs: Config) -> int:
     assert configs.project_root is not None
-    client = await get_client(configs)
-    try:
-        collection = await get_collection(client, configs, True)
-    except IndexError as e:
-        print(
-            f"{e.__class__.__name__}: Failed to get/create the collection. Please check your config."
-        )
-        return 1
-    if not verify_ef(collection, configs):
-        return 1
-
-    files = await expand_globs(
-        configs.files or load_files_from_include(str(configs.project_root)),
-        recursive=configs.recursive,
-        include_hidden=configs.include_hidden,
-    )
-
-    if not configs.force:
-        for spec_path in find_exclude_specs(configs):
-            if os.path.isfile(spec_path):
-                logger.info(f"Loading ignore specs from {spec_path}.")
-                files = exclude_paths_by_spec((str(i) for i in files), spec_path)
-    else:  # pragma: nocover
-        logger.info("Ignoring exclude specs.")
-
-    stats = VectoriseStats()
-    collection_lock = Lock()
-    stats_lock = Lock()
-    max_batch_size = await client.get_max_batch_size()
-    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
-
-    with tqdm.tqdm(
-        total=len(files), desc="Vectorising files...", disable=configs.pipe
-    ) as bar:
+    async with ClientManager().get_client(configs) as client:
         try:
-            tasks = [
-                asyncio.create_task(
-                    chunked_add(
-                        str(file),
-                        collection,
-                        collection_lock,
-                        stats,
-                        stats_lock,
-                        configs,
-                        max_batch_size,
-                        semaphore,
-                    )
-                )
-                for file in files
-            ]
-            for task in asyncio.as_completed(tasks):
-                await task
-                bar.update(1)
-        except asyncio.CancelledError:
-            print("Abort.", file=sys.stderr)
+            collection = await get_collection(client, configs, True)
+        except IndexError as e:
+            print(
+                f"{e.__class__.__name__}: Failed to get/create the collection. Please check your config."
+            )
+            return 1
+        if not verify_ef(collection, configs):
             return 1
 
-    await remove_orphanes(collection, collection_lock, stats, stats_lock)
+        files = await expand_globs(
+            configs.files or load_files_from_include(str(configs.project_root)),
+            recursive=configs.recursive,
+            include_hidden=configs.include_hidden,
+        )
 
-    show_stats(configs=configs, stats=stats)
-    return 0
+        if not configs.force:
+            for spec_path in find_exclude_specs(configs):
+                if os.path.isfile(spec_path):
+                    logger.info(f"Loading ignore specs from {spec_path}.")
+                    files = exclude_paths_by_spec((str(i) for i in files), spec_path)
+        else:  # pragma: nocover
+            logger.info("Ignoring exclude specs.")
+
+        stats = VectoriseStats()
+        collection_lock = Lock()
+        stats_lock = Lock()
+        max_batch_size = await client.get_max_batch_size()
+        semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+
+        with tqdm.tqdm(
+            total=len(files), desc="Vectorising files...", disable=configs.pipe
+        ) as bar:
+            try:
+                tasks = [
+                    asyncio.create_task(
+                        chunked_add(
+                            str(file),
+                            collection,
+                            collection_lock,
+                            stats,
+                            stats_lock,
+                            configs,
+                            max_batch_size,
+                            semaphore,
+                        )
+                    )
+                    for file in files
+                ]
+                for task in asyncio.as_completed(tasks):
+                    await task
+                    bar.update(1)
+            except asyncio.CancelledError:
+                print("Abort.", file=sys.stderr)
+                return 1
+
+        await remove_orphanes(collection, collection_lock, stats, stats_lock)
+
+        show_stats(configs=configs, stats=stats)
+        return 0
