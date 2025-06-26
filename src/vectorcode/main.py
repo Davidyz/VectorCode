@@ -100,9 +100,7 @@ async def async_main():
         return_val = 1
         logger.error(traceback.format_exc())
     finally:
-        for p in ClientManager().get_processes():
-            p.terminate()
-            await p.wait()
+        await ClientManager().kill_servers()
         return return_val
 
 

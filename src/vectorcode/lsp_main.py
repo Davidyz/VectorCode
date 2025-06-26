@@ -43,7 +43,7 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
-from vectorcode.common import get_client, get_collection, try_server
+from vectorcode.common import ClientManager, get_collection, try_server
 from vectorcode.subcommands.ls import get_collection_list
 from vectorcode.subcommands.query import build_query_results
 
@@ -114,7 +114,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 parsed_args.project_root
             ].merge_from(parsed_args)
             final_configs.pipe = True
-            client = await get_client(final_configs)
+            client = (await ClientManager().get_client(final_configs)).client
             if final_configs.action in {CliAction.vectorise, CliAction.query}:
                 collection = await get_collection(
                     client=client,
@@ -123,7 +123,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 )
         else:
             final_configs = parsed_args
-            client = await get_client(parsed_args)
+            client = (await ClientManager().get_client(final_configs)).client
             collection = None
         logger.info("Merged final configs: %s", final_configs)
         progress_token = str(uuid.uuid4())
@@ -266,9 +266,11 @@ async def lsp_start() -> int:
         logger.info(f"{DEFAULT_PROJECT_ROOT=}")
 
     logger.info("Parsed LSP server CLI arguments: %s", args)
-    await asyncio.to_thread(server.start_io)
-
-    return 0
+    try:
+        await asyncio.to_thread(server.start_io)
+    finally:
+        await ClientManager().kill_servers()
+        return 0
 
 
 def main():  # pragma: nocover

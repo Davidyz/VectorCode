@@ -293,3 +293,10 @@ class ClientManager:
 
     def get_processes(self) -> list[Process]:
         return [i.process for i in self.__clients.values() if i.process is not None]
+
+    async def kill_servers(self):
+        termination_tasks: list[asyncio.Task] = []
+        for p in ClientManager().get_processes():
+            p.terminate()
+            termination_tasks.append(asyncio.create_task(p.wait()))
+        await asyncio.gather(*termination_tasks)

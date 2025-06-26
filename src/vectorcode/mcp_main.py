@@ -299,11 +299,7 @@ async def run_server():  # pragma: nocover
         mcp = await mcp_server()
         await mcp.run_stdio_async()
     finally:
-        termination_tasks: list[asyncio.Task] = []
-        for p in ClientManager().get_processes():
-            p.terminate()
-            termination_tasks.append(asyncio.create_task(p.wait()))
-        await asyncio.gather(*termination_tasks)
+        await ClientManager().kill_servers()
         return 0
 
 
