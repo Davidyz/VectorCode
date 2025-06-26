@@ -51,6 +51,9 @@ model output and reduce hallucination.
     instructions to setup VectorCode to work with some other neovim plugins;
   - the [discussions](https://github.com/Davidyz/VectorCode/discussions) where
     you can ask general questions and share your cool usages about VectorCode.
+  - If you're feeling adanvturous, feel free to check out 
+    [the pull requests](https://github.com/Davidyz/VectorCode/pulls) for
+    WIP features.
 
 If you're trying to contribute to this project, take a look at [the contribution
 guide](./docs/CONTRIBUTING.md), which contains information about some basic

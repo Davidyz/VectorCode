@@ -1,3 +1,13 @@
+# Before You Start
+
+As much as I appreciate everyone who wish to contribute to this project, if
+you want to submit a new feature/refactoring that is more than a few lines,
+it'll be better if you open an issue or discussion before you start working.
+This allows us to thoroughly exchange ideas before people invest too much time,
+and will help me maintain the codebase in the long run.
+
+# Technical Stuff
+
 This project uses [pre-commit](https://pre-commit.com/) to perform some
 formatting and linting. If you're
 contributing to this project, having it on your system will help you write code
@@ -6,7 +16,7 @@ You can also see
 [.pre-commit-config.yaml](https://github.com/Davidyz/VectorCode/blob/main/.pre-commit-config.yaml) 
 for a list of hooks enabled for the repo.
 
-# Python CLI
+## Python CLI
 
 The development and publication of this tool is managed by 
 [pdm](https://pdm-project.org/en/latest/).
@@ -30,7 +40,7 @@ You may also find it helpful to
 [enable logging](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 
 for the CLI when developing new features or working on fixes.
 
-# Neovim Plugin
+## Neovim Plugin
 
 At the moment, there isn't much to cover on here. As long as the code is 
 formatted (stylua) and appropriately type-annotated, you're good. I do have 

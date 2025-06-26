@@ -407,7 +407,12 @@ specs will be vectorised when you run `vectorcode vectorise` without specifying
 files. This file has lower priority than `.gitignore`, but you can override this
 by the `-f` flag. It also doesn't assume `--recursive`, so if you want to add a
 whole directory to this file, you can use `dir/**`, which matches all content
-of `dir/` recursively.
+of `dir/` recursively. 
+
+> Note that the `include` spec only kicks in when you don't
+supply file paths when calling `vectorcode vectorise`. If you want a rule to be
+effective _whenever you vectorise some files_, you should use the `exclude`
+specs explained below.
 
 Similarly, you can also create a `project_root/.vectorcode/vectorcode.exclude`
 file to denote any files that you want to exclude. This is useful when you have
