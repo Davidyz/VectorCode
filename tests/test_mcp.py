@@ -25,9 +25,8 @@ async def test_list_collections_success():
         patch("vectorcode.common.ClientManager") as MockClientManager,
     ):
         mock_client = AsyncMock()
-        mock_client_manager_instance = MockClientManager.return_value
-        mock_client_manager_instance.get_client = asynccontextmanager(
-            AsyncMock(return_value=mock_client)
+        MockClientManager.return_value._create_client = AsyncMock(
+            return_value=mock_client
         )
 
         mock_collection1 = AsyncMock()
@@ -52,8 +51,7 @@ async def test_list_collections_no_metadata():
         patch("vectorcode.common.ClientManager") as MockClientManager,
     ):
         mock_client = AsyncMock()
-        mock_client_manager_instance = MockClientManager.return_value
-        mock_client_manager_instance.get_client = asynccontextmanager(
+        MockClientManager.return_value._create_client = asynccontextmanager(
             AsyncMock(return_value=mock_client)
         )
         mock_collection1 = AsyncMock()
@@ -105,9 +103,8 @@ async def test_query_tool_success():
         mock_load_config_file.return_value = mock_config
         mock_get_project_config.return_value = mock_config
         mock_client = AsyncMock()
-        mock_client_manager_instance = MockClientManager.return_value
-        mock_client_manager_instance.get_client = asynccontextmanager(
-            AsyncMock(return_value=mock_client)
+        MockClientManager.return_value._create_client = AsyncMock(
+            return_value=mock_client
         )
 
         # Mock the collection's query method to return a valid QueryResult
@@ -144,14 +141,11 @@ async def test_query_tool_collection_access_failure():
         patch("vectorcode.mcp_main.get_collection"),  # Still mock get_collection
         patch("vectorcode.common.ClientManager") as MockClientManager,
     ):
-        mock_client_manager_instance = MockClientManager.return_value
 
         async def failing_get_client(*args, **kwargs):
             raise Exception("Failed to connect")
 
-        mock_client_manager_instance.get_client = asynccontextmanager(
-            failing_get_client
-        )
+        MockClientManager.return_value._create_client.side_effect = failing_get_client
 
         with pytest.raises(McpError) as exc_info:
             await query_tool(
@@ -175,10 +169,7 @@ async def test_query_tool_no_collection():
         ) as mock_get_collection,  # Still mock get_collection
         patch("vectorcode.common.ClientManager") as MockClientManager,
     ):
-        mock_client_manager_instance = MockClientManager.return_value
-        mock_client_manager_instance.get_client = asynccontextmanager(
-            AsyncMock()
-        )  # Provide a working get_client
+        MockClientManager.return_value._create_client.return_value = AsyncMock()
         mock_get_collection.return_value = None
 
         with pytest.raises(McpError) as exc_info:
@@ -223,14 +214,9 @@ async def test_vectorise_files_success():
             mock_get_project_config.return_value = mock_config
             mock_client = AsyncMock()
 
-            mock_client_manager_instance = MockClientManager.return_value
             # Ensure ClientManager's internal client creation method returns our mock.
-            mock_client_manager_instance._create_client = AsyncMock(
+            MockClientManager.return_value._create_client = AsyncMock(
                 return_value=mock_client
-            )
-            # Ensure ClientManager's get_client context manager yields our mock.
-            mock_client_manager_instance.get_client = asynccontextmanager(
-                AsyncMock(return_value=mock_client)
             )
 
             mock_collection = AsyncMock()
@@ -257,14 +243,12 @@ async def test_vectorise_files_collection_access_failure():  # Removed client_ma
         ) as MockClientManager,  # Patch ClientManager class
         patch("vectorcode.mcp_main.get_collection"),
     ):
-        mock_client_manager_instance = MockClientManager.return_value
 
         async def failing_get_client(*args, **kwargs):
             raise Exception("Client error")
 
-        mock_client_manager_instance.get_client = asynccontextmanager(
-            failing_get_client
-        )
+        MockClientManager.return_value._create_client = failing_get_client
+
         with pytest.raises(McpError) as exc_info:
             await vectorise_files(paths=["file.py"], project_root="/valid/path")
 
@@ -317,13 +301,10 @@ async def test_vectorise_files_with_exclude_spec():
             mock_config = Config(project_root=temp_dir)
             mock_get_project_config.return_value = mock_config
             mock_client = AsyncMock()
-            mock_client_manager_instance = MockClientManager.return_value
-            mock_client_manager_instance._create_client = AsyncMock(
+            MockClientManager.return_value._create_client = AsyncMock(
                 return_value=mock_client
             )
-            mock_client_manager_instance.get_client = asynccontextmanager(
-                AsyncMock(return_value=mock_client)
-            )
+
             mock_collection = AsyncMock()
             mock_collection.get.return_value = {"ids": [], "metadatas": []}
             mock_get_collection.return_value = mock_collection
@@ -354,10 +335,8 @@ async def test_mcp_server():
         mock_find_project_config_dir.return_value = "/path/to/config"
         mock_load_config_file.return_value = Config(project_root="/path/to/project")
         mock_client = AsyncMock()
-        mock_client_manager_instance = MockClientManager.return_value
-        mock_client_manager_instance.get_client = asynccontextmanager(
-            AsyncMock(return_value=mock_client)
-        )
+
+        MockClientManager.return_value.get_client = AsyncMock(return_value=mock_client)
         mock_collection = AsyncMock()
         mock_get_collection.return_value = mock_collection
 
@@ -387,9 +366,9 @@ async def test_mcp_server_ls_on_start():
         mock_find_project_config_dir.return_value = "/path/to/config"
         mock_load_config_file.return_value = Config(project_root="/path/to/project")
         mock_client = AsyncMock()
-        mock_client_manager_instance = MockClientManager.return_value
-        mock_client_manager_instance.get_client = asynccontextmanager(
-            AsyncMock(return_value=mock_client)
+
+        MockClientManager.return_value._create_client = AsyncMock(
+            return_value=mock_client
         )
         mock_collection = AsyncMock()
         mock_collection.metadata = {"path": "/path/to/project"}
