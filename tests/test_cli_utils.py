@@ -11,6 +11,7 @@ from vectorcode import cli_utils
 from vectorcode.cli_utils import (
     CliAction,
     Config,
+    LockManager,
     PromptCategory,
     QueryInclude,
     cleanup_path,
@@ -553,3 +554,11 @@ def test_shtab():
             .stderr.read()
             .decode()
         ) == ""
+
+
+@pytest.mark.asyncio
+async def test_filelock():
+    manager = LockManager()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager.get_lock(tmp_dir)
+        assert os.path.isfile(os.path.join(tmp_dir, "vectorcode.lock"))
