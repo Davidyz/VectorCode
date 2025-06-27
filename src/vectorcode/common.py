@@ -288,7 +288,7 @@ class ClientManager:
 
     async def kill_servers(self):
         termination_tasks: list[asyncio.Task] = []
-        for p in ClientManager().get_processes():
+        for p in self.get_processes():
             logger.info(f"Killing bundled chroma server with PID: {p.pid}")
             p.terminate()
             termination_tasks.append(asyncio.create_task(p.wait()))

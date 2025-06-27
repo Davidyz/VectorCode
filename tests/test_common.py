@@ -3,7 +3,7 @@ import socket
 import subprocess
 import sys
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -607,3 +607,23 @@ async def test_client_manager_get_client():
         async with manager.get_client(Config()):
             mock_try_server.assert_called_once()
             mock_start_server.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_client_manager_kill_servers():
+    manager = ClientManager()
+    manager.clear()
+
+    async def _try_server(url):
+        return "127.0.0.1" in url or "localhost" in url
+
+    mock_process = AsyncMock()
+    with (
+        patch("vectorcode.common.start_server", return_value=mock_process),
+        patch("vectorcode.common.try_server", side_effect=_try_server),
+    ):
+        manager._create_client = AsyncMock(return_value=AsyncMock())
+        async with manager.get_client(Config(db_url="http://test_host:1081")):
+            pass
+        await manager.kill_servers()
+        mock_process.terminate.assert_called_once()
