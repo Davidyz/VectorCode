@@ -696,8 +696,9 @@ will:
 Note that:
 
 1. For easier parsing, `--pipe` is assumed to be enabled in LSP mode;
-2. At the time this only work with vectorcode setup that uses a **standalone
-   ChromaDB server**, which is not difficult to setup using docker;
+2. A `vectorcode.lock` file will be created in your `db_path` directory __if
+   you're using the bundled chromadb server__. Please do not delete it while a
+   vectorcode process is running;
 3. The LSP server supports `vectorise`, `query` and `ls` subcommands. The other
    subcommands may be added in the future.
 
@@ -714,9 +715,7 @@ features:
 - `vectorise`: vectorise files into a given project.
 
 To try it out, install the `vectorcode[mcp]` dependency group and the MCP server 
-is available in the shell as `vectorcode-mcp-server`, and make sure you're using 
-a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode) 
-via the `host` and `port` options. 
+is available in the shell as `vectorcode-mcp-server`. 
 
 The MCP server entry point (`vectorcode-mcp-server`) provides some CLI options
 that you can use to customise the default behaviour of the server. To view the

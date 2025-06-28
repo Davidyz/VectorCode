@@ -332,7 +332,7 @@ interface:
 | Features | `default`                                                                                                 | `lsp`                                                                                                                     |
 |----------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
 | **Pros** | Fully backward compatible with minimal extra config required                                              | Less IO overhead for loading/unloading embedding models; Progress reports.                                                |
-| **Cons** | Heavy IO overhead because the embedding model and database client need to be initialised for every query. | Requires `vectorcode-server`; Only works if you're using a standalone ChromaDB server. |
+| **Cons** | Heavy IO overhead because the embedding model and database client need to be initialised for every query. | Requires `vectorcode-server` |
 
 You may choose which backend to use by setting the [`setup`](#setupopts) option `async_backend`, 
 and acquire the corresponding backend by the following API:
