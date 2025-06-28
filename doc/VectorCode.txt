@@ -372,9 +372,9 @@ path to the executable) by calling `vim.lsp.config('vectorcode_server', opts)`.
              minimal extra config required   loading/unloading embedding models;
                                              Progress reports.
 
-  Cons       Heavy IO overhead because the   Requires vectorcode-server; Only
-             embedding model and database    works if you’re using a standalone
-             client need to be initialised   ChromaDB server.
+  Cons       Heavy IO overhead because the   Requires vectorcode-server
+             embedding model and database    
+             client need to be initialised   
              for every query.                
   -------------------------------------------------------------------------------
 You may choose which backend to use by setting the |VectorCode-`setup`| option
