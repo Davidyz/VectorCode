@@ -30,12 +30,19 @@ async def update(configs: Config) -> int:
                 file=sys.stderr,
             )
             return 1
-        if collection is None or not verify_ef(collection, configs):
+        if collection is None:  # pragma: nocover
+            logger.error(
+                f"Failed to find a collection at {configs.project_root} from {configs.db_url}"
+            )
+            return 1
+        if not verify_ef(collection, configs):  # pragma: nocover
             return 1
 
         metas = (await collection.get(include=[IncludeEnum.metadatas]))["metadatas"]
-        if metas is None:
+        if metas is None or len(metas) == 0:  # pragma: nocover
+            logger.debug("Empty collection.")
             return 0
+
         files_gen = (str(meta.get("path", "")) for meta in metas)
         files = set()
         orphanes = set()
