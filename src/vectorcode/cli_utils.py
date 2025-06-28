@@ -619,13 +619,13 @@ class LockManager:
     """
 
     __locks: dict[str, AsyncFileLock]
-    __singleton: "LockManager"
+    singleton: Optional["LockManager"] = None
 
     def __new__(cls) -> "LockManager":
-        if not hasattr(cls, "__singleton") or cls.__singleton is None:
-            cls.__singleton = super().__new__(cls)
-            cls.__singleton.__locks = {}
-        return cls.__singleton
+        if cls.singleton is None:
+            cls.singleton = super().__new__(cls)
+            cls.singleton.__locks = {}
+        return cls.singleton
 
     def get_lock(self, path: str | os.PathLike) -> AsyncFileLock:
         path = str(expand_path(str(path), True))

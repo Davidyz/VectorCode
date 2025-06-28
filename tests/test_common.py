@@ -509,15 +509,19 @@ async def test_wait_for_server_timeout():
 
 @pytest.mark.asyncio
 async def test_client_manager_get_client():
-    config = Config(db_url="https://test_host:1234", db_path="test_db")
+    config = Config(
+        db_url="https://test_host:1234", db_path="test_db", project_root="test_proj"
+    )
     config1 = Config(
         db_url="http://test_host1:1234",
         db_path="test_db",
+        project_root="test_proj1",
         db_settings={"anonymized_telemetry": True},
     )
     config1_alt = Config(
         db_url="http://test_host1:1234",
         db_path="test_db",
+        project_root="test_proj1",
         db_settings={"anonymized_telemetry": True, "other_setting": "value"},
     )
     # Patch chromadb.AsyncHttpClient to avoid actual network calls
@@ -581,6 +585,42 @@ async def test_client_manager_get_client():
 
 
 @pytest.mark.asyncio
+async def test_client_manager_list_server_processes():
+    async def _try_server(url):
+        return "127.0.0.1" in url or "localhost" in url
+
+    async def _start_server(cfg):
+        return AsyncMock()
+
+    with (
+        tempfile.TemporaryDirectory() as temp_dir,
+        patch("vectorcode.common.start_server", side_effect=_start_server),
+        patch("vectorcode.common.try_server", side_effect=_try_server),
+    ):
+        db_path = os.path.join(temp_dir, "db")
+        os.makedirs(db_path, exist_ok=True)
+
+        ClientManager._create_client = AsyncMock()
+        async with ClientManager().get_client(
+            Config(
+                db_url="http://test_host:8001",
+                project_root="proj1",
+                db_path=db_path,
+            )
+        ):
+            print(ClientManager().get_processes())
+        async with ClientManager().get_client(
+            Config(
+                db_url="http://test_host:8002",
+                project_root="proj2",
+                db_path=db_path,
+            )
+        ):
+            pass
+        assert len(ClientManager().get_processes()) == 2
+
+
+@pytest.mark.asyncio
 async def test_client_manager_kill_servers():
     manager = ClientManager()
     manager.clear()
@@ -596,5 +636,6 @@ async def test_client_manager_kill_servers():
         manager._create_client = AsyncMock(return_value=AsyncMock())
         async with manager.get_client(Config(db_url="http://test_host:1081")):
             pass
+        assert len(manager.get_processes()) == 1
         await manager.kill_servers()
         mock_process.terminate.assert_called_once()

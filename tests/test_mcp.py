@@ -87,6 +87,7 @@ async def test_query_tool_invalid_project_root():
 @pytest.mark.asyncio
 async def test_query_tool_success():
     with (
+        tempfile.TemporaryDirectory() as temp_dir,
         patch("os.path.isdir", return_value=True),
         patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
         patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
@@ -101,7 +102,9 @@ async def test_query_tool_success():
     ):
         from vectorcode.mcp_main import ClientManager
 
-        mock_config = Config(chunk_size=100, overlap_ratio=0.1, reranker=None)
+        mock_config = Config(
+            chunk_size=100, overlap_ratio=0.1, reranker=None, project_root=temp_dir
+        )
         mock_load_config_file.return_value = mock_config
         mock_get_project_config.return_value = mock_config
         mock_client = AsyncMock()
@@ -126,7 +129,7 @@ async def test_query_tool_success():
         mock_open.return_value = mock_file_handle
 
         result = await query_tool(
-            n_query=2, query_messages=["keyword1"], project_root="/valid/path"
+            n_query=2, query_messages=["keyword1"], project_root=temp_dir
         )
 
         assert len(result) == 2

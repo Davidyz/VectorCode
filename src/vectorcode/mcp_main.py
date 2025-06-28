@@ -188,7 +188,7 @@ async def query_tool(
         async with ClientManager().get_client(config) as client:
             collection = await get_collection(client, config, False)
 
-            if collection is None:
+            if collection is None:  # pragma: nocover
                 raise McpError(
                     ErrorData(
                         code=1,

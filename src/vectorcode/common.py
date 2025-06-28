@@ -248,14 +248,14 @@ class _ClientModel:
 
 
 class ClientManager:
-    __singleton: Optional["ClientManager"] = None
+    singleton: Optional["ClientManager"] = None
     __clients: dict[str, _ClientModel]
 
     def __new__(cls) -> "ClientManager":
-        if not hasattr(cls, "__singleton") or cls.__singleton is None:
-            cls.__singleton = super().__new__(cls)
-            cls.__singleton.__clients = {}
-        return cls.__singleton
+        if cls.singleton is None:
+            cls.singleton = super().__new__(cls)
+            cls.singleton.__clients = {}
+        return cls.singleton
 
     @contextlib.asynccontextmanager
     async def get_client(self, configs: Config, need_lock: bool = True):
