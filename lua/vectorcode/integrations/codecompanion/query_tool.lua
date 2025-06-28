@@ -269,19 +269,23 @@ return check_cli_wrap(function(opts)
 
         job_runner.run_async(args, function(result, error)
           if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.QueryResult[]
-            if opts.no_duplicate then
+            local summary_opts = vim.deepcopy(opts.summarise) or {}
+            if type(summary_opts.enabled) == "function" then
+              summary_opts.enabled = summary_opts.enabled(agent.chat, result) --[[@as  boolean]]
+            end
+
+            if opts.no_duplicate and not summary_opts.enabled then
+              -- NOTE: deduplication in summary mode prevents the model from requesting
+              -- the same content without summarysation.
               result = filter_results(result, agent.chat)
             end
+
             local max_result = #result
             if opts.max_num > 0 then
               max_result = math.min(tonumber(opts.max_num) or 1, max_result)
             end
             while #result > max_result do
               table.remove(result)
-            end
-            local summary_opts = vim.deepcopy(opts.summarise) or {}
-            if type(summary_opts.enabled) == "function" then
-              summary_opts.enabled = summary_opts.enabled(agent.chat, result)
             end
             generate_summary(result, summary_opts, action, function(s)
               cb({
