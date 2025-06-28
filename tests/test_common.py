@@ -629,6 +629,7 @@ async def test_client_manager_kill_servers():
         return "127.0.0.1" in url or "localhost" in url
 
     mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
     with (
         patch("vectorcode.common.start_server", return_value=mock_process),
         patch("vectorcode.common.try_server", side_effect=_try_server),
@@ -639,3 +640,4 @@ async def test_client_manager_kill_servers():
         assert len(manager.get_processes()) == 1
         await manager.kill_servers()
         mock_process.terminate.assert_called_once()
+        mock_process.wait.assert_awaited()

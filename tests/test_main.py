@@ -4,7 +4,7 @@ import pytest
 
 from vectorcode import __version__
 from vectorcode.cli_utils import CliAction
-from vectorcode.main import async_main, main
+from vectorcode.main import async_main
 
 
 @pytest.mark.asyncio
@@ -317,12 +317,3 @@ async def test_async_main_exception_handling(monkeypatch):
     with patch("vectorcode.main.logger") as mock_logger:
         assert await async_main() == 1
         mock_logger.error.assert_called_once()
-
-
-def test_main(monkeypatch):
-    mock_async_main = AsyncMock(return_value=0)
-    monkeypatch.setattr("vectorcode.main.async_main", mock_async_main)
-    monkeypatch.setattr("asyncio.run", MagicMock(return_value=0))
-
-    result = main()
-    assert result == 0
