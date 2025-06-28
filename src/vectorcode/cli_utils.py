@@ -632,8 +632,9 @@ class LockManager:
         if os.path.isdir(path):
             lock_file = os.path.join(path, "vectorcode.lock")
             logger.info(f"Creating {lock_file} for locking.")
-            with open(lock_file, mode="w") as fin:
-                fin.write("")
+            if not os.path.isfile(lock_file):
+                with open(lock_file, mode="w") as fin:
+                    fin.write("")
             path = lock_file
         if self.__locks.get(path) is None:
             self.__locks[path] = AsyncFileLock(path)  # pyright: ignore[reportArgumentType]
