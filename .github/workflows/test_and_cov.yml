@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11, 3.12, 3.13]
-        os: [ubuntu-latest, macos-latest, macos-14]
+        os: [ubuntu-latest, macos-latest, macos-14, ubuntu-24.04-arm]
         exclude:
           - os: macos-14
             python-version: 3.13
