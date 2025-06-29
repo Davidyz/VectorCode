@@ -1,6 +1,7 @@
 local vc_config = require("vectorcode.config")
 
 ---@class VectorCode.Lualine.Opts
+---Whether to show the number of running async jobs.
 ---@field show_job_count boolean
 
 ---@param opts VectorCode.Lualine.Opts?

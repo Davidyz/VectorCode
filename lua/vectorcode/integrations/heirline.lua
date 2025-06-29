@@ -1,4 +1,8 @@
 ---@class VectorCode.Heirline.Opts: VectorCode.Lualine.Opts
+--- Passed directly to the `hl` field of the component.
+---@field hl table|string|nil
+
+---@type VectorCode.Heirline.Opts
 local default_opts = { show_job_count = false }
 
 ---@param opts VectorCode.Heirline.Opts?
@@ -12,5 +16,6 @@ return function(opts)
     condition = function(_)
       return lualine_comp.cond()
     end,
+    hl = opts.hl,
   }
 end
