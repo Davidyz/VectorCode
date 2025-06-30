@@ -595,11 +595,11 @@ async def test_client_manager_list_server_processes():
         tempfile.TemporaryDirectory() as temp_dir,
         patch("vectorcode.common.start_server", side_effect=_start_server),
         patch("vectorcode.common.try_server", side_effect=_try_server),
+        patch("vectorcode.common.ClientManager._create_client"),
     ):
         db_path = os.path.join(temp_dir, "db")
         os.makedirs(db_path, exist_ok=True)
 
-        ClientManager._create_client = AsyncMock()
         async with ClientManager().get_client(
             Config(
                 db_url="http://test_host:8001",

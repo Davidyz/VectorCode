@@ -19,15 +19,14 @@ from vectorcode.mcp_main import (
 
 @pytest.mark.asyncio
 async def test_list_collections_success():
+    mock_client = AsyncMock()
     with (
         patch("vectorcode.mcp_main.get_collections") as mock_get_collections,
         patch("vectorcode.common.try_server", return_value=True),
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
     ):
-        from vectorcode.mcp_main import ClientManager
-
-        mock_client = AsyncMock()
-        ClientManager._create_client = AsyncMock(return_value=mock_client)
-
         mock_collection1 = AsyncMock()
         mock_collection1.metadata = {"path": "path1"}
         mock_collection2 = AsyncMock()
@@ -45,15 +44,14 @@ async def test_list_collections_success():
 
 @pytest.mark.asyncio
 async def test_list_collections_no_metadata():
+    mock_client = AsyncMock()
     with (
         patch("vectorcode.mcp_main.get_collections") as mock_get_collections,
         patch("vectorcode.common.try_server", return_value=True),
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
     ):
-        from vectorcode.mcp_main import ClientManager
-
-        mock_client = AsyncMock()
-        ClientManager._create_client = AsyncMock(return_value=mock_client)
-
         mock_collection1 = AsyncMock()
         mock_collection1.metadata = {"path": "path1"}
         mock_collection2 = AsyncMock()
@@ -86,11 +84,15 @@ async def test_query_tool_invalid_project_root():
 
 @pytest.mark.asyncio
 async def test_query_tool_success():
+    mock_client = AsyncMock()
     with (
         tempfile.TemporaryDirectory() as temp_dir,
         patch("os.path.isdir", return_value=True),
         patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
         patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
         patch(
             "vectorcode.subcommands.query.get_query_result_files"
         ) as mock_get_query_result_files,
@@ -100,15 +102,11 @@ async def test_query_tool_success():
         patch("os.path.relpath", return_value="rel/path.py"),
         patch("vectorcode.cli_utils.load_config_file") as mock_load_config_file,
     ):
-        from vectorcode.mcp_main import ClientManager
-
         mock_config = Config(
             chunk_size=100, overlap_ratio=0.1, reranker=None, project_root=temp_dir
         )
         mock_load_config_file.return_value = mock_config
         mock_get_project_config.return_value = mock_config
-        mock_client = AsyncMock()
-        ClientManager._create_client = AsyncMock(return_value=mock_client)
 
         # Mock the collection's query method to return a valid QueryResult
         mock_collection = AsyncMock()
@@ -141,15 +139,12 @@ async def test_query_tool_collection_access_failure():
     with (
         patch("os.path.isdir", return_value=True),
         patch("vectorcode.mcp_main.get_project_config"),
-        patch("vectorcode.mcp_main.get_collection"),  # Still mock get_collection
+        patch("vectorcode.mcp_main.get_collection"),
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client",
+            side_effect=Exception("Failed to connect"),
+        ),
     ):
-        from vectorcode.mcp_main import ClientManager
-
-        async def failing_get_client(*args, **kwargs):
-            raise Exception("Failed to connect")
-
-        ClientManager._create_client = AsyncMock(side_effect=failing_get_client)
-
         with pytest.raises(McpError) as exc_info:
             await query_tool(
                 n_query=2, query_messages=["keyword1"], project_root="/valid/path"
@@ -164,16 +159,15 @@ async def test_query_tool_collection_access_failure():
 
 @pytest.mark.asyncio
 async def test_query_tool_no_collection():
+    mock_client = AsyncMock()
     with (
         patch("os.path.isdir", return_value=True),
         patch("vectorcode.mcp_main.get_project_config"),
+        patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
         patch(
-            "vectorcode.mcp_main.get_collection"
-        ) as mock_get_collection,  # Still mock get_collection
-        patch("vectorcode.common.ClientManager") as MockClientManager,
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
     ):
-        mock_client = AsyncMock()
-        MockClientManager.return_value._create_client.return_value = mock_client
         mock_get_collection.return_value = None
 
         with pytest.raises(McpError) as exc_info:
@@ -203,25 +197,24 @@ async def test_vectorise_files_success():
         file_path = f"{temp_dir}/test_file.py"
         with open(file_path, "w") as f:
             f.write("def func(): pass")
+        mock_client = AsyncMock()
 
         with (
             patch("os.path.isdir", return_value=True),
             patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
             patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
+            patch(
+                "vectorcode.mcp_main.ClientManager._create_client",
+                return_value=mock_client,
+            ),
             patch("vectorcode.subcommands.vectorise.chunked_add"),
             patch(
                 "vectorcode.subcommands.vectorise.hash_file", return_value="test_hash"
             ),
             patch("vectorcode.common.try_server", return_value=True),
         ):
-            from vectorcode.mcp_main import ClientManager
-
             mock_config = Config(project_root=temp_dir)
             mock_get_project_config.return_value = mock_config
-            mock_client = AsyncMock()
-
-            # Ensure ClientManager's internal client creation method returns our mock.
-            ClientManager._create_client = AsyncMock(return_value=mock_client)
 
             mock_collection = AsyncMock()
             mock_collection.get.return_value = {"ids": [], "metadatas": []}
@@ -241,13 +234,12 @@ async def test_vectorise_files_collection_access_failure():
     with (
         patch("os.path.isdir", return_value=True),
         patch("vectorcode.mcp_main.get_project_config"),
-        patch("vectorcode.common.ClientManager"),  # Patch ClientManager class
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client",
+            side_effect=Exception("Client error"),
+        ),
         patch("vectorcode.mcp_main.get_collection"),
     ):
-        from vectorcode.mcp_main import ClientManager
-
-        ClientManager._create_client = AsyncMock(side_effect=Exception("Client error"))
-
         with pytest.raises(McpError) as exc_info:
             await vectorise_files(paths=["file.py"], project_root="/valid/path")
 
@@ -280,10 +272,15 @@ async def test_vectorise_files_with_exclude_spec():
             # For other files that might be opened, return a generic mock
             return MagicMock()
 
+        mock_client = AsyncMock()
         with (
             patch("os.path.isdir", return_value=True),
             patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
             patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
+            patch(
+                "vectorcode.mcp_main.ClientManager._create_client",
+                return_value=mock_client,
+            ),
             patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
             patch(
                 "vectorcode.subcommands.vectorise.hash_file", return_value="test_hash"
@@ -297,12 +294,8 @@ async def test_vectorise_files_with_exclude_spec():
             ),
             patch("vectorcode.common.try_server", return_value=True),
         ):
-            from vectorcode.mcp_main import ClientManager
-
             mock_config = Config(project_root=temp_dir)
             mock_get_project_config.return_value = mock_config
-            mock_client = AsyncMock()
-            ClientManager._create_client = AsyncMock(return_value=mock_client)
 
             mock_collection = AsyncMock()
             mock_collection.get.return_value = {"ids": [], "metadatas": []}
@@ -321,23 +314,22 @@ async def test_vectorise_files_with_exclude_spec():
 
 @pytest.mark.asyncio
 async def test_mcp_server():
+    mock_client = AsyncMock()
     with (
         patch(
             "vectorcode.mcp_main.find_project_config_dir"
         ) as mock_find_project_config_dir,
         patch("vectorcode.mcp_main.load_config_file") as mock_load_config_file,
-        # patch("vectorcode.mcp_main.get_client") as mock_get_client, # Removed
         patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
         patch("mcp.server.fastmcp.FastMCP.add_tool") as mock_add_tool,
         patch("vectorcode.common.try_server", return_value=True),
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
     ):
-        from vectorcode.mcp_main import ClientManager
-
         mock_find_project_config_dir.return_value = "/path/to/config"
         mock_load_config_file.return_value = Config(project_root="/path/to/project")
-        mock_client = AsyncMock()
 
-        ClientManager._create_client = AsyncMock(return_value=mock_client)
         mock_collection = AsyncMock()
         mock_get_collection.return_value = mock_collection
 
@@ -348,6 +340,7 @@ async def test_mcp_server():
 
 @pytest.mark.asyncio
 async def test_mcp_server_ls_on_start():
+    mock_client = AsyncMock()
     mock_collection = AsyncMock()
 
     with (
@@ -361,15 +354,15 @@ async def test_mcp_server_ls_on_start():
         ) as mock_get_collections,
         patch("mcp.server.fastmcp.FastMCP.add_tool") as mock_add_tool,
         patch("vectorcode.common.try_server", return_value=True),
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
     ):
-        from vectorcode.mcp_main import ClientManager, mcp_config
+        from vectorcode.mcp_main import mcp_config
 
         mcp_config.ls_on_start = True
         mock_find_project_config_dir.return_value = "/path/to/config"
         mock_load_config_file.return_value = Config(project_root="/path/to/project")
-        mock_client = AsyncMock()
-
-        ClientManager._create_client = AsyncMock(return_value=mock_client)
 
         mock_collection.metadata = {"path": "/path/to/project"}
         mock_get_collection.return_value = mock_collection

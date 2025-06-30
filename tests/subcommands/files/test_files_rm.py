@@ -59,7 +59,6 @@ async def test_rm(client, collection, capsys):
 @pytest.mark.asyncio
 async def test_rm_empty_collection(client, collection, capsys):
     with (
-        # patch("vectorcode.subcommands.files.rm.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.files.rm.get_collection", return_value=collection
         ),
@@ -68,10 +67,11 @@ async def test_rm_empty_collection(client, collection, capsys):
         patch(
             "vectorcode.subcommands.files.rm.expand_path", side_effect=lambda x, y: x
         ),
+        patch(
+            "vectorcode.subcommands.files.rm.ClientManager._create_client",
+            return_value=client,
+        ),
     ):
-        from vectorcode.subcommands.files.rm import ClientManager
-
-        ClientManager()._create_client = AsyncMock(return_value=client)
         config = Config(
             action=CliAction.files,
             files_action=FilesAction.rm,
