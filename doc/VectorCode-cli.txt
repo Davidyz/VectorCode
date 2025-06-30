@@ -35,6 +35,7 @@ Table of Contents                           *VectorCode-cli-table-of-contents*
     - |VectorCode-cli-removing-a-collection|
     - |VectorCode-cli-checking-project-setup|
     - |VectorCode-cli-cleaning-up|
+    - |VectorCode-cli-inspecting-and-manupulating-files-in-an-indexed-project|
     - |VectorCode-cli-debugging-and-diagnosing|
 - |VectorCode-cli-shell-completion|
 - |VectorCode-cli-hardware-acceleration|
@@ -554,6 +555,15 @@ CLEANING UP ~
 
 For empty collections and collections for removed projects, you can use the
 `vectorcode clean` command to remove them at once.
+
+
+INSPECTING AND MANUPULATING FILES IN AN INDEXED PROJECT ~
+
+`vectorcode files ls` prints a list of files that are indexed in the project.
+`vectorcode files rm file1 file2` removes the embeddings that belong to the
+specified files from the project.
+
+Both commands will honor the `--project_root` flag.
 
 
 DEBUGGING AND DIAGNOSING ~
