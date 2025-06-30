@@ -24,6 +24,7 @@
   * [Removing a Collection](#removing-a-collection)
   * [Checking Project Setup](#checking-project-setup)
   * [Cleaning up](#cleaning-up)
+  * [Inspecting and Manupulating Files in an Indexed Project](#inspecting-and-manupulating-files-in-an-indexed-project)
   * [Debugging and Diagnosing](#debugging-and-diagnosing)
 * [Shell Completion](#shell-completion)
 * [Hardware Acceleration](#hardware-acceleration)
@@ -506,6 +507,14 @@ some_message` and then getting an empty results.
 
 For empty collections and collections for removed projects, you can use the
 `vectorcode clean` command to remove them at once.
+
+### Inspecting and Manupulating Files in an Indexed Project
+
+`vectorcode files ls` prints a list of files that are indexed in the project.
+`vectorcode files rm file1 file2` removes the embeddings that belong to the 
+specified files from the project.
+
+Both commands will honor the `--project_root` flag.
 
 ### Debugging and Diagnosing
 
