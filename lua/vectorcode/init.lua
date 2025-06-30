@@ -221,7 +221,7 @@ M.prompts = vc_config.check_cli_wrap(function(item)
     end
     return {}
   end
-  return result
+  return vim.iter(result):flatten(math.huge):totable()
 end)
 
 M.setup = vc_config.setup
