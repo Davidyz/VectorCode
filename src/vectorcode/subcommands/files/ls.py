@@ -16,7 +16,7 @@ async def ls(configs: Config) -> int:
         except ValueError:
             logger.error(f"There's no existing collection at {configs.project_root}.")
             return 1
-        meta = (await collection.get(include=[IncludeEnum.metadatas]))["metadatas"]
+        meta = (await collection.get(include=[IncludeEnum.metadatas])).get("metadatas")
         if meta is None:
             logger.warning("Failed to fetch metadatas from the database.")
             return 0

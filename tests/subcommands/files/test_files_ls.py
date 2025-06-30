@@ -63,3 +63,36 @@ async def test_ls_piped(client, collection, capsys):
         await ls(Config(action=CliAction.files, files_action=FilesAction.ls, pipe=True))
         out = capsys.readouterr().out
         assert json.dumps(["file1.py", "file2.py", "file3.py"]).strip() == out.strip()
+
+
+@pytest.mark.asyncio
+async def test_ls_no_collection(client, collection, capsys):
+    with (
+        patch("vectorcode.subcommands.files.ls.ClientManager") as MockClientManager,
+        patch("vectorcode.subcommands.files.ls.get_collection", side_effect=ValueError),
+    ):
+        MockClientManager.return_value._create_client.return_value = client
+        assert (
+            await ls(
+                Config(action=CliAction.files, files_action=FilesAction.ls, pipe=True)
+            )
+            != 0
+        )
+
+
+@pytest.mark.asyncio
+async def test_ls_empty_collection(client, capsys):
+    mock_collection = AsyncMock(spec=AsyncCollection)
+    mock_collection.get.return_value = {}
+    with (
+        patch("vectorcode.subcommands.files.ls.ClientManager") as MockClientManager,
+        patch(
+            "vectorcode.subcommands.files.ls.get_collection",
+            return_value=mock_collection,
+        ),
+        patch("vectorcode.common.try_server", return_value=True),
+    ):
+        MockClientManager.return_value._create_client.return_value = client
+        assert (
+            await ls(Config(action=CliAction.files, files_action=FilesAction.ls)) == 0
+        )
