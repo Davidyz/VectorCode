@@ -389,9 +389,11 @@ def get_cli_parser():
     files_subparser = files_parser.add_subparsers(
         dest="files_action", required=True, title="Collecton file operations"
     )
-    files_subparser.add_parser("ls", help="List files in the collection.")
+    files_subparser.add_parser(
+        "ls", parents=[shared_parser], help="List files in the collection."
+    )
     files_rm_parser = files_subparser.add_parser(
-        "rm", help="Remove files in the collection."
+        "rm", parents=[shared_parser], help="Remove files in the collection."
     )
     files_rm_parser.add_argument(
         "rm_paths",
