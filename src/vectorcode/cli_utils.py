@@ -66,6 +66,12 @@ class CliAction(Enum):
     clean = "clean"
     prompts = "prompts"
     chunks = "chunks"
+    files = "files"
+
+
+class FilesAction(StrEnum):
+    ls = "ls"
+    rm = "rm"
 
 
 @dataclass
@@ -104,6 +110,8 @@ class Config:
     encoding: str = "utf8"
     hooks: bool = False
     prompt_categories: Optional[list[str]] = None
+    files_action: Optional[FilesAction] = None
+    rm_paths: list[str] = field(default_factory=list)
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -374,6 +382,23 @@ def get_cli_parser():
     chunks_parser.add_argument(
         "file_paths", nargs="*", help="Paths to files to be chunked."
     ).complete = shtab.FILE  # type:ignore
+
+    files_parser = subparsers.add_parser(
+        "files", parents=[shared_parser], help="Manipulate files from a collection."
+    )
+    files_subparser = files_parser.add_subparsers(
+        dest="files_action", required=True, title="Collecton file operations"
+    )
+    files_subparser.add_parser("ls", help="List files in the collection.")
+    files_rm_parser = files_subparser.add_parser(
+        "rm", help="Remove files in the collection."
+    )
+    files_rm_parser.add_argument(
+        "rm_paths",
+        nargs="+",
+        default=None,
+        help="Files to be removed from the collection.",
+    )
     return main_parser
 
 
@@ -418,6 +443,11 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["encoding"] = main_args.encoding
         case "prompts":
             configs_items["prompt_categories"] = main_args.prompt_categories
+        case "files":
+            configs_items["files_action"] = main_args.files_action
+            match main_args.files_action:
+                case FilesAction.rm:
+                    configs_items["rm_paths"] = main_args.rm_paths
     return Config(**configs_items)
 
 

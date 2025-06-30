@@ -96,6 +96,10 @@ async def async_main():
                 from vectorcode.subcommands import clean
 
                 return_val = await clean(final_configs)
+            case CliAction.files:
+                from vectorcode.subcommands import files
+
+                return_val = await files(final_configs)
     except Exception:
         return_val = 1
         logger.error(traceback.format_exc())
