@@ -29,6 +29,7 @@ def collection():
             "content3",
         ],
     }
+    col.name = "test_collection"
     return col
 
 
@@ -53,6 +54,33 @@ async def test_rm(client, collection, capsys):
         )
         await rm(config)
         collection.delete.assert_called_with(where={"path": {"$in": ["file1.py"]}})
+
+
+@pytest.mark.asyncio
+async def test_rm_empty_collection(client, collection, capsys):
+    with (
+        # patch("vectorcode.subcommands.files.rm.ClientManager") as MockClientManager,
+        patch(
+            "vectorcode.subcommands.files.rm.get_collection", return_value=collection
+        ),
+        patch("vectorcode.common.try_server", return_value=True),
+        patch("os.path.isfile", return_value=True),
+        patch(
+            "vectorcode.subcommands.files.rm.expand_path", side_effect=lambda x, y: x
+        ),
+    ):
+        from vectorcode.subcommands.files.rm import ClientManager
+
+        ClientManager()._create_client = AsyncMock(return_value=client)
+        config = Config(
+            action=CliAction.files,
+            files_action=FilesAction.rm,
+            rm_paths=["file1.py"],
+        )
+        collection.count = AsyncMock(return_value=0)
+        client.delete_collection = AsyncMock()
+        await rm(config)
+        client.delete_collection.assert_called_once_with(collection.name)
 
 
 @pytest.mark.asyncio
