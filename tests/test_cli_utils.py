@@ -11,6 +11,7 @@ from vectorcode import cli_utils
 from vectorcode.cli_utils import (
     CliAction,
     Config,
+    FilesAction,
     LockManager,
     PromptCategory,
     QueryInclude,
@@ -509,6 +510,19 @@ async def test_parse_cli_args_chunks():
         assert config.action == CliAction.chunks
         assert config.overlap_ratio == Config().overlap_ratio
         assert config.chunk_size == Config().chunk_size
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_files():
+    with patch("sys.argv", ["vectorcode", "files", "ls"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.files
+        assert config.files_action == FilesAction.ls
+    with patch("sys.argv", ["vectorcode", "files", "rm", "foo.txt"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.files
+        assert config.files_action == FilesAction.rm
+        assert config.rm_paths == ["foo.txt"]
 
 
 @pytest.mark.asyncio

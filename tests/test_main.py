@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from vectorcode import __version__
-from vectorcode.cli_utils import CliAction
+from vectorcode.cli_utils import CliAction, Config
 from vectorcode.main import async_main
 
 
@@ -243,6 +243,18 @@ async def test_async_main_cli_action_ls(monkeypatch):
     return_code = await async_main()
     assert return_code == 0
     mock_ls.assert_called_once_with(mock_final_configs)
+
+
+@pytest.mark.asyncio
+async def test_async_main_cli_action_files(monkeypatch):
+    cli_args = Config(action=CliAction.files)
+    mock_files = AsyncMock(return_value=0)
+    monkeypatch.setattr("vectorcode.subcommands.files", mock_files)
+    monkeypatch.setattr(
+        "vectorcode.main.parse_cli_args", AsyncMock(return_value=cli_args)
+    )
+    assert await async_main() == 0
+    mock_files.assert_called_once()
 
 
 @pytest.mark.asyncio
