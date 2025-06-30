@@ -94,8 +94,7 @@ This project follows an adapted semantic versioning:
 - [x] implement some sort of project-root anchors (such as `.git` or a custom
   `.vectorcode.json`) that enhances automatic project-root detection.
   **Implemented project-level `.vectorcode/` and `.git` as root anchor**
-- [ ] ability to view and delete files in a collection (atm you can only `drop`
-  and `vectorise` again);
+- [x] ability to view and delete files in a collection;
 - [x] joint search (kinda, using codecompanion.nvim/MCP);
 - [x] Nix support (unofficial packages [here](https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=vectorcode));
 - [ ] Query rewriting (#124).
