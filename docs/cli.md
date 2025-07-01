@@ -511,8 +511,8 @@ For empty collections and collections for removed projects, you can use the
 
 ### Inspecting and Manupulating Files in an Indexed Project
 
-`vectorcode files ls` prints a list of files that are indexed in the project.
-`vectorcode files rm file1 file2` removes the embeddings that belong to the 
+- `vectorcode files ls` prints a list of files that are indexed in the project.
+- `vectorcode files rm file1 file2` removes the embeddings that belong to the 
 specified files from the project.
 
 Both commands will honor the `--project_root` flag.
