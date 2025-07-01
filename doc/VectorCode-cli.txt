@@ -44,6 +44,7 @@ Table of Contents                           *VectorCode-cli-table-of-contents*
         - |VectorCode-cli-`vectorcode-query`|
         - |VectorCode-cli-`vectorcode-vectorise`|
         - |VectorCode-cli-`vectorcode-ls`|
+        - |VectorCode-cli-`vectorcode-files-ls`|
     - |VectorCode-cli-lsp-mode|
     - |VectorCode-cli-mcp-server|
     - |VectorCode-cli-writing-prompts|
@@ -726,6 +727,11 @@ A JSON array of collection information of the following format will be printed:
 - `"collection_name"`the unique identifier for the project used in the database;
 - `"size"`number of chunks stored in the database;
 - `"num_files"`number of files that have been vectorised in the project.
+
+
+VECTORCODE FILES LS
+
+A JSON array of strings (the absolute paths to the files in the collection).
 
 
 LSP MODE ~
