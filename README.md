@@ -102,12 +102,14 @@ This project follows an adapted semantic versioning:
 
 ## Credit
 
-- Thank [@milanglacier](https://github.com/milanglacier) (and [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim)) for the support when this project was still in early stage;
-- Thank [@olimorris](https://github.com/olimorris) for the help (personally and
+- [@milanglacier](https://github.com/milanglacier) (and [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim)) for the support when this project was still in early stage;
+- [@olimorris](https://github.com/olimorris) for the help (personally and
   from [codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim))
   when this project made initial attempts at tool-calling;
-- Thank [@ravitemer](https://github.com/ravitemer) for the help to interface
-  VectorCode with [MCP](https://modelcontextprotocol.io/introduction).
+- [@ravitemer](https://github.com/ravitemer) for the help to interface
+  VectorCode with [MCP](https://modelcontextprotocol.io/introduction);
+- The nix community (especially [@sarahec](https://github.com/sarahec) and [@GaetanLepage](https://github.com/GaetanLepage))
+  for maintaining the nix packages.
 
 ## Star History
 
