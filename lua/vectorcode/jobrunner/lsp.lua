@@ -19,6 +19,9 @@ function jobrunner.init(ok_to_fail)
     return CLIENT.id
   end
   ok_to_fail = ok_to_fail or true
+  if not vim.api.nvim_buf_is_loaded(0) then
+    vim.cmd("edit")
+  end
   local client_id = vim.lsp.start(vc_config.lsp_configs(), {})
   if client_id ~= nil then
     -- server started
