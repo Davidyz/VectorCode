@@ -24,6 +24,7 @@ Table of Contents                               *VectorCode-table-of-contents*
   both the CLI and the neovim plugin to the latest version before opening an
   issue.
 - |VectorCode-installation|
+    - |VectorCode-mason.nvim|
     - |VectorCode-nix|
 - |VectorCode-integrations|
 - |VectorCode-configuration|
@@ -92,6 +93,13 @@ you can use the following plugin spec:
 
   This plugin is developed and tested on neovim _v0.11_. It may work on older
   versions, but I do not test on them before publishing.
+
+MASON.NVIM ~
+
+The VectorCode CLI and LSP server are available in `mason.nvim`. If you choose
+to install the CLI through mason, you may need to pay extra attention to the
+version pinning because the package updates on mason usually takes extra time.
+
 
 NIX ~
 
