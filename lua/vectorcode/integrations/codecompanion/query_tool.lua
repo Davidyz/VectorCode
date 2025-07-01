@@ -237,9 +237,8 @@ local function generate_summary(result, summarise_opts, cmd, callback)
 
     local system_prompt = summarise_opts.system_prompt
     if type(system_prompt) == "function" then
-      system_prompt = system_prompt(
-        cc_common.get_query_tool_opts().summarise.system_prompt --[[@as string]]
-      )
+      system_prompt =
+        system_prompt(get_query_tool_opts().summarise.system_prompt --[[@as string]])
     end
 
     assert(

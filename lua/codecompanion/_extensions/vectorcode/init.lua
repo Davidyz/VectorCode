@@ -15,12 +15,14 @@ local logger = vc_config.logger
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
   tool_opts = {
-    -- NOTE: the default opts are defined in the source code files of the tools.
-    ls = {},
-    query = {},
-    vectorise = {},
-    files_ls = {},
-    files_rm = {},
+    -- NOTE: the other default opts are defined in the source code files of the tools.
+    -- `include_in_toolbox` is here so that the extension setup works as expected.
+
+    ls = { include_in_toolbox = true },
+    query = { include_in_toolbox = true },
+    vectorise = { include_in_toolbox = true },
+    files_ls = { include_in_toolbox = false },
+    files_rm = { include_in_toolbox = false },
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
 }
