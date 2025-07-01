@@ -21,8 +21,8 @@ local default_extension_opts = {
     ls = { include_in_toolbox = true },
     query = { include_in_toolbox = true },
     vectorise = { include_in_toolbox = true },
-    files_ls = { include_in_toolbox = false },
-    files_rm = { include_in_toolbox = false },
+    files_ls = {},
+    files_rm = {},
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
 }
@@ -30,11 +30,26 @@ local default_extension_opts = {
 ---@type sub_cmd[]
 local valid_tools = { "ls", "query", "vectorise", "files_ls", "files_rm" }
 
+---@param tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
+---@return table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
+local function merge_tool_opts(tool_opts)
+  local wildcard_opts = tool_opts["*"]
+  if wildcard_opts then
+    for tool_name, opts in pairs(tool_opts) do
+      if tool_name ~= "*" then
+        tool_opts[tool_name] = vim.tbl_deep_extend("force", wildcard_opts, opts)
+      end
+    end
+  end
+  return tool_opts
+end
+
 ---@type CodeCompanion.Extension
 local M = {
   ---@param opts VectorCode.CodeCompanion.ExtensionOpts
   setup = vc_config.check_cli_wrap(function(opts)
     opts = vim.tbl_deep_extend("force", default_extension_opts, opts or {})
+    opts.tool_opts = merge_tool_opts(opts.tool_opts)
     logger.info("Received codecompanion extension opts:\n", opts)
     local cc_config = require("codecompanion.config").config
     local cc_integration = require("vectorcode.integrations").codecompanion.chat
@@ -58,14 +73,7 @@ local M = {
       else
         cc_config.strategies.chat.tools[tool_name] = {
           description = string.format("Run VectorCode %s tool", sub_cmd),
-          callback = cc_integration.make_tool(
-            sub_cmd,
-            vim.tbl_deep_extend(
-              "force",
-              opts.tool_opts["*"] or {},
-              opts.tool_opts[sub_cmd]
-            )
-          ),
+          callback = cc_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
           opts = { requires_approval = opts.tool_opts[sub_cmd].requires_approval },
         }
         logger.info(string.format("%s tool has been created.", tool_name))
