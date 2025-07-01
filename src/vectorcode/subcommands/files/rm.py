@@ -21,7 +21,8 @@ async def rm(configs: Config) -> int:
             str(expand_path(p, True)) for p in configs.rm_paths if os.path.isfile(p)
         )
         await collection.delete(where=cast(Where, {"path": {"$in": paths}}))
-        print(f"Removed {len(paths)} file(s).")
+        if not configs.pipe:
+            print(f"Removed {len(paths)} file(s).")
         if await collection.count() == 0:
             logger.warning(
                 f"The collection at {configs.project_root} is now empty and will be removed."

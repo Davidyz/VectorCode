@@ -261,10 +261,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                                     {"path": {"$in": to_be_removed}},
                                 )
                             )
-                            ls.progress.begin(
+                            ls.progress.end(
                                 progress_token,
-                                types.WorkDoneProgressBegin(
-                                    title="VectorCode",
+                                types.WorkDoneProgressEnd(
                                     message="Removal finished.",
                                 ),
                             )
