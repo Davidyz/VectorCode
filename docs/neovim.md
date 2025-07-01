@@ -12,6 +12,7 @@
 <!-- mtoc-start -->
 
 * [Installation](#installation)
+  * [Mason.nvim ](#masonnvim-)
   * [Nix](#nix)
 * [Integrations](#integrations)
 * [Configuration](#configuration)
@@ -79,6 +80,12 @@ you can use the following plugin spec:
 
 > This plugin is developed and tested on neovim _v0.11_. It may work on older
 > versions, but I do not test on them before publishing.
+
+### Mason.nvim 
+
+The VectorCode CLI and LSP server are available in `mason.nvim`. If you choose to
+install the CLI through mason, you may need to pay extra attention to the version 
+pinning because the package updates on mason usually takes extra time.
 
 ### Nix
 
