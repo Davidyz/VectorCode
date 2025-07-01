@@ -76,8 +76,12 @@
 --- Whether to use the LSP backend. Default: `false`
 ---@field use_lsp boolean?
 ---@field requires_approval boolean?
+--- Whether this tool should be included in `vectorcode_toolbox`
+---@field include_in_toolbox boolean?
 
 ---@class VectorCode.CodeCompanion.LsToolOpts: VectorCode.CodeCompanion.ToolOpts
+
+---@class VectorCode.CodeCompanion.FilesLsToolOpts: VectorCode.CodeCompanion.ToolOpts
 
 ---@class VectorCode.CodeCompanion.QueryToolOpts: VectorCode.CodeCompanion.ToolOpts
 --- Maximum number of results provided to the LLM.

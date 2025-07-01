@@ -1,6 +1,6 @@
 ---@module "codecompanion"
 
----@alias sub_cmd "ls"|"query"|"vectorise"
+---@alias sub_cmd "ls"|"query"|"vectorise"|"files_ls"
 
 ---@class VectorCode.CodeCompanion.ExtensionOpts
 --- A table where the keys are the subcommand name (`ls`, `query`, `vectorise`)
@@ -17,15 +17,24 @@ local use_lsp = vc_config.get_user_config().async_backend == "lsp"
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
   tool_opts = {
-    ls = { use_lsp = use_lsp, requires_approval = false },
-    query = { use_lsp = use_lsp, requires_approval = false },
-    vectorise = { use_lsp = use_lsp, requires_approval = true },
+    ls = { use_lsp = use_lsp, requires_approval = false, include_in_toolbox = true },
+    query = { use_lsp = use_lsp, requires_approval = false, include_in_toolbox = true },
+    vectorise = {
+      use_lsp = use_lsp,
+      requires_approval = true,
+      include_in_toolbox = true,
+    },
+    files_ls = {
+      use_lsp = use_lsp,
+      requires_approval = false,
+      include_in_toolbox = false,
+    },
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
 }
 
 ---@type sub_cmd[]
-local valid_tools = { "ls", "query", "vectorise" }
+local valid_tools = { "ls", "query", "vectorise", "files_ls" }
 
 ---@type CodeCompanion.Extension
 local M = {
@@ -65,6 +74,9 @@ local M = {
     if opts.tool_group.enabled then
       local included_tools = vim
         .iter(valid_tools)
+        :filter(function(cmd_name)
+          return opts.tool_opts[cmd_name].include_in_toolbox
+        end)
         :map(function(s)
           return "vectorcode_" .. s
         end)
