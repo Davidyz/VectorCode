@@ -1,6 +1,6 @@
 ---@module "codecompanion"
 
----@alias sub_cmd "ls"|"query"|"vectorise"|"files_ls"
+---@alias sub_cmd "ls"|"query"|"vectorise"|"files_ls"|"files_rm"
 
 ---@class VectorCode.CodeCompanion.ExtensionOpts
 --- A table where the keys are the subcommand name (`ls`, `query`, `vectorise`)
@@ -29,12 +29,17 @@ local default_extension_opts = {
       requires_approval = false,
       include_in_toolbox = false,
     },
+    files_rm = {
+      use_lsp = use_lsp,
+      requires_approval = true,
+      include_in_toolbox = false,
+    },
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
 }
 
 ---@type sub_cmd[]
-local valid_tools = { "ls", "query", "vectorise", "files_ls" }
+local valid_tools = { "ls", "query", "vectorise", "files_ls", "files_rm" }
 
 ---@type CodeCompanion.Extension
 local M = {

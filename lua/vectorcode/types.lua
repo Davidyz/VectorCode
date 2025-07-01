@@ -83,6 +83,8 @@
 
 ---@class VectorCode.CodeCompanion.FilesLsToolOpts: VectorCode.CodeCompanion.ToolOpts
 
+---@class VectorCode.CodeCompanion.FilesRmToolOpts: VectorCode.CodeCompanion.ToolOpts
+
 ---@class VectorCode.CodeCompanion.QueryToolOpts: VectorCode.CodeCompanion.ToolOpts
 --- Maximum number of results provided to the LLM.
 --- You may set this to a table to configure different values for document/chunk mode.
