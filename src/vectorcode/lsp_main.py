@@ -6,8 +6,10 @@ import sys
 import time
 import traceback
 import uuid
+from typing import cast
 
 import shtab
+from chromadb.types import Where
 
 from vectorcode.subcommands.vectorise import (
     VectoriseStats,
@@ -32,17 +34,21 @@ except ModuleNotFoundError as e:  # pragma: nocover
         file=sys.stderr,
     )
     sys.exit(1)
+from chromadb.errors import InvalidCollectionException
+
 from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
+    FilesAction,
     cleanup_path,
     config_logging,
     expand_globs,
+    expand_path,
     find_project_root,
     get_project_config,
     parse_cli_args,
 )
-from vectorcode.common import ClientManager, get_collection
+from vectorcode.common import ClientManager, get_collection, list_collection_files
 from vectorcode.subcommands.ls import get_collection_list
 from vectorcode.subcommands.query import build_query_results
 
@@ -105,7 +111,11 @@ async def execute_command(ls: LanguageServer, args: list[str]):
         async with ClientManager().get_client(final_configs) as client:
             progress_token = str(uuid.uuid4())
 
-            if final_configs.action in {CliAction.vectorise, CliAction.query}:
+            if final_configs.action in {
+                CliAction.vectorise,
+                CliAction.query,
+                CliAction.files,
+            }:
                 collection = await get_collection(
                     client=client,
                     configs=final_configs,
@@ -222,6 +232,42 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         ),
                     )
                     return stats.to_dict()
+                case CliAction.files:
+                    if collection is None:  # pragma: nocover
+                        raise InvalidCollectionException(
+                            f"Failed to find the corresponding collection for {final_configs.project_root}"
+                        )
+                    match final_configs.files_action:
+                        case FilesAction.ls:
+                            return await list_collection_files(collection)
+                        case FilesAction.rm:
+                            to_be_removed = list(
+                                str(expand_path(p, True))
+                                for p in final_configs.rm_paths
+                                if os.path.isfile(p)
+                            )
+                            if len(to_be_removed) == 0:
+                                return
+                            ls.progress.begin(
+                                progress_token,
+                                types.WorkDoneProgressBegin(
+                                    title="VectorCode",
+                                    message=f"Removing {len(to_be_removed)} file(s).",
+                                ),
+                            )
+                            await collection.delete(
+                                where=cast(
+                                    Where,
+                                    {"path": {"$in": to_be_removed}},
+                                )
+                            )
+                            ls.progress.begin(
+                                progress_token,
+                                types.WorkDoneProgressBegin(
+                                    title="VectorCode",
+                                    message="Removal finished.",
+                                ),
+                            )
                 case _ as c:  # pragma: nocover
                     error_message = f"Unsupported vectorcode subcommand: {str(c)}"
                     logger.error(

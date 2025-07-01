@@ -229,13 +229,15 @@ def verify_ef(collection: AsyncCollection, configs: Config):
 
 
 async def list_collection_files(collection: AsyncCollection) -> list[str]:
-    return list(
-        set(
-            str(c.get("path", None))
-            for c in (await collection.get(include=[IncludeEnum.metadatas])).get(
-                "metadatas"
+    return sorted(
+        list(
+            set(
+                str(c.get("path", None))
+                for c in (await collection.get(include=[IncludeEnum.metadatas])).get(
+                    "metadatas"
+                )
+                or []
             )
-            or []
         )
     )
 

@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -6,7 +7,7 @@ from pygls.exceptions import JsonRpcInternalError, JsonRpcInvalidRequest
 from pygls.server import LanguageServer
 
 from vectorcode import __version__
-from vectorcode.cli_utils import CliAction, Config, QueryInclude
+from vectorcode.cli_utils import CliAction, Config, FilesAction, QueryInclude
 from vectorcode.lsp_main import (
     execute_command,
     lsp_start,
@@ -374,3 +375,127 @@ async def test_execute_command_no_default_project_root(
         with pytest.raises((AssertionError, JsonRpcInternalError)):
             await execute_command(mock_language_server, ["query", "test"])
     DEFAULT_PROJECT_ROOT = None  # Reset the global variable
+
+
+@pytest.mark.asyncio
+async def test_execute_command_files_ls(mock_language_server, mock_config: Config):
+    mock_config.action = CliAction.files
+    mock_config.files_action = FilesAction.ls
+    mock_config.project_root = "/test/project"
+
+    dummy_files = ["/test/project/file1.py", "/test/project/file2.txt"]
+    mock_client = AsyncMock()
+    mock_collection = AsyncMock()
+
+    with (
+        patch(
+            "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
+        ) as mock_parse_cli_args,
+        patch(
+            "vectorcode.lsp_main.ClientManager._create_client", return_value=mock_client
+        ),
+        patch("vectorcode.common.try_server", return_value=True),
+        patch("vectorcode.lsp_main.get_collection", return_value=mock_collection),
+        patch(
+            "vectorcode.lsp_main.list_collection_files", return_value=dummy_files
+        ) as mock_list_collection_files,
+    ):
+        mock_parse_cli_args.return_value = mock_config
+
+        mock_config.merge_from = AsyncMock(return_value=mock_config)
+
+        result = await execute_command(mock_language_server, ["files", "ls"])
+
+        assert result == dummy_files
+        mock_language_server.progress.create_async.assert_called_once()
+
+        mock_list_collection_files.assert_called_once_with(mock_collection)
+        # For 'ls' action, progress.begin/end are not explicitly called in the lsp_main,
+        # but create_async is called before the match statement.
+        mock_language_server.progress.begin.assert_not_called()
+        mock_language_server.progress.end.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_execute_command_files_rm(mock_language_server, mock_config: Config):
+    mock_config.action = CliAction.files
+    mock_config.files_action = FilesAction.rm
+    mock_config.project_root = "/test/project"
+    mock_config.rm_paths = ["file_to_remove.py", "another_file.txt"]
+
+    expanded_paths = [
+        "/test/project/file_to_remove.py",
+        "/test/project/another_file.txt",
+    ]
+    mock_client = AsyncMock()
+    mock_collection = AsyncMock()
+
+    with (
+        patch(
+            "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
+        ) as mock_parse_cli_args,
+        patch(
+            "vectorcode.lsp_main.ClientManager._create_client", return_value=mock_client
+        ),
+        patch("vectorcode.common.try_server", return_value=True),
+        patch("vectorcode.lsp_main.get_collection", return_value=mock_collection),
+        patch(
+            "os.path.isfile",
+            side_effect=lambda x: x in expanded_paths or x in mock_config.rm_paths,
+        ),
+        patch(
+            "vectorcode.lsp_main.expand_path",
+            side_effect=lambda p, *args: os.path.join(mock_config.project_root, p),
+        ),
+    ):
+        mock_parse_cli_args.return_value = mock_config
+
+        mock_config.merge_from = AsyncMock(return_value=mock_config)
+
+        await execute_command(
+            mock_language_server,
+            ["files", "rm", "file_to_remove.py", "another_file.txt"],
+        )
+
+        mock_collection.delete.assert_called_once_with(
+            where={"path": {"$in": expanded_paths}}
+        )
+
+
+@pytest.mark.asyncio
+async def test_execute_command_files_rm_no_files_to_remove(
+    mock_language_server, mock_config: Config
+):
+    mock_config.action = CliAction.files
+    mock_config.files_action = FilesAction.rm
+    mock_config.project_root = "/test/project"
+    mock_config.rm_paths = ["non_existent_file.py"]
+
+    mock_client = AsyncMock()
+    mock_collection = AsyncMock()
+
+    with (
+        patch(
+            "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
+        ) as mock_parse_cli_args,
+        patch(
+            "vectorcode.lsp_main.ClientManager._create_client", return_value=mock_client
+        ),
+        patch("vectorcode.common.try_server", return_value=True),
+        patch("vectorcode.lsp_main.get_collection", return_value=mock_collection),
+        patch("os.path.isfile", return_value=False),
+        patch(
+            "vectorcode.lsp_main.expand_path",
+            side_effect=lambda p, *args: os.path.join(mock_config.project_root, p),
+        ),
+    ):
+        mock_parse_cli_args.return_value = mock_config
+
+        mock_config.merge_from = AsyncMock(return_value=mock_config)
+
+        result = await execute_command(
+            mock_language_server, ["files", "rm", "non_existent_file.py"]
+        )
+
+        assert result is None
+        mock_collection.delete.assert_not_called()
