@@ -33,6 +33,7 @@
     * [`vectorcode query`](#vectorcode-query)
     * [`vectorcode vectorise`](#vectorcode-vectorise)
     * [`vectorcode ls`](#vectorcode-ls)
+    * [`vectorcode files ls`](#vectorcode-files-ls)
   * [LSP Mode](#lsp-mode)
   * [MCP Server](#mcp-server)
   * [Writing Prompts](#writing-prompts)
@@ -655,6 +656,10 @@ A JSON array of collection information of the following format will be printed:
 - `"collection_name"`: the unique identifier for the project used in the database;
 - `"size"`: number of chunks stored in the database;
 - `"num_files"`: number of files that have been vectorised in the project.
+
+#### `vectorcode files ls`
+
+A JSON array of strings (the absolute paths to the files in the collection).
 
 ### LSP Mode
 
