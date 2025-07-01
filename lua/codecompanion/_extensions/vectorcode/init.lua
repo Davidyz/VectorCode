@@ -12,28 +12,15 @@
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
 
-local use_lsp = vc_config.get_user_config().async_backend == "lsp"
-
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
   tool_opts = {
-    ls = { use_lsp = use_lsp, requires_approval = false, include_in_toolbox = true },
-    query = { use_lsp = use_lsp, requires_approval = false, include_in_toolbox = true },
-    vectorise = {
-      use_lsp = use_lsp,
-      requires_approval = true,
-      include_in_toolbox = true,
-    },
-    files_ls = {
-      use_lsp = use_lsp,
-      requires_approval = false,
-      include_in_toolbox = false,
-    },
-    files_rm = {
-      use_lsp = use_lsp,
-      requires_approval = true,
-      include_in_toolbox = false,
-    },
+    -- NOTE: the default opts are defined in the source code files of the tools.
+    ls = {},
+    query = {},
+    vectorise = {},
+    files_ls = {},
+    files_rm = {},
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
 }
@@ -69,7 +56,14 @@ local M = {
       else
         cc_config.strategies.chat.tools[tool_name] = {
           description = string.format("Run VectorCode %s tool", sub_cmd),
-          callback = cc_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
+          callback = cc_integration.make_tool(
+            sub_cmd,
+            vim.tbl_deep_extend(
+              "force",
+              opts.tool_opts["*"] or {},
+              opts.tool_opts[sub_cmd]
+            )
+          ),
           opts = { requires_approval = opts.tool_opts[sub_cmd].requires_approval },
         }
         logger.info(string.format("%s tool has been created.", tool_name))

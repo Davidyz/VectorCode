@@ -2,15 +2,37 @@
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vectorcode = require("vectorcode")
+local vc_config = require("vectorcode.config")
+local logger = vc_config.logger
 
 ---@alias VectoriseToolArgs { paths: string[], project_root: string }
 
 ---@alias VectoriseResult { add: integer, update: integer, removed: integer }
 
+---@type VectorCode.CodeCompanion.VectoriseToolOpts
+local default_vectorise_options = {
+  use_lsp = vc_config.get_user_config().async_backend == "lsp",
+  requires_approval = true,
+  include_in_toolbox = true,
+}
+
+---@param opts VectorCode.CodeCompanion.VectoriseToolOpts|{}|nil
+---@return VectorCode.CodeCompanion.VectoriseToolOpts
+local get_vectorise_tool_opts = function(opts)
+  opts = vim.tbl_deep_extend("force", default_vectorise_options, opts or {})
+  logger.info(
+    string.format(
+      "Loading `vectorcode_vectorise` with the following opts:\n%s",
+      vim.inspect(opts)
+    )
+  )
+  return opts
+end
+
 ---@param opts VectorCode.CodeCompanion.VectoriseToolOpts|{}|nil
 ---@return CodeCompanion.Agent.Tool
 return function(opts)
-  opts = cc_common.get_vectorise_tool_opts(opts)
+  opts = get_vectorise_tool_opts(opts)
   local tool_name = "vectorcode_vectorise"
   local job_runner = cc_common.initialise_runner(opts.use_lsp)
 

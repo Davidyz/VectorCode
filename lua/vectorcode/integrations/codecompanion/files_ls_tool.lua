@@ -1,10 +1,18 @@
 ---@module "codecompanion"
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
+local vc_config = require("vectorcode.config")
+
+local default_opts = {
+  use_lsp = vc_config.get_user_config().async_backend == "lsp",
+  requires_approval = false,
+  include_in_toolbox = false,
+}
 
 ---@param opts VectorCode.CodeCompanion.FilesLsToolOpts
 ---@return CodeCompanion.Agent.Tool
 return function(opts)
+  opts = vim.tbl_deep_extend("force", default_opts, opts or {})
   local job_runner =
     require("vectorcode.integrations.codecompanion.common").initialise_runner(
       opts.use_lsp

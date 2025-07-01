@@ -1,12 +1,21 @@
 ---@module "codecompanion"
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
+local vc_config = require("vectorcode.config")
+
+local default_opts = {
+  use_lsp = vc_config.get_user_config().async_backend == "lsp",
+  requires_approval = true,
+  include_in_toolbox = false,
+}
 
 ---@alias FilesRmArgs { paths: string[], project_root: string }
 
 ---@param opts VectorCode.CodeCompanion.FilesRmToolOpts
 ---@return CodeCompanion.Agent.Tool
 return function(opts)
+  opts = vim.tbl_deep_extend("force", default_opts, opts or {})
+
   local tool_name = "vectorcode_files_rm"
   local job_runner = cc_common.initialise_runner(opts.use_lsp)
 

@@ -2,11 +2,33 @@
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vectorcode = require("vectorcode")
+local vc_config = require("vectorcode.config")
+local logger = vc_config.logger
+
+---@type VectorCode.CodeCompanion.LsToolOpts
+local default_ls_options = {
+  use_lsp = vc_config.get_user_config().async_backend == "lsp",
+  requires_approval = false,
+  include_in_toolbox = true,
+}
+
+---@param opts VectorCode.CodeCompanion.LsToolOpts|{}|nil
+---@return VectorCode.CodeCompanion.LsToolOpts
+local get_ls_tool_opts = function(opts)
+  opts = vim.tbl_deep_extend("force", default_ls_options, opts or {})
+  logger.info(
+    string.format(
+      "Loading `vectorcode_ls` with the following opts:\n%s",
+      vim.inspect(opts)
+    )
+  )
+  return opts
+end
 
 ---@param opts VectorCode.CodeCompanion.LsToolOpts
 ---@return CodeCompanion.Agent.Tool
 return function(opts)
-  opts = cc_common.get_ls_tool_opts(opts)
+  opts = get_ls_tool_opts(opts)
   local job_runner =
     require("vectorcode.integrations.codecompanion.common").initialise_runner(
       opts.use_lsp
