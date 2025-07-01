@@ -19,33 +19,6 @@ return {
     return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
   end,
 
-  ---@param result VectorCode.QueryResult
-  ---@return string
-  process_result = function(result)
-    local llm_message
-    if result.chunk then
-      -- chunk mode
-      llm_message =
-        string.format("<path>%s</path><chunk>%s</chunk>", result.path, result.chunk)
-      if result.start_line and result.end_line then
-        llm_message = llm_message
-          .. string.format(
-            "<start_line>%d</start_line><end_line>%d</end_line>",
-            result.start_line,
-            result.end_line
-          )
-      end
-    else
-      -- full document mode
-      llm_message = string.format(
-        "<path>%s</path><content>%s</content>",
-        result.path,
-        result.document
-      )
-    end
-    return llm_message
-  end,
-
   ---@param use_lsp boolean
   ---@return VectorCode.JobRunner
   initialise_runner = function(use_lsp)

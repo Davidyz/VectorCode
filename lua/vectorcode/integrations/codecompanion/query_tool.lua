@@ -128,6 +128,33 @@ local get_query_tool_opts = function(opts)
   return opts
 end
 
+---@param result VectorCode.QueryResult
+---@return string
+local process_result = function(result)
+  local llm_message
+  if result.chunk then
+    -- chunk mode
+    llm_message =
+      string.format("<path>%s</path><chunk>%s</chunk>", result.path, result.chunk)
+    if result.start_line and result.end_line then
+      llm_message = llm_message
+        .. string.format(
+          "<start_line>%d</start_line><end_line>%d</end_line>",
+          result.start_line,
+          result.end_line
+        )
+    end
+  else
+    -- full document mode
+    llm_message = string.format(
+      "<path>%s</path><content>%s</content>",
+      result.path,
+      result.document
+    )
+  end
+  return llm_message
+end
+
 ---@alias chat_id integer
 ---@alias result_id string
 ---@type <chat_id: result_id>
@@ -226,7 +253,7 @@ local function generate_summary(result, summarise_opts, cmd, callback)
   local result_xml = table.concat(vim
     .iter(result)
     :map(function(res)
-      return cc_common.process_result(res)
+      return process_result(res)
     end)
     :totable())
 
@@ -527,7 +554,7 @@ Set this to `false` only if you've been instructed by the user to not enable sum
             or table.concat(vim
               .iter(stdout.raw_results or {})
               :map(function(res)
-                return cc_common.process_result(res)
+                return process_result(res)
               end)
               :totable()),
           string.format("**VectorCode Tool**: Retrieved %d %s(s)", stdout.count, mode)
