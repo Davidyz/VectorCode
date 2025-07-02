@@ -166,7 +166,8 @@ The following are the available options for the parameter of this function:
     update the embeddings;
   - `lsp`: if `true`, the plugin will try to start the LSP server on startup so
     that you won't need to wait for the server loading when making your first 
-    request.
+    request. _Please pay extra attention on lazy-loading so that the LSP server
+    won't be started without a buffer to be attached to (see [here](https://github.com/Davidyz/VectorCode/pull/234))._
 - `sync_log_env_var`: `boolean`. If true, this plugin will automatically set the
   `VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
   within your neovim session when logging is turned on for this plugin. Use at 
