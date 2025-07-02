@@ -179,13 +179,14 @@ async backend to use, currently either `"default"` or `"lsp"`. Default:
 `setup` is called. Supported keys: - `update`if `true`, the plugin will run
 `vectorcode update` on startup to update the embeddings; - `lsp`if `true`, the
 plugin will try to start the LSP server on startup so that you won’t need to
-wait for the server loading when making your first request. -
-`sync_log_env_var``boolean`. If true, this plugin will automatically set the
-`VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
-within your neovim session when logging is turned on for this plugin. Use at
-caution because the non-LSP CLI write all logs to stderr, which _may_ make this
-plugin VERY verbose. See |VectorCode-debugging-and-logging| for details on how
-to turn on logging.
+wait for the server loading when making your first request. _Please pay extra
+attention on lazy-loading so that the LSP server won’t be started without a
+buffer to be attached to (see here)._ - `sync_log_env_var``boolean`. If true,
+this plugin will automatically set the `VECTORCODE_LOG_LEVEL` environment
+variable for LSP or cmd processes started within your neovim session when
+logging is turned on for this plugin. Use at caution because the non-LSP CLI
+write all logs to stderr, which _may_ make this plugin VERY verbose. See
+|VectorCode-debugging-and-logging| for details on how to turn on logging.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the
