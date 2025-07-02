@@ -803,7 +803,9 @@ features:
 - `ls`list local collections, similar to the `ls` subcommand in the CLI;
 - `query`query from a given collection, similar to the `query` subcommand in
     the CLI;
-- `vectorise`vectorise files into a given project.
+- `vectorise`vectorise files into a given project;
+- `files_ls`show files that have been indexed for the current project;
+- `files_rm`remove some files from the database for a project.
 
 To try it out, install the `vectorcode[mcp]` dependency group and the MCP
 server is available in the shell as `vectorcode-mcp-server`.
