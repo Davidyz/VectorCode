@@ -7,12 +7,15 @@ import pytest
 from mcp import McpError
 
 from vectorcode.cli_utils import Config
+from vectorcode.common import ClientManager
 from vectorcode.mcp_main import (
     get_arg_parser,
     list_collections,
+    ls_files,
     mcp_server,
     parse_cli_args,
     query_tool,
+    rm_files,
     vectorise_files,
 )
 
@@ -335,7 +338,7 @@ async def test_mcp_server():
 
         await mcp_server()
 
-        assert mock_add_tool.call_count == 3
+        assert mock_add_tool.call_count == 5
 
 
 @pytest.mark.asyncio
@@ -374,8 +377,66 @@ async def test_mcp_server_ls_on_start():
 
         await mcp_server()
 
-        assert mock_add_tool.call_count == 3
+        assert mock_add_tool.call_count == 5
         mock_get_collections.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_ls_files_success():
+    ClientManager().clear()
+    mock_client = MagicMock()
+    mock_collection = MagicMock()
+    expected_files = ["/test/project/file1.py", "/test/project/dir/file2.txt"]
+
+    with (
+        patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
+        patch("vectorcode.common.try_server", return_value=True),
+        patch("vectorcode.mcp_main.get_collection", return_value=mock_collection),
+        patch(
+            "vectorcode.mcp_main.list_collection_files", return_value=expected_files
+        ) as mock_list_collection_files,
+        patch(
+            "vectorcode.cli_utils.expand_path", side_effect=lambda x, y: x
+        ),  # Mock expand_path to return input
+    ):
+        mock_get_project_config.return_value = Config(project_root="/test/project")
+        result = await ls_files(project_root="/test/project")
+
+        assert result == expected_files
+        mock_get_project_config.assert_called_once_with("/test/project")
+
+        mock_list_collection_files.assert_called_once_with(mock_collection)
+
+
+@pytest.mark.asyncio
+async def test_rm_files_success():
+    ClientManager().clear()
+    mock_client = MagicMock()
+    mock_collection = MagicMock()
+    files_to_remove = ["/test/project/file1.py", "/test/project/file2.txt"]
+
+    with (
+        patch("os.path.isfile", side_effect=lambda x: x in files_to_remove),
+        patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
+        patch(
+            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
+        ),
+        patch("vectorcode.common.try_server", return_value=True),
+        patch("vectorcode.mcp_main.get_collection", return_value=mock_collection),
+        patch("vectorcode.cli_utils.expand_path", side_effect=lambda x, y: x),
+    ):
+        mock_get_project_config.return_value = Config(project_root="/test/project")
+        mock_collection.delete = AsyncMock()
+
+        await rm_files(files=files_to_remove, project_root="/test/project")
+
+        mock_get_project_config.assert_called_once_with("/test/project")
+        mock_collection.delete.assert_called_once_with(
+            where={"path": {"$in": files_to_remove}}
+        )
 
 
 def test_arg_parser():

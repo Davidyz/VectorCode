@@ -5,9 +5,10 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import shtab
+from chromadb.types import Where
 
 from vectorcode.subcommands.vectorise import (
     VectoriseStats,
@@ -33,11 +34,17 @@ from vectorcode.cli_utils import (
     cleanup_path,
     config_logging,
     expand_globs,
+    expand_path,
     find_project_config_dir,
     get_project_config,
     load_config_file,
 )
-from vectorcode.common import ClientManager, get_collection, get_collections
+from vectorcode.common import (
+    ClientManager,
+    get_collection,
+    get_collections,
+    list_collection_files,
+)
 from vectorcode.subcommands.prompt import prompt_by_categories
 from vectorcode.subcommands.query import get_query_result_files
 
@@ -224,6 +231,34 @@ async def query_tool(
         )
 
 
+async def ls_files(project_root: str) -> list[str]:
+    """
+    project_root: Directory to the repository. MUST be from the vectorcode `ls` tool or user input;
+    """
+    configs = await get_project_config(expand_path(project_root, True))
+    async with ClientManager().get_client(configs) as client:
+        return await list_collection_files(await get_collection(client, configs, False))
+
+
+async def rm_files(files: list[str], project_root: str):
+    """
+    files: list of paths of the files to be removed;
+    project_root: Directory to the repository. MUST be from the vectorcode `ls` tool or user input;
+    """
+    configs = await get_project_config(expand_path(project_root, True))
+    async with ClientManager().get_client(configs) as client:
+        try:
+            collection = await get_collection(client, configs, False)
+            files = [str(expand_path(i, True)) for i in files if os.path.isfile(i)]
+            if files:
+                await collection.delete(where=cast(Where, {"path": {"$in": files}}))
+            else:  # pragma: nocover
+                logger.warning(f"All paths were invalid: {files}")
+        except ValueError:  # pragma: nocover
+            logger.warning(f"Failed to find the collection at {configs.project_root}")
+            return
+
+
 async def mcp_server():
     global default_config, default_project_root
 
@@ -281,6 +316,18 @@ async def mcp_server():
         description="\n".join(
             prompt_by_categories["vectorise"] + prompt_by_categories["general"]
         ),
+    )
+
+    mcp.add_tool(
+        fn=rm_files,
+        name="files_rm",
+        description="Remove files from VectorCode embedding database.",
+    )
+
+    mcp.add_tool(
+        fn=ls_files,
+        name="files_ls",
+        description="List files that have been indexed by VectorCode.",
     )
 
     return mcp
