@@ -224,6 +224,16 @@ async def test_get_collection():
     with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
         mock_client = MagicMock(spec=AsyncClientAPI)
         mock_collection = MagicMock()
+        mock_collection.metadata = {
+            "path": config.project_root,
+            "hostname": socket.gethostname(),
+            "created-by": "VectorCode",
+            "username": os.environ.get(
+                "USER", os.environ.get("USERNAME", "DEFAULT_USER")
+            ),
+            "embedding_function": config.embedding_function,
+            "hnsw:M": 64,
+        }
         mock_client.get_collection.return_value = mock_collection
         MockAsyncHttpClient.return_value = mock_client
 
@@ -252,7 +262,7 @@ async def test_get_collection():
             "created-by": "VectorCode",
         }
 
-        async def mock_get_or_create_collection(
+        async def mock_create_collection(
             self,
             name=None,
             configuration=None,
@@ -263,7 +273,7 @@ async def test_get_collection():
             mock_collection.metadata.update(metadata or {})
             return mock_collection
 
-        mock_client.get_or_create_collection.side_effect = mock_get_or_create_collection
+        mock_client.create_collection.side_effect = mock_create_collection
         MockAsyncHttpClient.return_value = mock_client
 
         collection = await get_collection(mock_client, config, make_if_missing=True)
@@ -273,16 +283,18 @@ async def test_get_collection():
         )
         assert collection.metadata["created-by"] == "VectorCode"
         assert collection.metadata["hnsw:M"] == 64
-        mock_client.get_or_create_collection.assert_called_once()
+        mock_client.create_collection.assert_called_once()
         mock_client.get_collection.side_effect = None
 
     # Test raising IndexError on hash collision.
-    with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
+    with (
+        patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient,
+        patch("socket.gethostname", side_effect=(lambda: "dummy")),
+    ):
         mock_client = MagicMock(spec=AsyncClientAPI)
-        mock_client.get_or_create_collection.side_effect = IndexError(
-            "Hash collision occurred"
-        )
+
         MockAsyncHttpClient.return_value = mock_client
+        mock_client.get_collection = AsyncMock(return_value=mock_collection)
         from vectorcode.common import __COLLECTION_CACHE
 
         __COLLECTION_CACHE.clear()
@@ -315,7 +327,8 @@ async def test_get_collection_hnsw():
             "embedding_function": "SentenceTransformerEmbeddingFunction",
             "path": "/test_project",
         }
-        mock_client.get_or_create_collection.return_value = mock_collection
+        mock_client.create_collection.return_value = mock_collection
+        mock_client.get_collection.side_effect = ValueError
         MockAsyncHttpClient.return_value = mock_client
 
         # Clear the collection cache to force creation
@@ -332,9 +345,9 @@ async def test_get_collection_hnsw():
         assert collection.metadata["created-by"] == "VectorCode"
         assert collection.metadata["hnsw:ef_construction"] == 200
         assert collection.metadata["hnsw:M"] == 32
-        mock_client.get_or_create_collection.assert_called_once()
+        mock_client.create_collection.assert_called_once()
         assert (
-            mock_client.get_or_create_collection.call_args.kwargs["metadata"]
+            mock_client.create_collection.call_args.kwargs["metadata"]
             == mock_collection.metadata
         )
 
