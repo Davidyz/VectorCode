@@ -242,6 +242,18 @@ async def test_get_collection():
         mock_client.get_collection.assert_called_once()
         mock_client.get_or_create_collection.assert_not_called()
 
+    # Test retrieving a non-existing collection
+    with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
+        from vectorcode.common import __COLLECTION_CACHE
+
+        __COLLECTION_CACHE.clear()
+        mock_client = MagicMock(spec=AsyncClientAPI)
+        mock_client.get_collection.side_effect = ValueError
+        MockAsyncHttpClient.return_value = mock_client
+
+        with pytest.raises(ValueError):
+            collection = await get_collection(mock_client, config, False)
+
     # Test creating a collection if it doesn't exist
     with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
         mock_client = MagicMock(spec=AsyncClientAPI)
