@@ -1,8 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException
+from chromadb.errors import NotFoundError
 
 from vectorcode.cli_utils import Config
 from vectorcode.subcommands.update import update
@@ -34,7 +33,7 @@ async def test_update_success():
         result = await update(config)
 
         assert result == 0
-        mock_collection.get.assert_called_once_with(include=[IncludeEnum.metadatas])
+        mock_collection.get.assert_called_once_with(include=["metadatas"])
         assert mock_chunked_add.call_count == 2
         mock_collection.delete.assert_not_called()
 
@@ -65,7 +64,7 @@ async def test_update_with_orphans():
         result = await update(config)
 
         assert result == 0
-        mock_collection.get.assert_called_once_with(include=[IncludeEnum.metadatas])
+        mock_collection.get.assert_called_once_with(include=["metadatas"])
         assert mock_chunked_add.call_count == 2
         mock_collection.delete.assert_called_once_with(
             where={"path": {"$in": ["orphan.py"]}}
@@ -115,7 +114,7 @@ async def test_update_invalid_collection_exception():
         patch("vectorcode.subcommands.update.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.update.get_collection",
-            side_effect=InvalidCollectionException,
+            side_effect=NotFoundError,
         ),
         patch("sys.stderr"),
     ):

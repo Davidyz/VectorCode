@@ -475,11 +475,11 @@ async def test_get_collections():
     }
 
     mock_client.list_collections.return_value = [
-        "collection1",
-        "collection2",
-        "collection3",
-        "collection4",
-        "collection5",
+        mock_collection1,
+        mock_collection2,
+        mock_collection3,
+        mock_collection4,
+        mock_collection5,
     ]
     mock_client.get_collection.side_effect = [
         mock_collection1,

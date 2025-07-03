@@ -1,6 +1,6 @@
 import logging
 
-from chromadb.errors import InvalidCollectionException
+from chromadb.errors import NotFoundError
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import ClientManager, get_collection
@@ -17,7 +17,7 @@ async def drop(config: Config) -> int:
             print(f"Collection for {collection_path} has been deleted.")
             logger.info(f"Deteted collection at {collection_path}.")
             return 0
-        except (ValueError, InvalidCollectionException) as e:
+        except (ValueError, NotFoundError) as e:
             logger.error(
                 f"{e.__class__.__name__}: There's no existing collection for {config.project_root}"
             )

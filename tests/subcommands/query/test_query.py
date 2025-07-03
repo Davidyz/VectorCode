@@ -3,8 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 import pytest
 from chromadb import GetResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException, InvalidDimensionException
+from chromadb.errors import InvalidDimensionException, NotFoundError
 
 from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.subcommands.query import (
@@ -86,9 +85,9 @@ async def test_get_query_result_files(mock_collection, mock_config):
             "test query"
         ]  # Assuming chunking produces this
         assert kwargs["n_results"] == 6  # n_result(3) * query_multiplier(2)
-        assert IncludeEnum.metadatas in kwargs["include"]
-        assert IncludeEnum.distances in kwargs["include"]
-        assert IncludeEnum.documents in kwargs["include"]
+        assert "metadatas" in kwargs["include"]
+        assert "distances" in kwargs["include"]
+        assert "documents" in kwargs["include"]
         assert not kwargs["where"]  # Since query_exclude is empty
 
         # Check reranker was used correctly
@@ -159,7 +158,7 @@ async def test_build_query_results_chunk_mode_success(mock_collection, mock_conf
         results = await build_query_results(mock_collection, mock_config)
 
         mock_collection.get.assert_called_once_with(
-            identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
+            identifier, include=["metadatas", "documents"]
         )
 
         mocked_open.assert_called_once_with(file_path)
@@ -490,9 +489,7 @@ async def test_query_invalid_collection():
         patch("sys.stderr"),
     ):
         # Make get_collection raise InvalidCollectionException
-        mock_get_collection.side_effect = InvalidCollectionException(
-            "Invalid collection"
-        )
+        mock_get_collection.side_effect = NotFoundError("Invalid collection")
 
         # Call the function
         result = await query(config)

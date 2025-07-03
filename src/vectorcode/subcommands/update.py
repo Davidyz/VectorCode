@@ -5,8 +5,7 @@ import sys
 from asyncio import Lock
 
 import tqdm
-from chromadb.api.types import IncludeEnum
-from chromadb.errors import InvalidCollectionException
+from chromadb.errors import NotFoundError
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import ClientManager, get_collection, verify_ef
@@ -24,7 +23,7 @@ async def update(configs: Config) -> int:
                 f"{e.__class__.__name__}: Failed to get/create the collection. Please check your config."
             )
             return 1
-        except (ValueError, InvalidCollectionException) as e:
+        except (ValueError, NotFoundError) as e:
             print(
                 f"{e.__class__.__name__}: There's no existing collection for {configs.project_root}",
                 file=sys.stderr,
@@ -38,7 +37,7 @@ async def update(configs: Config) -> int:
         if not verify_ef(collection, configs):  # pragma: nocover
             return 1
 
-        metas = (await collection.get(include=[IncludeEnum.metadatas]))["metadatas"]
+        metas = (await collection.get(include=["metadatas"]))["metadatas"]
         if metas is None or len(metas) == 0:  # pragma: nocover
             logger.debug("Empty collection.")
             return 0

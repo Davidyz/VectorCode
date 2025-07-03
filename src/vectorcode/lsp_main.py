@@ -34,7 +34,7 @@ except ModuleNotFoundError as e:  # pragma: nocover
         file=sys.stderr,
     )
     sys.exit(1)
-from chromadb.errors import InvalidCollectionException
+from chromadb.errors import NotFoundError
 
 from vectorcode import __version__
 from vectorcode.cli_utils import (
@@ -234,7 +234,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     return stats.to_dict()
                 case CliAction.files:
                     if collection is None:  # pragma: nocover
-                        raise InvalidCollectionException(
+                        raise NotFoundError(
                             f"Failed to find the corresponding collection for {final_configs.project_root}"
                         )
                     match final_configs.files_action:

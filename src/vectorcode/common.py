@@ -15,7 +15,6 @@ import chromadb
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
 from chromadb.config import APIVersion, Settings
 from chromadb.utils import embedding_functions
 
@@ -27,8 +26,7 @@ logger = logging.getLogger(name=__name__)
 async def get_collections(
     client: AsyncClientAPI,
 ) -> AsyncGenerator[AsyncCollection, None]:
-    for collection_name in await client.list_collections():
-        collection = await client.get_collection(collection_name, None)
+    for collection in await client.list_collections():
         meta = collection.metadata
         if meta is None:
             continue
@@ -238,9 +236,7 @@ async def list_collection_files(collection: AsyncCollection) -> list[str]:
         list(
             set(
                 str(c.get("path", None))
-                for c in (await collection.get(include=[IncludeEnum.metadatas])).get(
-                    "metadatas"
-                )
+                for c in (await collection.get(include=["metadatas"])).get("metadatas")
                 or []
             )
         )

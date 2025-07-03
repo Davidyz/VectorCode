@@ -13,7 +13,6 @@ import pathspec
 import tabulate
 import tqdm
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
 
 from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import (
@@ -96,7 +95,7 @@ async def chunked_add(
     async with collection_lock:
         existing_chunks = await collection.get(
             where={"path": full_path_str},
-            include=[IncludeEnum.metadatas],
+            include=["metadatas"],
         )
         num_existing_chunks = len((existing_chunks)["ids"])
         if existing_chunks["metadatas"]:
