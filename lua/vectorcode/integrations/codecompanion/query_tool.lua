@@ -10,7 +10,7 @@ local logger = vc_config.logger
 
 local job_runner = nil
 
----@alias QueryToolArgs { project_root:string, count: integer, query: string[], allow_summary: boolean }
+---@alias QueryToolArgs { project_root:string, count: integer, query: string[], allow_summary: boolean, deduplicate: boolean }
 
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
@@ -257,7 +257,12 @@ local function generate_summary(result, summarise_opts, cmd, callback)
     end)
     :totable())
 
-  if summarise_opts.enabled and cmd.allow_summary and type(callback) == "function" then
+  if
+    summarise_opts.enabled
+    and cmd.allow_summary
+    and type(callback) == "function"
+    and #result > 0
+  then
     ---@type CodeCompanion.Adapter
     local adapter =
       vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
@@ -381,7 +386,7 @@ return check_cli_wrap(function(opts)
           end
         end
 
-        if opts.no_duplicate and agent.chat.refs ~= nil then
+        if opts.no_duplicate and agent.chat.refs ~= nil and action.deduplicate then
           -- exclude files that has been added to the context
           local existing_files = { "--exclude" }
           for _, ref in pairs(agent.chat.refs) do
@@ -416,7 +421,11 @@ return check_cli_wrap(function(opts)
               summary_opts.enabled = summary_opts.enabled(agent.chat, result) --[[@as  boolean]]
             end
 
-            if opts.no_duplicate and not summary_opts.enabled then
+            if
+              opts.no_duplicate
+              and not summary_opts.enabled
+              and action.deduplicate
+            then
               -- NOTE: deduplication in summary mode prevents the model from requesting
               -- the same content without summarysation.
               result = filter_results(result, agent.chat)
@@ -496,8 +505,22 @@ Leave this to `true` by default.
 Set this to `false` only if you've been instructed by the user to not enable summarisation, or if the summary is missing information that you'd need for the current task.
 ]],
             },
+            deduplicate = {
+              type = "boolean",
+              description = [[
+Set this to `false` to deduplicate the search results with references in the chat context. 
+Default to `true`.
+DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RESULTS.
+]],
+            },
           },
-          required = { "query", "count", "project_root", "allow_summary" },
+          required = {
+            "query",
+            "count",
+            "project_root",
+            "allow_summary",
+            "deduplicate",
+          },
           additionalProperties = false,
         },
         strict = true,
@@ -548,6 +571,17 @@ Set this to `false` only if you've been instructed by the user to not enable sum
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
         )
+        if vim.tbl_isempty(stdout.raw_results) then
+          logger.info("CodeCompanion query tool recieved empty result.")
+          return agent.chat:add_tool_output(
+            self,
+            string.format(
+              "`%s` tool returned empty result. Please retry without deduplication.",
+              tool_name
+            ),
+            "**VectorCode `query` Tool**: Retrieved 0 result. Retrying..."
+          )
+        end
         agent.chat:add_tool_output(
           self,
           stdout.summary
