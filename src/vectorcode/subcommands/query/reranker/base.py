@@ -62,6 +62,9 @@ class RerankerBase(ABC):
         raise NotImplementedError
 
     async def rerank(self, results: QueryResult | dict) -> list[str]:
+        if len(results["ids"]) == 0 or all(len(i) == 0 for i in results["ids"]):
+            return []
+
         self._raw_results = cast(QueryResult, results)
         query_chunks = self.configs.query
         assert query_chunks
