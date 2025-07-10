@@ -17,6 +17,7 @@ from vectorcode.subcommands.vectorise import (
     VectoriseStats,
     chunked_add,
     exclude_paths_by_spec,
+    find_exclude_specs,
     get_uuid,
     hash_file,
     hash_str,
@@ -224,10 +225,34 @@ def test_show_stats_pipe_true(capsys):
 
 def test_exclude_paths_by_spec():
     paths = ["file1.py", "file2.py", "exclude.py"]
-    specs = pathspec.GitIgnoreSpec.from_lines(lines=["exclude.py"])
-    excluded_paths = exclude_paths_by_spec(paths, specs)
-    assert "exclude.py" not in excluded_paths
-    assert len(excluded_paths) == 2
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as spec_file:
+        spec_file.writelines(["exclude.py"])
+        spec_path = spec_file.name
+
+    paths_after_exclude = exclude_paths_by_spec(paths, spec_path)
+    assert "exclude.py" not in paths_after_exclude
+    assert len(paths_after_exclude) == 2
+    os.remove(spec_path)
+
+
+def test_nested_exclude_paths_by_spec():
+    paths = ["file1.py", "file2.py", "exclude.py", "nested/exclude.py"]
+    with tempfile.TemporaryDirectory() as project_root:
+        with open(os.path.join(project_root, ".gitignore"), mode="w") as fin:
+            fin.writelines(["/exclude.py"])
+
+        nested_git_dir = os.path.join(project_root, "nested")
+        os.makedirs(nested_git_dir, exist_ok=True)
+        with open(os.path.join(nested_git_dir, ".gitignore"), mode="w") as fin:
+            fin.writelines(["/exclude.py"])
+
+        specs = find_exclude_specs(Config(project_root=project_root, recursive=True))
+        paths_after_exclude = paths[:]
+        for spec in specs:
+            paths_after_exclude = exclude_paths_by_spec(paths_after_exclude, spec)
+        assert "exclude.py" not in paths_after_exclude
+        assert "nested/exclude.py" not in paths_after_exclude
+        assert len(paths_after_exclude) == 2
 
 
 def test_include_paths_by_spec():

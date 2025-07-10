@@ -1,4 +1,5 @@
 import asyncio
+import glob
 import hashlib
 import json
 import logging
@@ -186,16 +187,19 @@ def show_stats(configs: Config, stats: VectoriseStats):
         print(stats.to_table())
 
 
-def exclude_paths_by_spec(
-    paths: Iterable[str], specs: pathspec.PathSpec | str
-) -> list[str]:
+def exclude_paths_by_spec(paths: Iterable[str], spec_path: str) -> list[str]:
     """
     Files matched by the specs will be excluded.
     """
-    if isinstance(specs, str):
-        with open(specs) as fin:
-            specs = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
-    return [path for path in paths if not specs.match_file(path)]
+    spec_base = spec_path.replace(".gitignore", "")
+    with open(spec_path) as fin:
+        specs = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
+
+    return [
+        path
+        for path in paths
+        if not specs.match_file(os.path.relpath(path, spec_base or "."))
+    ]
 
 
 def include_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> list[str]:
@@ -235,10 +239,16 @@ def find_exclude_specs(configs: Config) -> list[str]:
     Load a list of paths to exclude specs.
     Can be `.gitignore` or local/global `vectorcode.exclude`
     """
-    gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
-    specs = [
-        gitignore_path,
-    ]
+    if configs.recursive:
+        specs = glob.glob(
+            os.path.join(str(configs.project_root), "**", ".gitignore"), recursive=True
+        ) + glob.glob(
+            os.path.join(str(configs.project_root), "**", "vectorcode.exclude"),
+            recursive=True,
+        )
+    else:
+        specs = [os.path.join(str(configs.project_root), ".gitignore")]
+
     exclude_spec_path = os.path.join(
         str(configs.project_root), ".vectorcode", "vectorcode.exclude"
     )
@@ -246,6 +256,7 @@ def find_exclude_specs(configs: Config) -> list[str]:
         specs.append(exclude_spec_path)
     elif os.path.isfile(GLOBAL_EXCLUDE_SPEC):
         specs.append(GLOBAL_EXCLUDE_SPEC)
+    specs = [i for i in specs if os.path.isfile(i)]
     return specs
 
 
