@@ -244,6 +244,7 @@ def find_exclude_specs(configs: Config) -> list[str]:
     elif os.path.isfile(GLOBAL_EXCLUDE_SPEC):
         specs.append(GLOBAL_EXCLUDE_SPEC)
     specs = [i for i in specs if os.path.isfile(i)]
+    logger.debug(f"Loaded exclude specs: {specs}")
     return specs
 
 
@@ -271,6 +272,7 @@ async def vectorise(configs: Config) -> int:
                 if os.path.isfile(spec_path):
                     logger.info(f"Loading ignore specs from {spec_path}.")
                     files = exclude_paths_by_spec((str(i) for i in files), spec_path)
+                    logger.debug(f"Files after excluding: {files}")
         else:  # pragma: nocover
             logger.info("Ignoring exclude specs.")
 

@@ -1,6 +1,7 @@
 import argparse
 import atexit
 import glob
+import itertools
 import logging
 import os
 import sys
@@ -711,11 +712,24 @@ class SpecResolver:
         self, paths: Iterable[str], negated: bool = False
     ) -> Generator[str, None, None]:
         # get paths relative to `base_dir`
-        rel_paths = (os.path.normpath(os.path.relpath(p, self.base_dir)) for p in paths)
+        rel_paths = list(
+            os.path.normpath(os.path.relpath(p, self.base_dir)) for p in paths
+        )
+
+        base = Path(self.base_dir)
+        relevant = []
+        others = []
+        for p in rel_paths:
+            if base in Path(p).parents:
+                relevant.append(p)
+            else:
+                others.append(p)
 
         yield from (
             os.path.normpath(
                 str(os.path.join(self.base_dir, p))
             )  # convert the base from `base_dir` to `.`
-            for p in self.spec.match_files(rel_paths, negate=negated)
+            for p in itertools.chain(
+                self.spec.match_files(relevant, negate=negated), others
+            )
         )
