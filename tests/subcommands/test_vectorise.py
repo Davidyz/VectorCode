@@ -222,8 +222,10 @@ def test_show_stats_pipe_true(capsys):
 
 
 def test_exclude_paths_by_spec():
-    paths = ["file1.py", "file2.py", "exclude.py"]
     with tempfile.TemporaryDirectory() as dir:
+        paths = list(
+            os.path.join(dir, i) for i in ["file1.py", "file2.py", "exclude.py"]
+        )
         spec_path = os.path.join(dir, ".gitignore")
         with open(spec_path, mode="w") as spec_file:
             spec_file.writelines(["exclude.py"])
@@ -637,57 +639,61 @@ async def test_vectorise_gitignore():
 
 
 @pytest.mark.asyncio
-async def test_vectorise_exclude_file(tmpdir):
+async def test_vectorise_exclude_file():
     # Create a temporary .vectorcode directory and vectorcode.exclude file
-    exclude_dir = tmpdir.mkdir(".vectorcode")
-    exclude_file = exclude_dir.join("vectorcode.exclude")
-    exclude_file.write("excluded_file.py\n")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        exclude_dir = os.path.join(tmpdir, ".vectorcode")
+        os.makedirs(exclude_dir, exist_ok=True)
+        exclude_spec = os.path.join(exclude_dir, "vectorcode.exclude")
+        with open(exclude_spec, mode="w") as fin:
+            fin.writelines(["excluded_file.py"])
 
-    configs = Config(
-        db_url="http://test_host:1234",
-        db_path="test_db",
-        embedding_function="SentenceTransformerEmbeddingFunction",
-        embedding_params={},
-        project_root=str(tmpdir),
-        files=["test_file.py", "excluded_file.py"],
-        recursive=False,
-        force=False,
-        pipe=False,
-    )
-    mock_client = AsyncMock()
-    mock_collection = AsyncMock()
-    mock_collection.get.return_value = {"ids": []}
+        configs = Config(
+            db_url="http://test_host:1234",
+            db_path="test_db",
+            embedding_function="SentenceTransformerEmbeddingFunction",
+            embedding_params={},
+            project_root=str(tmpdir),
+            files=[
+                os.path.join(tmpdir, "test_file.py"),
+                os.path.join(tmpdir, "excluded_file.py"),
+            ],
+            force=False,
+            pipe=False,
+        )
+        mock_client = AsyncMock()
+        mock_collection = AsyncMock()
+        mock_collection.get.return_value = {"ids": []}
 
-    with (
-        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
-        patch(
-            "vectorcode.subcommands.vectorise.get_collection",
-            return_value=mock_collection,
-        ),
-        patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
-        patch(
-            "os.path.isfile",
-            side_effect=lambda path: True if path == str(exclude_file) else False,
-        ),
-        patch("builtins.open", return_value=open(str(exclude_file), "r")),
-        patch(
-            "vectorcode.subcommands.vectorise.expand_globs",
-            return_value=(
-                os.path.join(tmpdir, i) for i in ["test_file.py", "excluded_file.py"]
+        with (
+            patch(
+                "vectorcode.subcommands.vectorise.ClientManager"
+            ) as MockClientManager,
+            patch(
+                "vectorcode.subcommands.vectorise.get_collection",
+                return_value=mock_collection,
             ),
-        ),
-        patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
-    ):
-        MockClientManager.return_value._create_client.return_value = mock_client
-        await vectorise(configs)
-        # Assert that chunked_add is only called for test_file.py, not excluded_file.py
-        call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
-        assert os.path.join(tmpdir, "excluded_file.py") not in call_args
-        assert os.path.join(tmpdir, "test_file.py") in call_args
-        assert mock_chunked_add.call_count == 1
-
-
-MOCK_GLOBAL_EXCLUDE_PATH = "/mock/global/.config/vectorcode/vectorcode.exclude"
+            patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
+            patch(
+                "os.path.isfile",
+                side_effect=lambda path: True if path == str(exclude_spec) else False,
+            ),
+            patch(
+                "vectorcode.subcommands.vectorise.expand_globs",
+                return_value=list(
+                    os.path.join(tmpdir, i)
+                    for i in ["test_file.py", "excluded_file.py"]
+                ),
+            ),
+            patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
+        ):
+            MockClientManager.return_value._create_client.return_value = mock_client
+            await vectorise(configs)
+            # Assert that chunked_add is only called for test_file.py, not excluded_file.py
+            call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
+            assert str(os.path.join(tmpdir, "excluded_file.py")) not in call_args
+            assert os.path.join(tmpdir, "test_file.py") in call_args
+            assert mock_chunked_add.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -707,7 +713,9 @@ async def test_vectorise_uses_global_exclude_when_local_missing():
 
         project_root = os.path.join(temp_home, "project")
         os.makedirs(project_root, exist_ok=True)
-        files = ("include.py", "exclude.py")
+        files = list(
+            os.path.join(project_root, i) for i in ("include.py", "exclude.py")
+        )
         for f_name in files:
             full_path = os.path.join(project_root, f_name)
             with open(full_path, mode="w") as fin:

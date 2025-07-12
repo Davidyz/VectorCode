@@ -188,12 +188,14 @@ def show_stats(configs: Config, stats: VectoriseStats):
         print(stats.to_table())
 
 
-def exclude_paths_by_spec(paths: Iterable[str], spec_path: str) -> list[str]:
+def exclude_paths_by_spec(
+    paths: Iterable[str], spec_path: str, project_root: Optional[str] = None
+) -> list[str]:
     """
     Files matched by the specs will be excluded.
     """
 
-    return list(SpecResolver.from_path(spec_path).match(paths, True))
+    return list(SpecResolver.from_path(spec_path, project_root).match(paths, True))
 
 
 def load_files_from_include(project_root: str) -> list[str]:
@@ -271,7 +273,9 @@ async def vectorise(configs: Config) -> int:
             for spec_path in find_exclude_specs(configs):
                 if os.path.isfile(spec_path):
                     logger.info(f"Loading ignore specs from {spec_path}.")
-                    files = exclude_paths_by_spec((str(i) for i in files), spec_path)
+                    files = exclude_paths_by_spec(
+                        (str(i) for i in files), spec_path, str(configs.project_root)
+                    )
                     logger.debug(f"Files after excluding: {files}")
         else:  # pragma: nocover
             logger.info("Ignoring exclude specs.")

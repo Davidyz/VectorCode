@@ -1,7 +1,6 @@
 import argparse
 import atexit
 import glob
-import itertools
 import logging
 import os
 import sys
@@ -681,7 +680,7 @@ class SpecResolver:
     """
 
     @classmethod
-    def from_path(cls, path: str):
+    def from_path(cls, path: str, project_root: Optional[str] = None):
         base_dir = "."
         if path.endswith(".gitignore"):
             base_dir = path.replace(".gitignore", "")
@@ -693,7 +692,7 @@ class SpecResolver:
                     base_dir = str(path_obj.parent.parent)
                 else:
                     # assume to be global config
-                    base_dir = "."
+                    base_dir = project_root or "."
             else:
                 raise ValueError(f"Unsupported spec path: {path}")
         return cls(path, base_dir)
@@ -712,24 +711,14 @@ class SpecResolver:
         self, paths: Iterable[str], negated: bool = False
     ) -> Generator[str, None, None]:
         # get paths relative to `base_dir`
-        rel_paths = list(
-            os.path.normpath(os.path.relpath(p, self.base_dir)) for p in paths
-        )
 
-        base = Path(self.base_dir)
-        relevant = []
-        others = []
-        for p in rel_paths:
-            if base in Path(p).parents:
-                relevant.append(p)
+        base = Path(self.base_dir).resolve()
+        for p in paths:
+            if base in Path(p).resolve().parents:
+                should_yield = self.spec.match_file(os.path.relpath(p, self.base_dir))
+                if negated:
+                    should_yield = not should_yield
+                if should_yield:
+                    yield p
             else:
-                others.append(p)
-
-        yield from (
-            os.path.normpath(
-                str(os.path.join(self.base_dir, p))
-            )  # convert the base from `base_dir` to `.`
-            for p in itertools.chain(
-                self.spec.match_files(relevant, negate=negated), others
-            )
-        )
+                yield p
