@@ -6,13 +6,12 @@ import tempfile
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
-import pathspec
 import pytest
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from tree_sitter import Point
 
 from vectorcode.chunking import Chunk
-from vectorcode.cli_utils import Config
+from vectorcode.cli_utils import CliAction, Config
 from vectorcode.subcommands.vectorise import (
     VectoriseStats,
     chunked_add,
@@ -21,7 +20,6 @@ from vectorcode.subcommands.vectorise import (
     get_uuid,
     hash_file,
     hash_str,
-    include_paths_by_spec,
     load_files_from_include,
     show_stats,
     vectorise,
@@ -225,42 +223,41 @@ def test_show_stats_pipe_true(capsys):
 
 def test_exclude_paths_by_spec():
     paths = ["file1.py", "file2.py", "exclude.py"]
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as spec_file:
-        spec_file.writelines(["exclude.py"])
-        spec_path = spec_file.name
+    with tempfile.TemporaryDirectory() as dir:
+        spec_path = os.path.join(dir, ".gitignore")
+        with open(spec_path, mode="w") as spec_file:
+            spec_file.writelines(["exclude.py"])
 
-    paths_after_exclude = exclude_paths_by_spec(paths, spec_path)
-    assert "exclude.py" not in paths_after_exclude
-    assert len(paths_after_exclude) == 2
-    os.remove(spec_path)
+        paths_after_exclude = exclude_paths_by_spec(paths, spec_path)
+        assert "exclude.py" not in paths_after_exclude
+        assert len(paths_after_exclude) == 2
+        os.remove(spec_path)
 
 
 def test_nested_exclude_paths_by_spec():
-    paths = ["file1.py", "file2.py", "exclude.py", "nested/exclude.py"]
+    paths = [
+        "file1.py",
+        "file2.py",
+        "exclude.py",
+        os.path.join("nested", "nested_exclude.py"),
+    ]
     with tempfile.TemporaryDirectory() as project_root:
+        paths = [os.path.join(project_root, i) for i in paths]
         with open(os.path.join(project_root, ".gitignore"), mode="w") as fin:
             fin.writelines(["/exclude.py"])
 
         nested_git_dir = os.path.join(project_root, "nested")
         os.makedirs(nested_git_dir, exist_ok=True)
         with open(os.path.join(nested_git_dir, ".gitignore"), mode="w") as fin:
-            fin.writelines(["/exclude.py"])
+            fin.writelines(["/nested_exclude.py"])
 
         specs = find_exclude_specs(Config(project_root=project_root, recursive=True))
         paths_after_exclude = paths[:]
         for spec in specs:
             paths_after_exclude = exclude_paths_by_spec(paths_after_exclude, spec)
         assert "exclude.py" not in paths_after_exclude
-        assert "nested/exclude.py" not in paths_after_exclude
+        assert "nested/nested_exclude.py" not in paths_after_exclude
         assert len(paths_after_exclude) == 2
-
-
-def test_include_paths_by_spec():
-    paths = ["file1.py", "file2.py", "include.py"]
-    specs = pathspec.GitIgnoreSpec.from_lines(lines=["include.py", "file1.py"])
-    included_paths = include_paths_by_spec(paths, specs)
-    assert "file2.py" not in included_paths
-    assert len(included_paths) == 2
 
 
 @patch("os.path.isfile")
@@ -675,7 +672,9 @@ async def test_vectorise_exclude_file(tmpdir):
         patch("builtins.open", return_value=open(str(exclude_file), "r")),
         patch(
             "vectorcode.subcommands.vectorise.expand_globs",
-            return_value=["test_file.py", "excluded_file.py"],
+            return_value=(
+                os.path.join(tmpdir, i) for i in ["test_file.py", "excluded_file.py"]
+            ),
         ),
         patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
     ):
@@ -683,8 +682,8 @@ async def test_vectorise_exclude_file(tmpdir):
         await vectorise(configs)
         # Assert that chunked_add is only called for test_file.py, not excluded_file.py
         call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
-        assert "excluded_file.py" not in call_args
-        assert "test_file.py" in call_args
+        assert os.path.join(tmpdir, "excluded_file.py") not in call_args
+        assert os.path.join(tmpdir, "test_file.py") in call_args
         assert mock_chunked_add.call_count == 1
 
 
@@ -692,99 +691,48 @@ MOCK_GLOBAL_EXCLUDE_PATH = "/mock/global/.config/vectorcode/vectorcode.exclude"
 
 
 @pytest.mark.asyncio
-@patch("vectorcode.subcommands.vectorise.get_collection", new_callable=AsyncMock)
-@patch("vectorcode.subcommands.vectorise.expand_globs", new_callable=AsyncMock)
-@patch("vectorcode.subcommands.vectorise.chunked_add", new_callable=AsyncMock)
-@patch("os.path.isfile")
-@patch("builtins.open", new_callable=mock_open)
-@patch("vectorcode.subcommands.vectorise.GLOBAL_EXCLUDE_SPEC", MOCK_GLOBAL_EXCLUDE_PATH)
-@patch("pathspec.GitIgnoreSpec")
-@patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True)
-async def test_vectorise_uses_global_exclude_when_local_missing(
-    mock_verify_ef,  # Add argument for the new patch
-    mock_gitignore_spec,
-    mock_open_builtin,
-    mock_isfile,
-    mock_chunked_add,
-    mock_expand_globs,
-    mock_get_collection,
-    tmp_path,
-):
-    """
-    Tests that vectorise uses the global exclude file if the local one
-    and .gitignore are missing.
-    """
-    project_root = str(tmp_path)
-    configs = Config(project_root=project_root, force=False, pipe=True)
-    local_gitignore = tmp_path / ".gitignore"
-    local_exclude_file = tmp_path / ".vectorcode" / "vectorcode.exclude"
+async def test_vectorise_uses_global_exclude_when_local_missing():
+    mock_client = AsyncMock()
+    mock_collection = AsyncMock()
+    mock_collection.get.return_value = {"ids": []}
 
-    initial_files = [str(tmp_path / "file1.py"), str(tmp_path / "ignored.bin")]
-    mock_expand_globs.return_value = initial_files
+    with tempfile.TemporaryDirectory() as temp_home:
+        os.environ["HOME"] = temp_home
+        global_config_dir = os.path.join(temp_home, ".config", "vectorcode")
+        os.makedirs(global_config_dir, exist_ok=True)
+        with open(
+            os.path.join(global_config_dir, "vectorcode.exclude"), mode="w"
+        ) as fin:
+            fin.writelines(["exclude.py"])
 
-    def isfile_side_effect(p):
-        path_str = str(p)
-        if path_str == str(local_gitignore):
-            return False
-        if path_str == str(local_exclude_file):
-            return False
-        if path_str == MOCK_GLOBAL_EXCLUDE_PATH:
-            return True
-        if path_str == str(tmp_path / "file1.py"):
-            return True
-        return False
-
-    mock_isfile.side_effect = isfile_side_effect
-
-    global_exclude_content = "*.bin"
-    m_open = mock_open(read_data=global_exclude_content)
-    with (
-        patch("builtins.open", m_open),
-        patch("vectorcode.subcommands.vectorise.ClientManager") as MockClientManager,
-    ):
-        mock_spec_instance = MagicMock()
-        mock_spec_instance.match_file = lambda path: str(path).endswith(".bin")
-        mock_gitignore_spec.from_lines.return_value = mock_spec_instance
-
-        mock_client_instance = AsyncMock()
-        mock_client_instance.get_max_batch_size = AsyncMock(return_value=100)
-
-        MockClientManager.return_value._create_client.return_value = (
-            mock_client_instance
-        )
-
-        mock_collection_instance = AsyncMock()
-        mock_collection_instance.get = AsyncMock(
-            return_value={
-                "ids": ["id1"],
-                "metadatas": [
-                    {"path": str(tmp_path / "file1.py")}
-                ],  # Simulate file1.py is in DB
-            }
-        )
-        mock_collection_instance.delete = AsyncMock()
-        mock_get_collection.return_value = mock_collection_instance
-
-        await vectorise(configs)
-
-        mock_verify_ef.assert_called_once_with(mock_collection_instance, configs)
-
-        mock_isfile.assert_any_call(str(local_gitignore))
-        mock_isfile.assert_any_call(str(local_exclude_file))
-        mock_isfile.assert_any_call(MOCK_GLOBAL_EXCLUDE_PATH)
-
-        mock_isfile.assert_any_call(str(tmp_path / "file1.py"))
-
-        m_open.assert_called_with(MOCK_GLOBAL_EXCLUDE_PATH)
-        mock_gitignore_spec.from_lines.assert_called_once_with([global_exclude_content])
-
-        found_correct_call = False
-        for call in mock_chunked_add.call_args_list:
-            args, _ = call
-            if args[0] == str(tmp_path / "file1.py"):
-                found_correct_call = True
-                break
-        assert found_correct_call, (
-            f"chunked_add not called with {str(tmp_path / 'file1.py')}"
-        )
-        assert mock_chunked_add.call_count == 1
+        project_root = os.path.join(temp_home, "project")
+        os.makedirs(project_root, exist_ok=True)
+        files = ("include.py", "exclude.py")
+        for f_name in files:
+            full_path = os.path.join(project_root, f_name)
+            with open(full_path, mode="w") as fin:
+                pass
+        with (
+            patch(
+                "vectorcode.subcommands.vectorise.ClientManager"
+            ) as MockClientManager,
+            patch(
+                "vectorcode.subcommands.vectorise.get_collection",
+                return_value=mock_collection,
+            ),
+            patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
+            patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
+            patch(
+                "vectorcode.subcommands.vectorise.GLOBAL_EXCLUDE_SPEC",
+                os.path.join(temp_home, ".config", "vectorcode", "vectorcode.exclude"),
+            ),
+        ):
+            MockClientManager.return_value._create_client.return_value = mock_client
+            await vectorise(
+                Config(
+                    project_root=project_root,
+                    files=list(os.path.join(project_root, i) for i in files),
+                    action=CliAction.vectorise,
+                )
+            )
+            mock_chunked_add.assert_called_once()

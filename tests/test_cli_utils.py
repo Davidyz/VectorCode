@@ -6,6 +6,7 @@ from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
+from pathspec import GitIgnoreSpec
 
 from vectorcode import cli_utils
 from vectorcode.cli_utils import (
@@ -15,6 +16,7 @@ from vectorcode.cli_utils import (
     LockManager,
     PromptCategory,
     QueryInclude,
+    SpecResolver,
     cleanup_path,
     expand_envs_in_dict,
     expand_globs,
@@ -576,3 +578,55 @@ async def test_filelock():
     with tempfile.TemporaryDirectory() as tmp_dir:
         manager.get_lock(tmp_dir)
         assert os.path.isfile(os.path.join(tmp_dir, "vectorcode.lock"))
+
+
+def test_specresolver():
+    spec = GitIgnoreSpec.from_lines(["file1.txt"])
+    nested_path = "nested/file1.txt"
+    assert nested_path in list(
+        SpecResolver(spec, base_dir="nested").match([nested_path])
+    )
+    assert nested_path not in list(
+        SpecResolver(spec, base_dir="nested").match([nested_path], negated=True)
+    )
+
+    with tempfile.TemporaryDirectory() as dir:
+        nested_dir = os.path.join(dir, "nested")
+        nested_path = os.path.join(nested_dir, "file1.txt")
+        os.makedirs(nested_dir, exist_ok=True)
+        nested_path = os.path.join(dir, "nested", "file1.txt")
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, dir=nested_dir) as f:
+            f.writelines(["file1.txt"])
+            spec_filename = f.name
+
+        assert nested_path in list(
+            SpecResolver(spec_filename, base_dir=nested_dir).match([nested_path])
+        )
+
+
+def test_specresolver_builder():
+    with (
+        patch("vectorcode.cli_utils.GitIgnoreSpec"),
+        patch("vectorcode.cli_utils.open"),
+    ):
+        base_dir = os.path.normpath(os.path.join("foo", "bar"))
+        assert (
+            os.path.normpath(
+                SpecResolver.from_path(os.path.join(base_dir, ".gitignore")).base_dir
+            )
+            == base_dir
+        )
+
+        assert (
+            os.path.normpath(
+                SpecResolver.from_path(
+                    os.path.join(base_dir, ".vectorcode", "vectorcode.exclude")
+                ).base_dir
+            )
+            == base_dir
+        )
+        assert os.path.normpath(
+            SpecResolver.from_path(
+                os.path.join(base_dir, "vectorcode", "vectorcode.exclude")
+            ).base_dir
+        ) == os.path.normpath(".")
