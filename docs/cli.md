@@ -426,6 +426,10 @@ on certain conditions. See
 [the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
 for an example to use it with git hooks.
 
+If you're working with nested repos, you can pass `--recursive`/`-r` so that
+the `vectorise` command will honour the `.gitignore`s and `vectorcode.exclude`s 
+in the nested repos.
+
 ### Making a Query
 
 To retrieve a list of documents from the database, you can use the following command:
