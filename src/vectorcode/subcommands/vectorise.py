@@ -21,6 +21,7 @@ from vectorcode.cli_utils import (
     GLOBAL_EXCLUDE_SPEC,
     GLOBAL_INCLUDE_SPEC,
     Config,
+    SpecResolver,
     expand_globs,
     expand_path,
 )
@@ -191,22 +192,8 @@ def exclude_paths_by_spec(paths: Iterable[str], spec_path: str) -> list[str]:
     """
     Files matched by the specs will be excluded.
     """
-    spec_base = spec_path.replace(".gitignore", "")
-    with open(spec_path) as fin:
-        specs = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
 
-    return [
-        path
-        for path in paths
-        if not specs.match_file(os.path.relpath(path, spec_base or "."))
-    ]
-
-
-def include_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> list[str]:
-    """
-    Only include paths matched by the specs.
-    """
-    return [path for path in paths if specs.match_file(path)]
+    return list(SpecResolver.from_path(spec_path).match(paths, True))
 
 
 def load_files_from_include(project_root: str) -> list[str]:

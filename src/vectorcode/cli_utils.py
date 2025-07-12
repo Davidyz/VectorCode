@@ -8,11 +8,12 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import Enum, StrEnum
 from pathlib import Path
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Generator, Iterable, Optional, Sequence, Union
 
 import json5
 import shtab
 from filelock import AsyncFileLock
+from pathspec import GitIgnoreSpec
 
 from vectorcode import __version__
 
@@ -671,3 +672,50 @@ class LockManager:
         if self.__locks.get(path) is None:
             self.__locks[path] = AsyncFileLock(path)  # pyright: ignore[reportArgumentType]
         return self.__locks[path]
+
+
+class SpecResolver:
+    """
+    This class is a wrapper around filespec that makes it easier to work with file specs that are not in cwd.
+    """
+
+    @classmethod
+    def from_path(cls, path: str):
+        base_dir = "."
+        if path.endswith(".gitignore"):
+            base_dir = path.replace(".gitignore", "")
+        else:
+            path_obj = Path(path)
+            if path_obj.name in {"vectorcode.include", "vectorcode.exclude"}:
+                if path_obj.parent.name == ".vectorcode":
+                    # project config
+                    base_dir = str(path_obj.parent.parent)
+                else:
+                    # assume to be global config
+                    base_dir = "."
+            else:
+                raise ValueError(f"Unsupported spec path: {path}")
+        return cls(path, base_dir)
+
+    def __init__(self, spec: str | GitIgnoreSpec, base_dir: str = "."):
+        if isinstance(spec, str):
+            with open(spec) as fin:
+                self.spec = GitIgnoreSpec.from_lines(
+                    (i.strip() for i in fin.readlines())
+                )
+        else:
+            self.spec = spec
+        self.base_dir = base_dir
+
+    def match(
+        self, paths: Iterable[str], negated: bool = False
+    ) -> Generator[str, None, None]:
+        # get paths relative to `base_dir`
+        rel_paths = (os.path.normpath(os.path.relpath(p, self.base_dir)) for p in paths)
+
+        yield from (
+            os.path.normpath(
+                str(os.path.join(self.base_dir, p))
+            )  # convert the base from `base_dir` to `.`
+            for p in self.spec.match_files(rel_paths, negate=negated)
+        )
