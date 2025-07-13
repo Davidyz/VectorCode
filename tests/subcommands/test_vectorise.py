@@ -643,10 +643,20 @@ async def test_vectorise_exclude_file():
     # Create a temporary .vectorcode directory and vectorcode.exclude file
     with tempfile.TemporaryDirectory() as tmpdir:
         exclude_dir = os.path.join(tmpdir, ".vectorcode")
+        nested_dir = os.path.join(tmpdir, "nested")
+
         os.makedirs(exclude_dir, exist_ok=True)
+        os.makedirs(nested_dir, exist_ok=True)
+
         exclude_spec = os.path.join(exclude_dir, "vectorcode.exclude")
         with open(exclude_spec, mode="w") as fin:
             fin.writelines(["excluded_file.py"])
+        with open(os.path.join(nested_dir, ".gitignore"), "w") as fin:
+            fin.writelines(["excluded_file.py"])
+        nested_file_path = os.path.join(nested_dir, "nested_excluded_file.py")
+        with open(nested_file_path, "w") as fin:
+            # non-recursive case. This file should be included.
+            fin.writelines(['print("hello world")'])
 
         configs = Config(
             db_url="http://test_host:1234",
@@ -657,7 +667,9 @@ async def test_vectorise_exclude_file():
             files=[
                 os.path.join(tmpdir, "test_file.py"),
                 os.path.join(tmpdir, "excluded_file.py"),
+                nested_file_path,
             ],
+            recursive=False,
             force=False,
             pipe=False,
         )
@@ -675,15 +687,69 @@ async def test_vectorise_exclude_file():
             ),
             patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
             patch(
-                "os.path.isfile",
-                side_effect=lambda path: True if path == str(exclude_spec) else False,
+                "vectorcode.subcommands.vectorise.expand_globs",
+                return_value=configs.files,
             ),
+            patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
+        ):
+            MockClientManager.return_value._create_client.return_value = mock_client
+            await vectorise(configs)
+            # Assert that chunked_add is only called for test_file.py, not excluded_file.py
+            call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
+            assert str(os.path.join(tmpdir, "excluded_file.py")) not in call_args
+            assert os.path.join(tmpdir, "test_file.py") in call_args
+            assert mock_chunked_add.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_vectorise_exclude_file_recursive():
+    # Create a temporary .vectorcode directory and vectorcode.exclude file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        exclude_dir = os.path.join(tmpdir, ".vectorcode")
+        nested_dir = os.path.join(tmpdir, "nested")
+
+        os.makedirs(exclude_dir, exist_ok=True)
+        os.makedirs(nested_dir, exist_ok=True)
+
+        exclude_spec = os.path.join(exclude_dir, "vectorcode.exclude")
+        with open(exclude_spec, mode="w") as fin:
+            fin.writelines(["excluded_file.py"])
+        with open(os.path.join(nested_dir, ".gitignore"), "w") as fin:
+            fin.writelines(["excluded_file.py"])
+        with open(os.path.join(nested_dir, "excluded_file.py"), "w") as fin:
+            # recursive case. This file should be skipped.
+            fin.writelines(['print("hello world")'])
+
+        configs = Config(
+            db_url="http://test_host:1234",
+            db_path="test_db",
+            embedding_function="SentenceTransformerEmbeddingFunction",
+            embedding_params={},
+            project_root=str(tmpdir),
+            files=[
+                os.path.join(tmpdir, "test_file.py"),
+                os.path.join(tmpdir, "excluded_file.py"),
+            ],
+            recursive=True,
+            force=False,
+            pipe=False,
+        )
+        mock_client = AsyncMock()
+        mock_collection = AsyncMock()
+        mock_collection.get.return_value = {"ids": []}
+
+        with (
+            patch(
+                "vectorcode.subcommands.vectorise.ClientManager"
+            ) as MockClientManager,
+            patch(
+                "vectorcode.subcommands.vectorise.get_collection",
+                return_value=mock_collection,
+            ),
+            patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
             patch(
                 "vectorcode.subcommands.vectorise.expand_globs",
-                return_value=list(
-                    os.path.join(tmpdir, i)
-                    for i in ["test_file.py", "excluded_file.py"]
-                ),
+                return_value=configs.files,
             ),
             patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
         ):
