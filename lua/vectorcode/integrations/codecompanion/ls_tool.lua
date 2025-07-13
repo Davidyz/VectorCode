@@ -1,7 +1,6 @@
 ---@module "codecompanion"
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
-local vectorcode = require("vectorcode")
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
 
@@ -60,10 +59,10 @@ return function(opts)
       type = "function",
       ["function"] = {
         name = tool_name,
-        description = string.format(
-          "Retrieve a list of projects accessible via the VectorCode tools.\n%s",
-          table.concat(vectorcode.prompts("ls"), "\n")
-        ),
+        description = [[
+Retrieve a list of projects accessible via the VectorCode tools.
+Where relevant, use paths from this tool as the `project_root` parameter in other vectorcode tools.
+]],
       },
     },
     output = {

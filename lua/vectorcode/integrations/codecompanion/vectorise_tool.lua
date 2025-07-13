@@ -1,7 +1,6 @@
 ---@module "codecompanion"
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
-local vectorcode = require("vectorcode")
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
 
@@ -43,10 +42,10 @@ return function(opts)
       type = "function",
       ["function"] = {
         name = tool_name,
-        description = string.format(
-          "Vectorise files in a project so that they'll be available from the vectorcode_query tool\n%s",
-          table.concat(vectorcode.prompts("vectorise"), "\n")
-        ),
+        description = [[
+Vectorise files in a project so that they'll be available from the `vectorcode_query` tool.
+The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitive.
+]],
         parameters = {
           type = "object",
           properties = {
