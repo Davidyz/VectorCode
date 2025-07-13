@@ -680,12 +680,17 @@ class SpecResolver:
     """
 
     @classmethod
-    def from_path(cls, path: str, project_root: Optional[str] = None):
+    def from_path(cls, spec_path: str, project_root: Optional[str] = None):
+        """
+        Automatically determine the appropriate `base_dir` for resolving file specs that are outside of the project root.
+        Only supports `.gitignore` and `.vectorcode/vectorcode.{include,exclude}`.
+        Raises `ValueError` if the spec path is not one of them.
+        """
         base_dir = "."
-        if path.endswith(".gitignore"):
-            base_dir = path.replace(".gitignore", "")
+        if spec_path.endswith(".gitignore"):
+            base_dir = spec_path.replace(".gitignore", "")
         else:
-            path_obj = Path(path)
+            path_obj = Path(spec_path)
             if path_obj.name in {"vectorcode.include", "vectorcode.exclude"}:
                 if path_obj.parent.name == ".vectorcode":
                     # project config
@@ -693,9 +698,9 @@ class SpecResolver:
                 else:
                     # assume to be global config
                     base_dir = project_root or "."
-            else:
-                raise ValueError(f"Unsupported spec path: {path}")
-        return cls(path, base_dir)
+            else:  # pragma: nocover
+                raise ValueError(f"Unsupported spec path: {spec_path}")
+        return cls(spec_path, base_dir)
 
     def __init__(self, spec: str | GitIgnoreSpec, base_dir: str = "."):
         if isinstance(spec, str):
