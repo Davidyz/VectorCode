@@ -182,16 +182,11 @@ async def get_collection(
         logger.debug(
             f"Getting/Creating collection with the following metadata: {collection_meta}"
         )
-        if not make_if_missing:
-            __COLLECTION_CACHE[full_path] = await client.get_collection(
+        try:
+            collection = await client.get_collection(
                 collection_name, embedding_function
             )
-        else:
-            collection = await client.get_or_create_collection(
-                collection_name,
-                metadata=collection_meta,
-                embedding_function=embedding_function,
-            )
+            __COLLECTION_CACHE[full_path] = collection
             if (
                 not collection.metadata.get("hostname") == socket.gethostname()
                 or collection.metadata.get("username")
@@ -208,7 +203,17 @@ async def get_collection(
                 raise IndexError(
                     "Failed to create the collection due to hash collision. Please file a bug report."
                 )
-            __COLLECTION_CACHE[full_path] = collection
+        except ValueError:
+            if make_if_missing:
+                collection = await client.create_collection(
+                    collection_name,
+                    metadata=collection_meta,
+                    embedding_function=embedding_function,
+                )
+
+                __COLLECTION_CACHE[full_path] = collection
+            else:
+                raise
     return __COLLECTION_CACHE[full_path]
 
 
