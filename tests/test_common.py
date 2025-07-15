@@ -97,6 +97,59 @@ def test_get_embedding_function_init_exception():
         )
 
 
+@pytest.mark.asyncio
+async def test_try_server_versions():
+    # Test successful v1 response
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_client.return_value.__aenter__.return_value.get.return_value = (
+            mock_response
+        )
+        assert await try_server("http://localhost:8300") is True
+        mock_client.return_value.__aenter__.return_value.get.assert_called_once_with(
+            url="http://localhost:8300/api/v1/heartbeat"
+        )
+
+    # Test fallback to v2 when v1 fails
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_response_v1 = MagicMock()
+        mock_response_v1.status_code = 404
+        mock_response_v2 = MagicMock()
+        mock_response_v2.status_code = 200
+        mock_client.return_value.__aenter__.return_value.get.side_effect = [
+            mock_response_v1,
+            mock_response_v2,
+        ]
+        assert await try_server("http://localhost:8300") is True
+        assert mock_client.return_value.__aenter__.return_value.get.call_count == 2
+
+    # Test both versions fail
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_response_v1 = MagicMock()
+        mock_response_v1.status_code = 404
+        mock_response_v2 = MagicMock()
+        mock_response_v2.status_code = 500
+        mock_client.return_value.__aenter__.return_value.get.side_effect = [
+            mock_response_v1,
+            mock_response_v2,
+        ]
+        assert await try_server("http://localhost:8300") is False
+
+    # Test connection error cases
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.get.side_effect = (
+            httpx.ConnectError("Cannot connect")
+        )
+        assert await try_server("http://localhost:8300") is False
+
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.get.side_effect = (
+            httpx.ConnectTimeout("Connection timeout")
+        )
+        assert await try_server("http://localhost:8300") is False
+
+
 def test_verify_ef():
     # Mocking AsyncCollection and Config
     mock_collection = MagicMock()
@@ -137,32 +190,15 @@ async def test_try_server_mocked(mock_socket):
     with patch("httpx.AsyncClient") as mock_client:
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.content = b'{"info":{"title": "Chroma"}}'
         mock_client.return_value.__aenter__.return_value.get.return_value = (
             mock_response
         )
         assert await try_server("http://localhost:8000") is True
-    with patch("httpx.AsyncClient") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_client.return_value.__aenter__.return_value.get.return_value = (
-            mock_response
-        )
-        assert await try_server("http://localhost:8000") is False
 
     # Mocking httpx.AsyncClient to raise a ConnectError
     with patch("httpx.AsyncClient") as mock_client:
         mock_client.return_value.__aenter__.return_value.get.side_effect = (
             httpx.ConnectError("Simulated connection error")
-        )
-        assert await try_server("http://localhost:8000") is False
-
-    with patch("httpx.AsyncClient") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.content = b'{"info":{"title": "Dummy"}}'
-        mock_client.return_value.__aenter__.return_value.get.return_value = (
-            mock_response
         )
         assert await try_server("http://localhost:8000") is False
 

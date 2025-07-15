@@ -1,13 +1,11 @@
 import asyncio
 import contextlib
 import hashlib
-import json
 import logging
 import os
 import socket
 import subprocess
 import sys
-import traceback
 from asyncio.subprocess import Process
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Optional
@@ -48,19 +46,16 @@ async def get_collections(
 
 
 async def try_server(base_url: str):
-    openapi_url = f"{base_url}/openapi.json"
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url=openapi_url)
-            logger.debug(f"Fetching openapi.json from {openapi_url}: {response=}")
-            if response.status_code != 200:
-                return False
-            openapi_json = json.loads(response.content.decode())
-            if openapi_json:
-                return openapi_json.get("info", {}).get("title", "").lower() == "chroma"
-    except Exception as e:
-        logger.info(f"Failed to connect to chromadb at {base_url}")
-        logger.debug(traceback.format_exception(e))
+    for ver in ("v1", "v2"):  # v1 for legacy, v2 for latest chromadb.
+        heartbeat_url = f"{base_url}/api/{ver}/heartbeat"
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url=heartbeat_url)
+                logger.debug(f"Heartbeat {heartbeat_url} returned {response=}")
+                if response.status_code == 200:
+                    return True
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            pass
     return False
 
 
