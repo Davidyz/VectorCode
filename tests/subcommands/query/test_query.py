@@ -173,6 +173,7 @@ async def test_build_query_results_chunk_mode_success(mock_collection, mock_conf
             "chunk": expected_chunk_content,
             "start_line": start_line,
             "end_line": end_line,
+            "chunk_id": identifier,
         }
 
         assert results[0] == expected_full_result
@@ -203,6 +204,36 @@ async def test_get_query_result_files_with_query_exclude(mock_collection, mock_c
         mock_collection.query.assert_called_once()
         _, kwargs = mock_collection.query.call_args
         assert kwargs["where"] == {"path": {"$nin": ["/excluded/path.py"]}}
+
+
+@pytest.mark.asyncio
+async def test_get_query_result_chunks_with_query_exclude(mock_collection, mock_config):
+    # Setup query_exclude
+    mock_config.query_exclude = ["/excluded/path.py"]
+    mock_config.include = [QueryInclude.chunk, QueryInclude.path]
+
+    with (
+        patch("vectorcode.subcommands.query.expand_path") as mock_expand_path,
+        patch("vectorcode.subcommands.query.expand_globs") as mock_expand_globs,
+        patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker,
+        patch("os.path.isfile", return_value=True),  # Add this line to mock isfile
+    ):
+        mock_expand_globs.return_value = ["/excluded/path.py"]
+        mock_expand_path.return_value = "/excluded/path.py"
+
+        mock_reranker_instance = MagicMock()
+        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
+        MockReranker.return_value = mock_reranker_instance
+
+        # Call the function
+        await get_query_result_files(mock_collection, mock_config)
+
+        # Check that query was called with the right parameters including the where clause
+        mock_collection.query.assert_called_once()
+        _, kwargs = mock_collection.query.call_args
+        assert kwargs["where"] == {
+            "$and": [{"path": {"$nin": ["/excluded/path.py"]}}, {"$gte": 0}]
+        }
 
 
 @pytest.mark.asyncio
@@ -324,7 +355,7 @@ async def test_query_success(mock_config):
     mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.query.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.query.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.query.get_collection", return_value=mock_collection
         ),
@@ -336,6 +367,7 @@ async def test_query_success(mock_config):
         patch("os.path.relpath", return_value="rel/path.py"),
         patch("os.path.abspath", return_value="/abs/path.py"),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         # Set up the mock file paths and contents
         mock_get_files.return_value = ["file1.py", "file2.py"]
         mock_file_handle = MagicMock()
@@ -365,7 +397,7 @@ async def test_query_pipe_mode(mock_config):
     mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.query.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.query.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.query.get_collection", return_value=mock_collection
         ),
@@ -377,6 +409,7 @@ async def test_query_pipe_mode(mock_config):
         patch("os.path.relpath", return_value="rel/path.py"),
         patch("os.path.abspath", return_value="/abs/path.py"),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         # Set up the mock file paths and contents
         mock_get_files.return_value = ["file1.py", "file2.py"]
         mock_file_handle = MagicMock()
@@ -403,7 +436,7 @@ async def test_query_absolute_path(mock_config):
     mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.query.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.query.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.query.get_collection", return_value=mock_collection
         ),
@@ -414,6 +447,7 @@ async def test_query_absolute_path(mock_config):
         patch("os.path.relpath", return_value="rel/path.py"),
         patch("os.path.abspath", return_value="/abs/path.py"),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         # Set up the mock file paths and contents
         mock_get_files.return_value = ["file1.py"]
         mock_file_handle = MagicMock()
@@ -432,7 +466,7 @@ async def test_query_collection_not_found():
     config = Config(project_root="/test/project")
 
     with (
-        patch("vectorcode.subcommands.query.get_client"),
+        patch("vectorcode.subcommands.query.ClientManager"),
         patch("vectorcode.subcommands.query.get_collection") as mock_get_collection,
         patch("sys.stderr"),
     ):
@@ -451,7 +485,7 @@ async def test_query_invalid_collection():
     config = Config(project_root="/test/project")
 
     with (
-        patch("vectorcode.subcommands.query.get_client"),
+        patch("vectorcode.subcommands.query.ClientManager"),
         patch("vectorcode.subcommands.query.get_collection") as mock_get_collection,
         patch("sys.stderr"),
     ):
@@ -472,7 +506,7 @@ async def test_query_invalid_dimension():
     config = Config(project_root="/test/project")
 
     with (
-        patch("vectorcode.subcommands.query.get_client"),
+        patch("vectorcode.subcommands.query.ClientManager"),
         patch("vectorcode.subcommands.query.get_collection") as mock_get_collection,
         patch("sys.stderr"),
     ):
@@ -493,7 +527,7 @@ async def test_query_invalid_file(mock_config):
     mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.query.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.query.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.query.get_collection", return_value=mock_collection
         ),
@@ -501,6 +535,7 @@ async def test_query_invalid_file(mock_config):
         patch("vectorcode.subcommands.query.get_query_result_files") as mock_get_files,
         patch("os.path.isfile", return_value=False),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         # Set up the mock file paths
         mock_get_files.return_value = ["invalid_file.py"]
 
@@ -518,12 +553,13 @@ async def test_query_invalid_ef(mock_config):
     mock_collection = AsyncMock()
 
     with (
-        patch("vectorcode.subcommands.query.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.query.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.query.get_collection", return_value=mock_collection
         ),
         patch("vectorcode.subcommands.query.verify_ef", return_value=False),
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         # Call the function
         result = await query(mock_config)
 
@@ -549,13 +585,14 @@ async def test_query_chunk_mode_no_metadata_fallback(mock_config):
     mock_collection.get.return_value = {"ids": []}
 
     with (
-        patch("vectorcode.subcommands.query.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.query.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.query.get_collection", return_value=mock_collection
         ),
         patch("vectorcode.subcommands.query.verify_ef", return_value=True),
         patch("vectorcode.subcommands.query.build_query_results") as mock_build_results,
     ):
+        MockClientManager.return_value._create_client.return_value = mock_client
         mock_build_results.return_value = []  # Return empty results for simplicity
 
         result = await query(mock_config)

@@ -4,7 +4,7 @@ import os
 from chromadb.api import AsyncClientAPI
 
 from vectorcode.cli_utils import Config
-from vectorcode.common import get_client, get_collections
+from vectorcode.common import ClientManager, get_collections
 
 logger = logging.getLogger(name=__name__)
 
@@ -21,5 +21,6 @@ async def run_clean_on_client(client: AsyncClientAPI, pipe_mode: bool):
 
 
 async def clean(configs: Config) -> int:
-    await run_clean_on_client(await get_client(configs), configs.pipe)
-    return 0
+    async with ClientManager().get_client(configs) as client:
+        await run_clean_on_client(client, configs.pipe)
+        return 0

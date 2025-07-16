@@ -1,21 +1,25 @@
 import asyncio
+import contextlib
 import hashlib
 import logging
 import os
 import socket
 import subprocess
 import sys
-from typing import Any, AsyncGenerator
+from asyncio.subprocess import Process
+from dataclasses import dataclass
+from typing import Any, AsyncGenerator, Optional
 from urllib.parse import urlparse
 
 import chromadb
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
+from chromadb.api.types import IncludeEnum
 from chromadb.config import APIVersion, Settings
 from chromadb.utils import embedding_functions
 
-from vectorcode.cli_utils import Config, expand_path
+from vectorcode.cli_utils import Config, LockManager, expand_path
 
 logger = logging.getLogger(name=__name__)
 
@@ -109,32 +113,6 @@ async def start_server(configs: Config):
     await wait_for_server(server_url)
     configs.db_url = server_url
     return process
-
-
-__CLIENT_CACHE: dict[str, AsyncClientAPI] = {}
-
-
-async def get_client(configs: Config) -> AsyncClientAPI:
-    client_entry = configs.db_url
-    if __CLIENT_CACHE.get(client_entry) is None:
-        settings: dict[str, Any] = {"anonymized_telemetry": False}
-        if isinstance(configs.db_settings, dict):
-            valid_settings = {
-                k: v for k, v in configs.db_settings.items() if k in Settings.__fields__
-            }
-            settings.update(valid_settings)
-        parsed_url = urlparse(configs.db_url)
-        settings["chroma_server_host"] = parsed_url.hostname or "127.0.0.1"
-        settings["chroma_server_http_port"] = parsed_url.port or 8000
-        settings["chroma_server_ssl_enabled"] = parsed_url.scheme == "https"
-        settings["chroma_server_api_default_path"] = parsed_url.path or APIVersion.V2
-        settings_obj = Settings(**settings)
-        __CLIENT_CACHE[client_entry] = await chromadb.AsyncHttpClient(
-            settings=settings_obj,
-            host=str(settings_obj.chroma_server_host),
-            port=int(settings_obj.chroma_server_http_port or 8000),
-        )
-    return __CLIENT_CACHE[client_entry]
 
 
 def get_collection_name(full_path: str) -> str:
@@ -248,3 +226,94 @@ def verify_ef(collection: AsyncCollection, configs: Config):
             f"The collection was embedded with a different set of configurations: {collection_ep}. The result may be inaccurate.",
         )
     return True
+
+
+async def list_collection_files(collection: AsyncCollection) -> list[str]:
+    return sorted(
+        list(
+            set(
+                str(c.get("path", None))
+                for c in (await collection.get(include=[IncludeEnum.metadatas])).get(
+                    "metadatas"
+                )
+                or []
+            )
+        )
+    )
+
+
+@dataclass
+class _ClientModel:
+    client: AsyncClientAPI
+    is_bundled: bool = False
+    process: Optional[Process] = None
+
+
+class ClientManager:
+    singleton: Optional["ClientManager"] = None
+    __clients: dict[str, _ClientModel]
+
+    def __new__(cls) -> "ClientManager":
+        if cls.singleton is None:
+            cls.singleton = super().__new__(cls)
+            cls.singleton.__clients = {}
+        return cls.singleton
+
+    @contextlib.asynccontextmanager
+    async def get_client(self, configs: Config, need_lock: bool = True):
+        project_root = str(expand_path(str(configs.project_root), True))
+        is_bundled = False
+        if self.__clients.get(project_root) is None:
+            process = None
+            if not await try_server(configs.db_url):
+                logger.info(f"Starting a new server at {configs.db_url}")
+                process = await start_server(configs)
+                is_bundled = True
+
+            self.__clients[project_root] = _ClientModel(
+                client=await self._create_client(configs),
+                is_bundled=is_bundled,
+                process=process,
+            )
+        lock = None
+        if self.__clients[project_root].is_bundled and need_lock:
+            lock = LockManager().get_lock(str(configs.db_path))
+            logger.debug(f"Locking {configs.db_path}")
+            await lock.acquire()
+        yield self.__clients[project_root].client
+        if lock is not None:
+            logger.debug(f"Unlocking {configs.db_path}")
+            await lock.release()
+
+    def get_processes(self) -> list[Process]:
+        return [i.process for i in self.__clients.values() if i.process is not None]
+
+    async def kill_servers(self):
+        termination_tasks: list[asyncio.Task] = []
+        for p in self.get_processes():
+            logger.info(f"Killing bundled chroma server with PID: {p.pid}")
+            p.terminate()
+            termination_tasks.append(asyncio.create_task(p.wait()))
+        await asyncio.gather(*termination_tasks)
+
+    async def _create_client(self, configs: Config) -> AsyncClientAPI:
+        settings: dict[str, Any] = {"anonymized_telemetry": False}
+        if isinstance(configs.db_settings, dict):
+            valid_settings = {
+                k: v for k, v in configs.db_settings.items() if k in Settings.__fields__
+            }
+            settings.update(valid_settings)
+        parsed_url = urlparse(configs.db_url)
+        settings["chroma_server_host"] = parsed_url.hostname or "127.0.0.1"
+        settings["chroma_server_http_port"] = parsed_url.port or 8000
+        settings["chroma_server_ssl_enabled"] = parsed_url.scheme == "https"
+        settings["chroma_server_api_default_path"] = parsed_url.path or APIVersion.V2
+        settings_obj = Settings(**settings)
+        return await chromadb.AsyncHttpClient(
+            settings=settings_obj,
+            host=str(settings_obj.chroma_server_host),
+            port=int(settings_obj.chroma_server_http_port or 8000),
+        )
+
+    def clear(self):
+        self.__clients.clear()

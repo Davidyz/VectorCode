@@ -2,11 +2,10 @@
 
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
-local logger = vc_config.logger
 
 return {
   chat = {
-    ---@param component_cb (fun(result:VectorCode.Result):string)?
+    ---@param component_cb (fun(result:VectorCode.QueryResult):string)?
     make_slash_command = check_cli_wrap(function(component_cb)
       return {
         description = "Add relevant files from the codebase.",
@@ -36,14 +35,15 @@ return {
       }
     end),
 
-    make_tool = function(opts)
+    ---@param subcommand sub_cmd
+    ---@param opts VectorCode.CodeCompanion.ToolOpts
+    ---@return CodeCompanion.Agent.Tool
+    make_tool = function(subcommand, opts)
       local has = require("codecompanion").has
-      if has == nil or has("xml-tools") then
-        logger.debug("Using legacy tool.")
-        return require("vectorcode.integrations.codecompanion.legacy_tool")(opts)
-      elseif has("function-calling") then
-        logger.debug("Using function-calling tool.")
-        return require("vectorcode.integrations.codecompanion.func_calling_tool")(opts)
+      if has ~= nil and has("function-calling") then
+        return require(
+          string.format("vectorcode.integrations.codecompanion.%s_tool", subcommand)
+        )(opts)
       else
         error("Unsupported version of codecompanion!")
       end

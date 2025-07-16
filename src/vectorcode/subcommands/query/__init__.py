@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import cast
+from typing import Any, cast
 
 from chromadb import GetResult, Where
 from chromadb.api.models.AsyncCollection import AsyncCollection
@@ -17,7 +17,7 @@ from vectorcode.cli_utils import (
     expand_path,
 )
 from vectorcode.common import (
-    get_client,
+    ClientManager,
     get_collection,
     verify_ef,
 )
@@ -49,12 +49,15 @@ async def get_query_result_files(
     try:
         if len(configs.query_exclude):
             logger.info(f"Excluding {len(configs.query_exclude)} files from the query.")
-            filter: dict[str, dict] = {"path": {"$nin": configs.query_exclude}}
+            filter: dict[str, Any] = {"path": {"$nin": configs.query_exclude}}
         else:
             filter = {}
         num_query = configs.n_result
         if QueryInclude.chunk in configs.include:
-            filter["start"] = {"$gte": 0}
+            if filter:
+                filter = {"$and": [filter.copy(), {"$gte": 0}]}
+            else:
+                filter["start"] = {"$gte": 0}
         else:
             num_query = await collection.count()
             if configs.query_multiplier > 0:
@@ -111,7 +114,10 @@ async def build_query_results(
                 assert chunk_texts is not None, (
                     "QueryResult does not contain `documents`!"
                 )
-                full_result: dict[str, str | int] = {"chunk": str(chunk_texts[0])}
+                full_result: dict[str, str | int] = {
+                    "chunk": str(chunk_texts[0]),
+                    "chunk_id": identifier,
+                }
                 if meta[0].get("start") is not None and meta[0].get("end") is not None:
                     path = str(meta[0].get("path"))
                     with open(path) as fin:
@@ -154,49 +160,52 @@ async def query(configs: Config) -> int:
             "Having both chunk and document in the output is not supported!",
         )
         return 1
-    client = await get_client(configs)
-    try:
-        collection = await get_collection(client, configs, False)
-        if not verify_ef(collection, configs):
-            return 1
-    except (ValueError, InvalidCollectionException):
-        logger.error(
-            f"There's no existing collection for {configs.project_root}",
-        )
-        return 1
-    except InvalidDimensionException:
-        logger.error(
-            "The collection was embedded with a different embedding model.",
-        )
-        return 1
-    except IndexError:  # pragma: nocover
-        logger.error("Failed to get the collection. Please check your config.")
-        return 1
-
-    if not configs.pipe:
-        print("Starting querying...")
-
-    if QueryInclude.chunk in configs.include:
-        if len((await collection.get(where={"start": {"$gte": 0}}))["ids"]) == 0:
-            logger.warning(
-                """
-This collection doesn't contain line range metadata. Falling back to `--include path document`. 
-Please re-vectorise it to use `--include chunk`.""",
+    async with ClientManager().get_client(configs) as client:
+        try:
+            collection = await get_collection(client, configs, False)
+            if not verify_ef(collection, configs):
+                return 1
+        except (ValueError, InvalidCollectionException) as e:
+            logger.error(
+                f"{e.__class__.__name__}: There's no existing collection for {configs.project_root}",
             )
-            configs.include = [QueryInclude.path, QueryInclude.document]
+            return 1
+        except InvalidDimensionException as e:
+            logger.error(
+                f"{e.__class__.__name__}: The collection was embedded with a different embedding model.",
+            )
+            return 1
+        except IndexError as e:  # pragma: nocover
+            logger.error(
+                f"{e.__class__.__name__}: Failed to get the collection. Please check your config."
+            )
+            return 1
 
-    try:
-        structured_result = await build_query_results(collection, configs)
-    except RerankerError:  # pragma: nocover
-        # error logs should be handled where they're raised
-        return 1
+        if not configs.pipe:
+            print("Starting querying...")
 
-    if configs.pipe:
-        print(json.dumps(structured_result))
-    else:
-        for idx, result in enumerate(structured_result):
-            for include_item in configs.include:
-                print(f"{include_item.to_header()}{result.get(include_item.value)}")
-            if idx != len(structured_result) - 1:
-                print()
-    return 0
+        if QueryInclude.chunk in configs.include:
+            if len((await collection.get(where={"start": {"$gte": 0}}))["ids"]) == 0:
+                logger.warning(
+                    """
+    This collection doesn't contain line range metadata. Falling back to `--include path document`. 
+    Please re-vectorise it to use `--include chunk`.""",
+                )
+                configs.include = [QueryInclude.path, QueryInclude.document]
+
+        try:
+            structured_result = await build_query_results(collection, configs)
+        except RerankerError as e:  # pragma: nocover
+            # error logs should be handled where they're raised
+            logger.error(f"{e.__class__.__name__}")
+            return 1
+
+        if configs.pipe:
+            print(json.dumps(structured_result))
+        else:
+            for idx, result in enumerate(structured_result):
+                for include_item in configs.include:
+                    print(f"{include_item.to_header()}{result.get(include_item.value)}")
+                if idx != len(structured_result) - 1:
+                    print()
+        return 0

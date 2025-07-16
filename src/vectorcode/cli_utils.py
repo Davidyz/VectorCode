@@ -8,10 +8,12 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import Enum, StrEnum
 from pathlib import Path
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Generator, Iterable, Optional, Sequence, Union
 
 import json5
 import shtab
+from filelock import AsyncFileLock
+from pathspec import GitIgnoreSpec
 
 from vectorcode import __version__
 
@@ -47,6 +49,12 @@ class QueryInclude(StrEnum):
         return f"{self.value.capitalize()}: "
 
 
+class PromptCategory(StrEnum):
+    query = "query"
+    vectorise = "vectorise"
+    ls = "ls"
+
+
 class CliAction(Enum):
     vectorise = "vectorise"
     query = "query"
@@ -59,7 +67,12 @@ class CliAction(Enum):
     clean = "clean"
     prompts = "prompts"
     chunks = "chunks"
-    hooks = "hooks"
+    files = "files"
+
+
+class FilesAction(StrEnum):
+    ls = "ls"
+    rm = "rm"
 
 
 @dataclass
@@ -98,6 +111,9 @@ class Config:
     filetype_map: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
     hooks: bool = False
+    prompt_categories: Optional[list[str]] = None
+    files_action: Optional[FilesAction] = None
+    rm_paths: list[str] = field(default_factory=list)
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -106,20 +122,6 @@ class Config:
         """
         default_config = Config()
         db_path = config_dict.get("db_path")
-        db_url = config_dict.get("db_url")
-        if db_url is None:
-            host = config_dict.get("host")
-            port = config_dict.get("port")
-            if host is not None or port is not None:
-                # TODO: deprecate `host` and `port` in 0.7.0
-                host = host or "127.0.0.1"
-                port = port or 8000
-                db_url = f"http://{host}:{port}"
-                logger.warning(
-                    f'"host" and "port" are deprecated and will be removed in 0.7.0. Use "db_url" (eg. {db_url}).'
-                )
-            else:
-                db_url = "http://127.0.0.1:8000"
 
         if db_path is None:
             db_path = os.path.expanduser("~/.local/share/vectorcode/chromadb/")
@@ -135,7 +137,7 @@ class Config:
                 "embedding_params": config_dict.get(
                     "embedding_params", default_config.embedding_params
                 ),
-                "db_url": db_url,
+                "db_url": config_dict.get("db_url", default_config.db_url),
                 "db_path": db_path,
                 "db_log_path": os.path.expanduser(
                     config_dict.get("db_log_path", default_config.db_log_path)
@@ -320,16 +322,6 @@ def get_cli_parser():
     )
 
     subparsers.add_parser("drop", parents=[shared_parser], help="Remove a collection.")
-    hooks_parser = subparsers.add_parser(
-        "hooks", parents=[shared_parser], help="Inject git hooks."
-    )
-    hooks_parser.add_argument(
-        "--force",
-        "-f",
-        action="store_true",
-        default=False,
-        help="Override existing VectorCode hooks.",
-    )
 
     init_parser = subparsers.add_parser(
         "init",
@@ -376,10 +368,18 @@ def get_cli_parser():
         help="Remove empty collections in the database.",
     )
 
-    subparsers.add_parser(
+    prompts_parser = subparsers.add_parser(
         "prompts",
         parents=[shared_parser],
         help="Print a list of guidelines intended to be used as system prompts for an LLM.",
+    )
+    prompts_parser.add_argument(
+        "prompt_categories",
+        choices=[str(i) for i in PromptCategory],
+        type=PromptCategory,
+        nargs="*",
+        help="The subcommand(s) to get the prompts for. When not provided, VectorCode will print the prompts for `query`.",
+        default=None,
     )
 
     chunks_parser = subparsers.add_parser(
@@ -390,6 +390,25 @@ def get_cli_parser():
     chunks_parser.add_argument(
         "file_paths", nargs="*", help="Paths to files to be chunked."
     ).complete = shtab.FILE  # type:ignore
+
+    files_parser = subparsers.add_parser(
+        "files", parents=[shared_parser], help="Manipulate files from a collection."
+    )
+    files_subparser = files_parser.add_subparsers(
+        dest="files_action", required=True, title="Collecton file operations"
+    )
+    files_subparser.add_parser(
+        "ls", parents=[shared_parser], help="List files in the collection."
+    )
+    files_rm_parser = files_subparser.add_parser(
+        "rm", parents=[shared_parser], help="Remove files in the collection."
+    )
+    files_rm_parser.add_argument(
+        "rm_paths",
+        nargs="+",
+        default=None,
+        help="Files to be removed from the collection.",
+    )
     return main_parser
 
 
@@ -433,8 +452,13 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["chunk_size"] = main_args.chunk_size
             configs_items["overlap_ratio"] = main_args.overlap
             configs_items["encoding"] = main_args.encoding
-        case "hooks":
-            configs_items["force"] = main_args.force
+        case "prompts":
+            configs_items["prompt_categories"] = main_args.prompt_categories
+        case "files":
+            configs_items["files_action"] = main_args.files_action
+            match main_args.files_action:
+                case FilesAction.rm:
+                    configs_items["rm_paths"] = main_args.rm_paths
     return Config(**configs_items)
 
 
@@ -628,3 +652,86 @@ def config_logging(
         handlers=handlers,
         level=level,
     )
+
+
+class LockManager:
+    """
+    A class that manages file locks that protects the database files in daemon processes (LSP, MCP).
+    """
+
+    __locks: dict[str, AsyncFileLock]
+    singleton: Optional["LockManager"] = None
+
+    def __new__(cls) -> "LockManager":
+        if cls.singleton is None:
+            cls.singleton = super().__new__(cls)
+            cls.singleton.__locks = {}
+        return cls.singleton
+
+    def get_lock(self, path: str | os.PathLike) -> AsyncFileLock:
+        path = str(expand_path(str(path), True))
+        if os.path.isdir(path):
+            lock_file = os.path.join(path, "vectorcode.lock")
+            logger.info(f"Creating {lock_file} for locking.")
+            if not os.path.isfile(lock_file):
+                with open(lock_file, mode="w") as fin:
+                    fin.write("")
+            path = lock_file
+        if self.__locks.get(path) is None:
+            self.__locks[path] = AsyncFileLock(path)  # pyright: ignore[reportArgumentType]
+        return self.__locks[path]
+
+
+class SpecResolver:
+    """
+    This class is a wrapper around filespec that makes it easier to work with file specs that are not in cwd.
+    """
+
+    @classmethod
+    def from_path(cls, spec_path: str, project_root: Optional[str] = None):
+        """
+        Automatically determine the appropriate `base_dir` for resolving file specs that are outside of the project root.
+        Only supports `.gitignore` and `.vectorcode/vectorcode.{include,exclude}`.
+        Raises `ValueError` if the spec path is not one of them.
+        """
+        base_dir = "."
+        if spec_path.endswith(".gitignore"):
+            base_dir = spec_path.replace(".gitignore", "")
+        else:
+            path_obj = Path(spec_path)
+            if path_obj.name in {"vectorcode.include", "vectorcode.exclude"}:
+                if path_obj.parent.name == ".vectorcode":
+                    # project config
+                    base_dir = str(path_obj.parent.parent)
+                else:
+                    # assume to be global config
+                    base_dir = project_root or "."
+            else:  # pragma: nocover
+                raise ValueError(f"Unsupported spec path: {spec_path}")
+        return cls(spec_path, base_dir)
+
+    def __init__(self, spec: str | GitIgnoreSpec, base_dir: str = "."):
+        if isinstance(spec, str):
+            with open(spec) as fin:
+                self.spec = GitIgnoreSpec.from_lines(
+                    (i.strip() for i in fin.readlines())
+                )
+        else:
+            self.spec = spec
+        self.base_dir = base_dir
+
+    def match(
+        self, paths: Iterable[str], negated: bool = False
+    ) -> Generator[str, None, None]:
+        # get paths relative to `base_dir`
+
+        base = Path(self.base_dir).resolve()
+        for p in paths:
+            if base in Path(p).resolve().parents:
+                should_yield = self.spec.match_file(os.path.relpath(p, self.base_dir))
+                if negated:
+                    should_yield = not should_yield
+                if should_yield:
+                    yield p
+            else:
+                yield p

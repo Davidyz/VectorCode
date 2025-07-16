@@ -1,8 +1,12 @@
 local vc_config = require("vectorcode.config")
 
----@param opts {show_job_count: boolean}?
+---@class VectorCode.Lualine.Opts
+---Whether to show the number of running async jobs.
+---@field show_job_count boolean
+
+---@param opts VectorCode.Lualine.Opts?
 return function(opts)
-  opts = vim.tbl_deep_extend("force", { show_job_count = false }, opts or {})
+  opts = vim.tbl_deep_extend("force", { show_job_count = false }, opts or {}) --[[@as VectorCode.Lualine.Opts]]
   local cacher = vc_config.get_cacher_backend()
   return {
     function()

@@ -7,17 +7,12 @@
 VectorCode is a code repository indexing tool. It helps you build better prompt
 for your coding LLMs by indexing and providing information about the code
 repository you're working on. This repository also contains the corresponding
-neovim plugin because that's what I used to write this tool.
+neovim plugin that provides a set of APIs for you to build or enhance AI plugins,
+and integrations for some of the popular plugins.
 
 > [!NOTE]
 > This project is in beta quality and is undergoing rapid iterations.
 > I know there are plenty of rooms for improvements, and any help is welcomed.
-
-> [!NOTE]
-> [Chromadb](https://www.trychroma.com/), the vector database backend behind
-> this project, supports multiple embedding engines. I developed this tool using
-> SentenceTransformer, but if you encounter any issues with a different embedding 
-> function, please open an issue (or even better, a pull request :D).
 
 <!-- mtoc-start -->
 
@@ -37,14 +32,14 @@ releases. Their capabilities on these projects are quite limited. With
 VectorCode, you can easily (and programmatically) inject task-relevant context
 from the project into the prompt. This significantly improves the quality of the
 model output and reduce hallucination.
-![](./images/codecompanion_chat.png)
+
+[![asciicast](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD.svg)](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD?t=3)
 
 ## Documentation
 
 > [!NOTE]
-> The documentation on the `main` branch reflects the code on the latest commit
-> (apologies if I forget to update the docs, but this will be what I aim for). To
-> check for the documentation for the version you're using, you can [check out
+> The documentation on the `main` branch reflects the code on the latest commit. 
+> To check for the documentation for the version you're using, you can [check out
 > the corresponding tags](https://github.com/Davidyz/VectorCode/tags).
 
 - For the setup and usage of the command-line tool, see [the CLI documentation](./docs/cli.md);
@@ -52,9 +47,13 @@ model output and reduce hallucination.
   [the neovim plugin documentation](./docs/neovim.md) for further instructions.
 - Additional resources:
   - the [wiki](https://github.com/Davidyz/VectorCode/wiki) for extra tricks and
-    tips that will help you get the most out of VectorCode;
+    tips that will help you get the most out of VectorCode, as well as
+    instructions to setup VectorCode to work with some other neovim plugins;
   - the [discussions](https://github.com/Davidyz/VectorCode/discussions) where
     you can ask general questions and share your cool usages about VectorCode.
+  - If you're feeling adanvturous, feel free to check out 
+    [the pull requests](https://github.com/Davidyz/VectorCode/pulls) for
+    WIP features.
 
 If you're trying to contribute to this project, take a look at [the contribution
 guide](./docs/CONTRIBUTING.md), which contains information about some basic
@@ -95,21 +94,22 @@ This project follows an adapted semantic versioning:
 - [x] implement some sort of project-root anchors (such as `.git` or a custom
   `.vectorcode.json`) that enhances automatic project-root detection.
   **Implemented project-level `.vectorcode/` and `.git` as root anchor**
-- [ ] ability to view and delete files in a collection (atm you can only `drop`
-  and `vectorise` again);
+- [x] ability to view and delete files in a collection;
 - [x] joint search (kinda, using codecompanion.nvim/MCP);
-- [ ] Nix support (#144);
+- [x] Nix support (unofficial packages [here](https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=vectorcode));
 - [ ] Query rewriting (#124).
 
 
 ## Credit
 
-- Thank [@milanglacier](https://github.com/milanglacier) (and [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim)) for the support when this project was still in early stage;
-- Thank [@olimorris](https://github.com/olimorris) for the help (personally and
+- [@milanglacier](https://github.com/milanglacier) (and [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim)) for the support when this project was still in early stage;
+- [@olimorris](https://github.com/olimorris) for the help (personally and
   from [codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim))
   when this project made initial attempts at tool-calling;
-- Thank [@ravitemer](https://github.com/ravitemer) for the help to interface
-  VectorCode with [MCP](https://modelcontextprotocol.io/introduction).
+- [@ravitemer](https://github.com/ravitemer) for the help to interface
+  VectorCode with [MCP](https://modelcontextprotocol.io/introduction);
+- The nix community (especially [@sarahec](https://github.com/sarahec) and [@GaetanLepage](https://github.com/GaetanLepage))
+  for maintaining the nix packages.
 
 ## Star History
 

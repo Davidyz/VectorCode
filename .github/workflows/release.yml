@@ -29,6 +29,10 @@ jobs:
             {
               "categories": [
                 {
+                  "title": "## 💥 Breaking Change",
+                  "labels": ["breaking"]
+                },
+                {
                   "title": "## 🚀 Features",
                   "labels": ["feature", "enhancement"]
                 },

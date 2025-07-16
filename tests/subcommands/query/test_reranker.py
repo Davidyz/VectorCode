@@ -53,6 +53,16 @@ def query_result():
 
 
 @pytest.fixture(scope="function")
+def empty_query_result():
+    return {
+        "ids": [],
+        "distances": [],
+        "metadatas": [],
+        "documents": [],
+    }
+
+
+@pytest.fixture(scope="function")
 def query_chunks():
     return ["query chunk 1", "query chunk 2"]
 
@@ -95,6 +105,15 @@ async def test_naive_reranker_rerank(naive_reranker_conf, query_result):
     # Check all returned items are strings (paths)
     for path in result:
         assert isinstance(path, str)
+
+
+@pytest.mark.asyncio
+async def test_naive_reranker_rerank_empty_result(
+    naive_reranker_conf, empty_query_result
+):
+    reranker = NaiveReranker(naive_reranker_conf)
+    result = await reranker.rerank(empty_query_result)
+    assert len(result) == 0
 
 
 @patch("sentence_transformers.CrossEncoder")

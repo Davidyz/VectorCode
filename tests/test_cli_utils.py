@@ -1,15 +1,22 @@
 import os
+import subprocess
+import sys
 import tempfile
 from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
+from pathspec import GitIgnoreSpec
 
 from vectorcode import cli_utils
 from vectorcode.cli_utils import (
     CliAction,
     Config,
+    FilesAction,
+    LockManager,
+    PromptCategory,
     QueryInclude,
+    SpecResolver,
     cleanup_path,
     expand_envs_in_dict,
     expand_globs,
@@ -51,14 +58,6 @@ async def test_config_import_from():
         assert config.reranker == "TestReranker"
         assert config.reranker_params == {"reranker_param1": "reranker_value1"}
         assert config.db_settings == {"db_setting1": "db_value1"}
-
-
-@pytest.mark.asyncio
-async def test_config_import_from_fallback_host_port():
-    conf = {"host": "test_host"}
-    assert (await Config.import_from(conf)).db_url == "http://test_host:8000"
-    conf = {"port": 114514}
-    assert (await Config.import_from(conf)).db_url == "http://127.0.0.1:114514"
 
 
 @pytest.mark.asyncio
@@ -491,11 +490,11 @@ async def test_parse_cli_args_init():
 
 
 @pytest.mark.asyncio
-async def test_parse_cli_args_hooks():
-    with patch("sys.argv", ["vectorcode", "hooks", "-f"]):
+async def test_parse_cli_args_prompts():
+    with patch("sys.argv", ["vectorcode", "prompts", "ls"]):
         config = await parse_cli_args()
-        assert config.action == CliAction.hooks
-        assert config.force
+        assert config.action == CliAction.prompts
+        assert config.prompt_categories == [PromptCategory.ls]
 
 
 @pytest.mark.asyncio
@@ -513,6 +512,19 @@ async def test_parse_cli_args_chunks():
         assert config.action == CliAction.chunks
         assert config.overlap_ratio == Config().overlap_ratio
         assert config.chunk_size == Config().chunk_size
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_files():
+    with patch("sys.argv", ["vectorcode", "files", "ls"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.files
+        assert config.files_action == FilesAction.ls
+    with patch("sys.argv", ["vectorcode", "files", "rm", "foo.txt"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.files
+        assert config.files_action == FilesAction.rm
+        assert config.rm_paths == ["foo.txt"]
 
 
 @pytest.mark.asyncio
@@ -546,3 +558,75 @@ def test_cleanup_path():
         "~", "test_path"
     )
     assert cleanup_path("/etc/dir") == "/etc/dir"
+
+
+def test_shtab():
+    for shell in ("bash", "zsh", "tcsh"):
+        assert (
+            subprocess.Popen(
+                [sys.executable, "-m", "vectorcode.main", "-s", shell],
+                stderr=subprocess.PIPE,
+            )
+            .stderr.read()
+            .decode()
+        ) == ""
+
+
+@pytest.mark.asyncio
+async def test_filelock():
+    manager = LockManager()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager.get_lock(tmp_dir)
+        assert os.path.isfile(os.path.join(tmp_dir, "vectorcode.lock"))
+
+
+def test_specresolver():
+    spec = GitIgnoreSpec.from_lines(["file1.txt"])
+    nested_path = "nested/file1.txt"
+    assert nested_path in list(
+        SpecResolver(spec, base_dir="nested").match([nested_path])
+    )
+    assert nested_path not in list(
+        SpecResolver(spec, base_dir="nested").match([nested_path], negated=True)
+    )
+
+    with tempfile.TemporaryDirectory() as dir:
+        nested_dir = os.path.join(dir, "nested")
+        nested_path = os.path.join(nested_dir, "file1.txt")
+        os.makedirs(nested_dir, exist_ok=True)
+        nested_path = os.path.join(dir, "nested", "file1.txt")
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, dir=nested_dir) as f:
+            f.writelines(["file1.txt"])
+            spec_filename = f.name
+
+        assert nested_path in list(
+            SpecResolver(spec_filename, base_dir=nested_dir).match([nested_path])
+        )
+
+
+def test_specresolver_builder():
+    with (
+        patch("vectorcode.cli_utils.GitIgnoreSpec"),
+        patch("vectorcode.cli_utils.open"),
+    ):
+        base_dir = os.path.normpath(os.path.join("foo", "bar"))
+        assert (
+            os.path.normpath(
+                SpecResolver.from_path(os.path.join(base_dir, ".gitignore")).base_dir
+            )
+            == base_dir
+        )
+
+        assert (
+            os.path.normpath(
+                SpecResolver.from_path(
+                    os.path.join(base_dir, ".vectorcode", "vectorcode.exclude")
+                ).base_dir
+            )
+            == base_dir
+        )
+        assert os.path.normpath(
+            SpecResolver.from_path(
+                os.path.join(base_dir, "vectorcode", "vectorcode.exclude")
+            ).base_dir
+        ) == os.path.normpath(".")

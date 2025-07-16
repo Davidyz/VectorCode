@@ -14,8 +14,8 @@ M.query = vc_config.check_cli_wrap(
   ---callback).
   ---@param query_message string|string[] Query message(s) to send to the `vecctorcode query` command
   ---@param opts VectorCode.QueryOpts? A table of config options. If nil, the default config or `setup` config will be used.
-  ---@param callback fun(result:VectorCode.Result[])? Use the result async style.
-  ---@return VectorCode.Result[]? An array of results.
+  ---@param callback fun(result:VectorCode.QueryResult[])? Use the result async style.
+  ---@return VectorCode.QueryResult[]? An array of results.
   function(query_message, opts, callback)
     logger.info("vectorcode.query: ", query_message, opts, callback)
     opts = vim.tbl_deep_extend("force", vc_config.get_query_opts(), opts or {})
@@ -201,9 +201,19 @@ function M.check(check_item, stdout_cb)
   return return_code == 0
 end
 
+---@alias prompt_type "ls"|"query"|"vectorise"
+---@param item prompt_type|prompt_type[]|nil
 ---@return string[]
-M.prompts = vc_config.check_cli_wrap(function()
-  local result, error = jobrunner.run({ "prompts", "-p" }, -1, 0)
+M.prompts = vc_config.check_cli_wrap(function(item)
+  local args = { "prompts", "-p" }
+  if item then
+    if type(item) == "string" then
+      table.insert(args, item)
+    else
+      vim.list_extend(args, item)
+    end
+  end
+  local result, error = jobrunner.run(args, -1, 0)
   if result == nil or vim.tbl_isempty(result) then
     logger.warn(vim.inspect(error))
     if vc_config.get_user_config().notify then
@@ -211,7 +221,7 @@ M.prompts = vc_config.check_cli_wrap(function()
     end
     return {}
   end
-  return result
+  return vim.iter(result):flatten(math.huge):totable()
 end)
 
 M.setup = vc_config.setup

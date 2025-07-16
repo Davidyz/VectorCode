@@ -1,6 +1,6 @@
 import json
 import socket
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import tabulate
@@ -77,7 +77,7 @@ async def test_ls_pipe_mode(capsys):
         yield mock_collection
 
     with (
-        patch("vectorcode.subcommands.ls.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.ls.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.ls.get_collection_list",
             return_value=[
@@ -90,6 +90,10 @@ async def test_ls_pipe_mode(capsys):
             ],
         ),
     ):
+        mock_client = MagicMock()
+        mock_client_manager = MockClientManager.return_value
+        mock_client_manager._create_client = AsyncMock(return_value=mock_client)
+
         config = Config(pipe=True)
         await ls(config)
         captured = capsys.readouterr()
@@ -126,7 +130,7 @@ async def test_ls_table_mode(capsys, monkeypatch):
         yield mock_collection
 
     with (
-        patch("vectorcode.subcommands.ls.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.ls.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.ls.get_collection_list",
             return_value=[
@@ -139,6 +143,10 @@ async def test_ls_table_mode(capsys, monkeypatch):
             ],
         ),
     ):
+        mock_client = MagicMock()
+        mock_client_manager = MockClientManager.return_value
+        mock_client_manager._create_client = AsyncMock(return_value=mock_client)
+
         config = Config(pipe=False)
         await ls(config)
         captured = capsys.readouterr()
@@ -159,7 +167,7 @@ async def test_ls_table_mode(capsys, monkeypatch):
     # Test with HOME environment variable set
     monkeypatch.setenv("HOME", "/test")
     with (
-        patch("vectorcode.subcommands.ls.get_client", return_value=mock_client),
+        patch("vectorcode.subcommands.ls.ClientManager") as MockClientManager,
         patch(
             "vectorcode.subcommands.ls.get_collection_list",
             return_value=[
@@ -172,6 +180,9 @@ async def test_ls_table_mode(capsys, monkeypatch):
             ],
         ),
     ):
+        mock_client = MagicMock()
+        mock_client_manager = MockClientManager.return_value
+        mock_client_manager._create_client = AsyncMock(return_value=mock_client)
         config = Config(pipe=False)
         await ls(config)
         captured = capsys.readouterr()

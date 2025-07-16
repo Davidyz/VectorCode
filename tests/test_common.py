@@ -3,7 +3,7 @@ import socket
 import subprocess
 import sys
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -13,7 +13,7 @@ from chromadb.utils import embedding_functions
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import (
-    get_client,
+    ClientManager,
     get_collection,
     get_collection_name,
     get_collections,
@@ -148,82 +148,6 @@ async def test_try_server_versions():
             httpx.ConnectTimeout("Connection timeout")
         )
         assert await try_server("http://localhost:8300") is False
-
-
-@pytest.mark.asyncio
-async def test_get_client():
-    # Patch chromadb.AsyncHttpClient to avoid actual network calls
-    with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
-        mock_client = MagicMock(spec=AsyncClientAPI)
-        MockAsyncHttpClient.return_value = mock_client
-
-        config = Config(db_url="https://test_host:1234", db_path="test_db")
-        client = await get_client(config)
-
-        assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called_once()
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
-            == "test_host"
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
-            == 1234
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
-            is False
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_ssl_enabled
-            is True
-        )
-
-        # Test with valid db_settings (only anonymized_telemetry)
-        config = Config(
-            db_url="http://test_host1:1234",
-            db_path="test_db",
-            db_settings={"anonymized_telemetry": True},
-        )
-        client = await get_client(config)
-
-        assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called()
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
-            == "test_host1"
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
-            == 1234
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
-            is True
-        )
-
-        # Test with multiple db_settings, including an invalid one.  The invalid one
-        # should be filtered out inside get_client.
-        config = Config(
-            db_url="http://test_host2:1234",
-            db_path="test_db",
-            db_settings={"anonymized_telemetry": True, "other_setting": "value"},
-        )
-        client = await get_client(config)
-        assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called()
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
-            == "test_host2"
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
-            == 1234
-        )
-        assert (
-            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
-            is True
-        )
 
 
 def test_verify_ef():
@@ -581,3 +505,138 @@ async def test_wait_for_server_timeout():
 
         # Verify try_server was called multiple times (due to retries)
         assert mock_try_server.call_count > 1
+
+
+@pytest.mark.asyncio
+async def test_client_manager_get_client():
+    ClientManager().clear()
+    config = Config(
+        db_url="https://test_host:1234", db_path="test_db", project_root="test_proj"
+    )
+    config1 = Config(
+        db_url="http://test_host1:1234",
+        db_path="test_db",
+        project_root="test_proj1",
+        db_settings={"anonymized_telemetry": True},
+    )
+    config1_alt = Config(
+        db_url="http://test_host1:1234",
+        db_path="test_db",
+        project_root="test_proj1",
+        db_settings={"anonymized_telemetry": True, "other_setting": "value"},
+    )
+    # Patch chromadb.AsyncHttpClient to avoid actual network calls
+    with (
+        patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient,
+        patch("vectorcode.common.try_server", return_value=True),
+    ):
+        mock_client = MagicMock(spec=AsyncClientAPI, parent=AsyncClientAPI)
+        MockAsyncHttpClient.return_value = mock_client
+
+        async with (
+            ClientManager().get_client(config),
+        ):
+            MockAsyncHttpClient.assert_called()
+            assert (
+                MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
+                == "test_host"
+            )
+            assert (
+                MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_http_port
+                == 1234
+            )
+            assert (
+                MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
+                is False
+            )
+            assert (
+                MockAsyncHttpClient.call_args.kwargs[
+                    "settings"
+                ].chroma_server_ssl_enabled
+                is True
+            )
+
+            async with (
+                ClientManager().get_client(config1) as client1,
+                ClientManager().get_client(config1_alt) as client1_alt,
+            ):
+                MockAsyncHttpClient.assert_called()
+                assert (
+                    MockAsyncHttpClient.call_args.kwargs["settings"].chroma_server_host
+                    == "test_host1"
+                )
+                assert (
+                    MockAsyncHttpClient.call_args.kwargs[
+                        "settings"
+                    ].chroma_server_http_port
+                    == 1234
+                )
+                assert (
+                    MockAsyncHttpClient.call_args.kwargs[
+                        "settings"
+                    ].anonymized_telemetry
+                    is True
+                )
+
+                # Test with multiple db_settings, including an invalid one.  The invalid one
+                # should be filtered out inside get_client.
+                assert id(client1_alt) == id(client1)
+
+
+@pytest.mark.asyncio
+async def test_client_manager_list_server_processes():
+    async def _try_server(url):
+        return "127.0.0.1" in url or "localhost" in url
+
+    async def _start_server(cfg):
+        return AsyncMock()
+
+    with (
+        tempfile.TemporaryDirectory() as temp_dir,
+        patch("vectorcode.common.start_server", side_effect=_start_server),
+        patch("vectorcode.common.try_server", side_effect=_try_server),
+        patch("vectorcode.common.ClientManager._create_client"),
+    ):
+        db_path = os.path.join(temp_dir, "db")
+        os.makedirs(db_path, exist_ok=True)
+
+        async with ClientManager().get_client(
+            Config(
+                db_url="http://test_host:8001",
+                project_root="proj1",
+                db_path=db_path,
+            )
+        ):
+            print(ClientManager().get_processes())
+        async with ClientManager().get_client(
+            Config(
+                db_url="http://test_host:8002",
+                project_root="proj2",
+                db_path=db_path,
+            )
+        ):
+            pass
+        assert len(ClientManager().get_processes()) == 2
+
+
+@pytest.mark.asyncio
+async def test_client_manager_kill_servers():
+    manager = ClientManager()
+    manager.clear()
+
+    async def _try_server(url):
+        return "127.0.0.1" in url or "localhost" in url
+
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock()
+    with (
+        patch("vectorcode.common.start_server", return_value=mock_process),
+        patch("vectorcode.common.try_server", side_effect=_try_server),
+    ):
+        manager._create_client = AsyncMock(return_value=AsyncMock())
+        async with manager.get_client(Config(db_url="http://test_host:1081")):
+            pass
+        assert len(manager.get_processes()) == 1
+        await manager.kill_servers()
+        mock_process.terminate.assert_called_once()
+        mock_process.wait.assert_awaited()

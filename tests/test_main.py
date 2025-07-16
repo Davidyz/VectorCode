@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from vectorcode import __version__
-from vectorcode.cli_utils import CliAction
-from vectorcode.main import async_main, main
+from vectorcode.cli_utils import CliAction, Config
+from vectorcode.main import async_main
 
 
 @pytest.mark.asyncio
@@ -93,21 +93,6 @@ async def test_async_main_cli_action_init(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_async_main_cli_action_hooks(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.hooks)
-    monkeypatch.setattr(
-        "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
-    )
-    mock_hooks = AsyncMock(return_value=0)
-    monkeypatch.setattr("vectorcode.subcommands.hooks", mock_hooks)
-    monkeypatch.setattr("vectorcode.main.get_project_config", AsyncMock())
-
-    return_code = await async_main()
-    assert return_code == 0
-    mock_hooks.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_async_main_cli_action_chunks(monkeypatch):
     mock_cli_args = MagicMock(
         no_stderr=False, project_root=".", action=CliAction.chunks
@@ -153,50 +138,6 @@ async def test_async_main_cli_action_prompts(monkeypatch):
     return_code = await async_main()
     assert return_code == 0
     mock_prompts.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_async_main_try_server_unavailable(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
-    monkeypatch.setattr(
-        "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
-    )
-    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.query)
-    monkeypatch.setattr(
-        "vectorcode.main.get_project_config",
-        AsyncMock(
-            return_value=MagicMock(
-                merge_from=AsyncMock(return_value=mock_final_configs)
-            )
-        ),
-    )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=False))
-    mock_start_server = AsyncMock()
-    monkeypatch.setattr("vectorcode.common.start_server", mock_start_server)
-    monkeypatch.setattr("vectorcode.subcommands.query", AsyncMock(return_value=0))
-    mock_start_server.return_value.wait = AsyncMock()
-    mock_start_server.return_value.terminate = MagicMock()
-
-    await async_main()
-    mock_start_server.assert_called_once_with(mock_final_configs)
-
-
-@pytest.mark.asyncio
-async def test_async_main_pipe_logging_disabled(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
-    monkeypatch.setattr(
-        "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
-    )
-    MagicMock(host="test_host", port=1234, action=CliAction.query, pipe=True)
-    monkeypatch.setattr("vectorcode.main.get_project_config", AsyncMock())
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
-    monkeypatch.setattr("vectorcode.subcommands.query", AsyncMock(return_value=0))
-
-    with patch("logging.disable") as mock_logging_disable:
-        await async_main()
-        mock_logging_disable.assert_called_once_with(
-            pytest.importorskip("logging").ERROR
-        )
 
 
 @pytest.mark.asyncio
@@ -305,6 +246,18 @@ async def test_async_main_cli_action_ls(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_async_main_cli_action_files(monkeypatch):
+    cli_args = Config(action=CliAction.files)
+    mock_files = AsyncMock(return_value=0)
+    monkeypatch.setattr("vectorcode.subcommands.files", mock_files)
+    monkeypatch.setattr(
+        "vectorcode.main.parse_cli_args", AsyncMock(return_value=cli_args)
+    )
+    assert await async_main() == 0
+    mock_files.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_async_main_cli_action_update(monkeypatch):
     mock_cli_args = MagicMock(
         no_stderr=False, project_root=".", action=CliAction.update
@@ -376,41 +329,3 @@ async def test_async_main_exception_handling(monkeypatch):
     with patch("vectorcode.main.logger") as mock_logger:
         assert await async_main() == 1
         mock_logger.error.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_async_main_server_process_termination(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
-    monkeypatch.setattr(
-        "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
-    )
-    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.query)
-    monkeypatch.setattr(
-        "vectorcode.main.get_project_config",
-        AsyncMock(
-            return_value=MagicMock(
-                merge_from=AsyncMock(return_value=mock_final_configs)
-            )
-        ),
-    )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=False))
-    mock_server_process = AsyncMock()
-    mock_start_server = AsyncMock(return_value=mock_server_process)
-    monkeypatch.setattr("vectorcode.common.start_server", mock_start_server)
-    monkeypatch.setattr("vectorcode.subcommands.query", AsyncMock(return_value=0))
-    mock_server_process.terminate = MagicMock()
-    mock_server_process.wait = AsyncMock()
-
-    await async_main()
-
-    mock_server_process.terminate.assert_called_once()
-    await mock_server_process.wait()
-
-
-def test_main(monkeypatch):
-    mock_async_main = AsyncMock(return_value=0)
-    monkeypatch.setattr("vectorcode.main.async_main", mock_async_main)
-    monkeypatch.setattr("asyncio.run", MagicMock(return_value=0))
-
-    result = main()
-    assert result == 0

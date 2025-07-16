@@ -6,8 +6,8 @@ Table of Contents                               *VectorCode-table-of-contents*
 1. NeoVim Plugin                                    |VectorCode-neovim-plugin|
   - Installation                       |VectorCode-neovim-plugin-installation|
   - Integrations                       |VectorCode-neovim-plugin-integrations|
-  - User Command                       |VectorCode-neovim-plugin-user-command|
   - Configuration                     |VectorCode-neovim-plugin-configuration|
+  - User Command                       |VectorCode-neovim-plugin-user-command|
   - API Usage                             |VectorCode-neovim-plugin-api-usage|
   - Debugging and Logging     |VectorCode-neovim-plugin-debugging-and-logging|
 2. Links                                                    |VectorCode-links|
@@ -21,15 +21,17 @@ Table of Contents                               *VectorCode-table-of-contents*
   proceeding.
 
   [!NOTE] When the neovim plugin doesn’t work properly, please try upgrading
-  the CLI tool to the latest version before opening an issue.
+  both the CLI and the neovim plugin to the latest version before opening an
+  issue.
 - |VectorCode-installation|
+    - |VectorCode-mason.nvim|
     - |VectorCode-nix|
 - |VectorCode-integrations|
+- |VectorCode-configuration|
+    - |VectorCode-`setup(opts?)`|
 - |VectorCode-user-command|
     - |VectorCode-`vectorcode-register`|
     - |VectorCode-`vectorcode-deregister`|
-- |VectorCode-configuration|
-    - |VectorCode-`setup(opts?)`|
 - |VectorCode-api-usage|
     - |VectorCode-synchronous-api|
         - |VectorCode-`query(query_message,-opts?,-callback?)`|
@@ -49,12 +51,12 @@ Table of Contents                               *VectorCode-table-of-contents*
 
 INSTALLATION                           *VectorCode-neovim-plugin-installation*
 
-Use your favorite plugin manager.
+Using Lazy:
 
 >lua
     {
       "Davidyz/VectorCode",
-      version = "<0.7.0", -- optional, depending on whether you're on nightly or release
+      version = "*", -- optional, depending on whether you're on nightly or release
       dependencies = { "nvim-lua/plenary.nvim" },
       cmd = "VectorCode", -- if you're lazy-loading VectorCode
     }
@@ -67,7 +69,7 @@ together because the neovim plugin is built for a newer CLI release and depends
 on newer features/breaking changes.
 
 To ensure maximum compatibility, please either: 1. Use release build for
-VectorCode CLI and pin to the release tags for the neovim plugin;
+VectorCode CLI and pin to the releases for the neovim plugin;
 
 **OR**
 
@@ -75,7 +77,7 @@ VectorCode CLI and pin to the release tags for the neovim plugin;
 the latest GitHub commit.
 
 It may be helpful to use a `build` hook to automatically upgrade the CLI when
-the neovim plugin updates. For example, if you’re using lazy.nvim and `pipx`,
+the neovim plugin updates. For example, if you’re using lazy.nvim and `uv`,
 you can use the following plugin spec:
 
 >lua
@@ -91,6 +93,13 @@ you can use the following plugin spec:
 
   This plugin is developed and tested on neovim _v0.11_. It may work on older
   versions, but I do not test on them before publishing.
+
+MASON.NVIM ~
+
+The VectorCode CLI and LSP server are available in `mason.nvim`. If you choose
+to install the CLI through mason, you may need to pay extra attention to the
+version pinning because the package updates on mason usually takes extra time.
+
 
 NIX ~
 
@@ -108,54 +117,8 @@ contains instructions to integrate VectorCode with the following plugins:
 - olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim>;
 - nvim-lualine/lualine.nvim <https://github.com/nvim-lualine/lualine.nvim>;
 - CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim>;
-- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>.
-
-
-USER COMMAND                           *VectorCode-neovim-plugin-user-command*
-
-
-VECTORCODE REGISTER ~
-
-Register the current buffer for async caching. It’s possible to register the
-current buffer to a different vectorcode project by passing the `project_root`
-parameter:
-
->
-    :VectorCode register project_root=path/to/another/project/
-<
-
-This is useful if you’re working on a project that is closely related to a
-different project, for example a utility repository for a main library or a
-documentation repository. Alternatively, you can call the |VectorCode-lua-api|
-in an autocmd:
-
->lua
-    vim.api.nvim_create_autocmd("LspAttach", {
-      callback = function()
-        local bufnr = vim.api.nvim_get_current_buf()
-        cacher.async_check("config", function()
-          cacher.register_buffer(
-            bufnr,
-            { 
-              n_query = 10,
-            }
-          )
-        end, nil)
-      end,
-      desc = "Register buffer for VectorCode",
-    })
-<
-
-The latter avoids the manual registrations, but registering too many buffers
-means there will be a lot of background processes/requests being sent to
-VectorCode. Choose these based on your workflow and the capability of your
-system.
-
-
-VECTORCODE DEREGISTER ~
-
-Deregister the current buffer. Any running jobs will be killed, cached results
-will be deleted, and no more queries will be run.
+- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>;
+- rebelot/heirline.nvim <https://github.com/rebelot/heirline.nvim>.
 
 
 CONFIGURATION                         *VectorCode-neovim-plugin-configuration*
@@ -216,13 +179,14 @@ async backend to use, currently either `"default"` or `"lsp"`. Default:
 `setup` is called. Supported keys: - `update`if `true`, the plugin will run
 `vectorcode update` on startup to update the embeddings; - `lsp`if `true`, the
 plugin will try to start the LSP server on startup so that you won’t need to
-wait for the server loading when making your first request. -
-`sync_log_env_var``boolean`. If true, this plugin will automatically set the
-`VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
-within your neovim session when logging is turned on for this plugin. Use at
-caution because the CLI write all logs to stderr, which _may_ make this plugin
-VERY verbose. See |VectorCode-debugging-and-logging| for details on how to turn
-on logging.
+wait for the server loading when making your first request. _Please pay extra
+attention on lazy-loading so that the LSP server won’t be started without a
+buffer to be attached to (see here)._ - `sync_log_env_var``boolean`. If true,
+this plugin will automatically set the `VECTORCODE_LOG_LEVEL` environment
+variable for LSP or cmd processes started within your neovim session when
+logging is turned on for this plugin. Use at caution because the non-LSP CLI
+write all logs to stderr, which _may_ make this plugin VERY verbose. See
+|VectorCode-debugging-and-logging| for details on how to turn on logging.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the
@@ -230,6 +194,56 @@ top-level options are designated for the |VectorCode-synchronous-api| and the
 ones in `async_opts` is for the |VectorCode-cached-asynchronous-api|. The
 `async_opts` will reuse the synchronous API options if not explicitly
 configured.
+
+
+USER COMMAND                           *VectorCode-neovim-plugin-user-command*
+
+The neovim plugin provides user commands to work with
+|VectorCode-async-caching|.
+
+
+VECTORCODE REGISTER ~
+
+Register the current buffer for async caching. It’s possible to register the
+current buffer to a different vectorcode project by passing the `project_root`
+parameter:
+
+>
+    :VectorCode register project_root=path/to/another/project/
+<
+
+This is useful if you’re working on a project that is closely related to a
+different project, for example a utility repository for a main library or a
+documentation repository. Alternatively, you can call the |VectorCode-lua-api|
+in an autocmd:
+
+>lua
+    vim.api.nvim_create_autocmd("LspAttach", {
+      callback = function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        cacher.async_check("config", function()
+          cacher.register_buffer(
+            bufnr,
+            { 
+              n_query = 10,
+            }
+          )
+        end, nil)
+      end,
+      desc = "Register buffer for VectorCode",
+    })
+<
+
+The latter avoids the manual registrations, but registering too many buffers
+means there will be a lot of background processes/requests being sent to
+VectorCode. Choose these based on your workflow and the capability of your
+system.
+
+
+VECTORCODE DEREGISTER ~
+
+Deregister the current buffer. Any running jobs will be killed, cached results
+will be deleted, and no more queries will be run.
 
 
 API USAGE                                 *VectorCode-neovim-plugin-api-usage*
@@ -304,6 +318,9 @@ path/document content to the prompt like this:
     end
 <
 
+Keep in mind that this `query` function call will be synchronous and therefore
+block the neovim UI. This is where the async cache comes in.
+
 
 CHECK(CHECK_ITEM?)
 
@@ -354,11 +371,9 @@ used in previous versions;
 2. The `lsp` based backend, which make use of the experimental `vectorcode-server`
 implemented in version 0.4.0. If you want to customise the LSP executable or
 any options supported by `vim.lsp.ClientConfig`, you can do so by using
-`vim.lsp.config()` or
-nvim-lspconfig <https://github.com/neovim/nvim-lspconfig>. The LSP will
-attempt to read configurations from these 2 sources before it starts. (If
-`vim.lsp.config.vectorcode_server` is not `nil`, this will be used and
-nvim-lspconfig will be ignored.)
+`vim.lsp.config()`. This plugin will load the config associated with the name
+`vectorcode_server`. You can override the default config (for example, the
+path to the executable) by calling `vim.lsp.config('vectorcode_server', opts)`.
 
   -------------------------------------------------------------------------------
   Features   default                         lsp
@@ -367,10 +382,10 @@ nvim-lspconfig will be ignored.)
              minimal extra config required   loading/unloading embedding models;
                                              Progress reports.
 
-  Cons       Heavy IO overhead because the   Requires vectorcode-server; Only
-             embedding model and database    works if you’re using a standalone
-             client need to be initialised   ChromaDB server; May contain bugs
-             for every query.                because it’s new.
+  Cons       Heavy IO overhead because the   Requires vectorcode-server
+             embedding model and database    
+             client need to be initialised   
+             for every query.                
   -------------------------------------------------------------------------------
 You may choose which backend to use by setting the |VectorCode-`setup`| option
 `async_backend`, and acquire the corresponding backend by the following API:
@@ -399,9 +414,9 @@ This function registers a buffer to be cached by VectorCode.
 <
 
 The following are the available options for this function: - `bufnr`buffer
-number. Default: current buffer; - `opts`accepts a lua table with the following
-keys: - `project_root`a string of the path that overrides the detected project
-root. Default: `nil`. This is mostly intended to use with the
+number. Default: `0` (current buffer); - `opts`accepts a lua table with the
+following keys: - `project_root`a string of the path that overrides the
+detected project root. Default: `nil`. This is mostly intended to use with the
 |VectorCode-user-command|, and you probably should not use this directly in
 your config. **If you’re using the LSP backend and did not specify this
 value, it will be automatically detected based on .vectorcode or .git. If this

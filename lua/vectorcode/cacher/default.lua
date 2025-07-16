@@ -257,7 +257,7 @@ M.query_from_cache = vc_config.check_cli_wrap(
   ---of the array is in the format of `{path="path/to/your/code.lua", document="document content"}`.
   ---@param bufnr integer?
   ---@param opts {notify: boolean}?
-  ---@return VectorCode.Result[]
+  ---@return VectorCode.QueryResult[]
   function(bufnr, opts)
     local result = {}
     if bufnr == 0 or bufnr == nil then
@@ -282,7 +282,7 @@ M.query_from_cache = vc_config.check_cli_wrap(
   end
 )
 
----@alias ComponentCallback fun(result:VectorCode.Result):string
+---@alias ComponentCallback fun(result:VectorCode.QueryResult):string
 
 ---Compile the retrieval results into a string.
 ---@param bufnr integer
@@ -296,7 +296,7 @@ function M.make_prompt_component(bufnr, component_cb)
     return { content = "", count = 0 }
   end
   if component_cb == nil then
-    ---@type fun(result:VectorCode.Result):string
+    ---@type fun(result:VectorCode.QueryResult):string
     component_cb = function(result)
       return "<|file_sep|>" .. result.path .. "\n" .. result.document
     end

@@ -1,4 +1,5 @@
 import asyncio
+import glob
 import hashlib
 import json
 import logging
@@ -6,6 +7,7 @@ import os
 import sys
 import uuid
 from asyncio import Lock
+from dataclasses import dataclass, fields
 from typing import Iterable, Optional
 
 import pathspec
@@ -19,12 +21,43 @@ from vectorcode.cli_utils import (
     GLOBAL_EXCLUDE_SPEC,
     GLOBAL_INCLUDE_SPEC,
     Config,
+    SpecResolver,
     expand_globs,
     expand_path,
 )
-from vectorcode.common import get_client, get_collection, verify_ef
+from vectorcode.common import (
+    ClientManager,
+    get_collection,
+    list_collection_files,
+    verify_ef,
+)
 
 logger = logging.getLogger(name=__name__)
+
+
+@dataclass
+class VectoriseStats:
+    add: int = 0
+    update: int = 0
+    removed: int = 0
+    skipped: int = 0
+    failed: int = 0
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+    def to_dict(self) -> dict[str, int]:
+        return {i.name: getattr(self, i.name) for i in fields(self)}
+
+    def to_table(self) -> str:
+        _fields = fields(self)
+        return tabulate.tabulate(
+            [
+                [i.name.capitalize() for i in _fields],
+                [getattr(self, i.name) for i in _fields],
+            ],
+            headers="firstrow",
+        )
 
 
 def hash_str(string: str) -> str:
@@ -53,7 +86,7 @@ async def chunked_add(
     file_path: str,
     collection: AsyncCollection,
     collection_lock: Lock,
-    stats: dict[str, int],
+    stats: VectoriseStats,
     stats_lock: Lock,
     configs: Config,
     max_batch_size: int,
@@ -74,6 +107,7 @@ async def chunked_add(
         logger.debug(
             f"Skipping {full_path_str} because it's unchanged since last vectorisation."
         )
+        stats.skipped += 1
         return
 
     if num_existing_chunks:
@@ -92,6 +126,7 @@ async def chunked_add(
             if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
                 # empty file
                 logger.debug(f"Skipping {full_path_str} because it's empty.")
+                stats.skipped += 1
                 return
             chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
             logger.debug(f"Chunked into {len(chunks)} pieces.")
@@ -116,43 +151,51 @@ async def chunked_add(
                     )
     except (UnicodeDecodeError, UnicodeError):  # pragma: nocover
         logger.warning(f"Failed to decode {full_path_str}.")
+        stats.failed += 1
         return
 
     if num_existing_chunks:
         async with stats_lock:
-            stats["update"] += 1
+            stats.update += 1
     else:
         async with stats_lock:
-            stats["add"] += 1
+            stats.add += 1
 
 
-def show_stats(configs: Config, stats):
+async def remove_orphanes(
+    collection: AsyncCollection,
+    collection_lock: Lock,
+    stats: VectoriseStats,
+    stats_lock: Lock,
+):
+    async with collection_lock:
+        paths = await list_collection_files(collection)
+        orphans = set()
+        for path in paths:
+            if isinstance(path, str) and not os.path.isfile(path):
+                orphans.add(path)
+        async with stats_lock:
+            stats.removed = len(orphans)
+        if len(orphans):
+            logger.info(f"Removing {len(orphans)} orphaned files from database.")
+            await collection.delete(where={"path": {"$in": list(orphans)}})
+
+
+def show_stats(configs: Config, stats: VectoriseStats):
     if configs.pipe:
-        print(json.dumps(stats))
+        print(stats.to_json())
     else:
-        print(
-            tabulate.tabulate(
-                [
-                    ["Added", "Updated", "Removed"],
-                    [stats["add"], stats["update"], stats["removed"]],
-                ],
-                headers="firstrow",
-            )
-        )
+        print(stats.to_table())
 
 
-def exclude_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> list[str]:
+def exclude_paths_by_spec(
+    paths: Iterable[str], spec_path: str, project_root: Optional[str] = None
+) -> list[str]:
     """
     Files matched by the specs will be excluded.
     """
-    return [path for path in paths if not specs.match_file(path)]
 
-
-def include_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> list[str]:
-    """
-    Only include paths matched by the specs.
-    """
-    return [path for path in paths if specs.match_file(path)]
+    return list(SpecResolver.from_path(spec_path, project_root).match(paths, True))
 
 
 def load_files_from_include(project_root: str) -> list[str]:
@@ -180,89 +223,96 @@ def load_files_from_include(project_root: str) -> list[str]:
     return []
 
 
+def find_exclude_specs(configs: Config) -> list[str]:
+    """
+    Load a list of paths to exclude specs.
+    Can be `.gitignore` or local/global `vectorcode.exclude`
+    """
+    if configs.recursive:
+        specs = glob.glob(
+            os.path.join(str(configs.project_root), "**", ".gitignore"), recursive=True
+        ) + glob.glob(
+            os.path.join(str(configs.project_root), "**", "vectorcode.exclude"),
+            recursive=True,
+        )
+    else:
+        specs = [os.path.join(str(configs.project_root), ".gitignore")]
+
+    exclude_spec_path = os.path.join(
+        str(configs.project_root), ".vectorcode", "vectorcode.exclude"
+    )
+    if os.path.isfile(exclude_spec_path):
+        specs.append(exclude_spec_path)
+    elif os.path.isfile(GLOBAL_EXCLUDE_SPEC):
+        specs.append(GLOBAL_EXCLUDE_SPEC)
+    specs = [i for i in specs if os.path.isfile(i)]
+    logger.debug(f"Loaded exclude specs: {specs}")
+    return specs
+
+
 async def vectorise(configs: Config) -> int:
     assert configs.project_root is not None
-    client = await get_client(configs)
-    try:
-        collection = await get_collection(client, configs, True)
-    except IndexError:
-        print("Failed to get/create the collection. Please check your config.")
-        return 1
-    if not verify_ef(collection, configs):
-        return 1
-
-    files = await expand_globs(
-        configs.files or load_files_from_include(str(configs.project_root)),
-        recursive=configs.recursive,
-        include_hidden=configs.include_hidden,
-    )
-
-    if not configs.force:
-        gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
-        specs = [
-            gitignore_path,
-        ]
-        exclude_spec_path = os.path.join(
-            configs.project_root, ".vectorcode", "vectorcode.exclude"
-        )
-        if os.path.isfile(exclude_spec_path):
-            specs.append(exclude_spec_path)
-        elif os.path.isfile(GLOBAL_EXCLUDE_SPEC):
-            specs.append(GLOBAL_EXCLUDE_SPEC)
-        for spec_path in specs:
-            if os.path.isfile(spec_path):
-                logger.info(f"Loading ignore specs from {spec_path}.")
-                with open(spec_path) as fin:
-                    spec = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
-                files = exclude_paths_by_spec((str(i) for i in files), spec)
-    else:  # pragma: nocover
-        logger.info("Ignoring exclude specs.")
-
-    stats = {"add": 0, "update": 0, "removed": 0}
-    collection_lock = Lock()
-    stats_lock = Lock()
-    max_batch_size = await client.get_max_batch_size()
-    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
-
-    with tqdm.tqdm(
-        total=len(files), desc="Vectorising files...", disable=configs.pipe
-    ) as bar:
+    async with ClientManager().get_client(configs) as client:
         try:
-            tasks = [
-                asyncio.create_task(
-                    chunked_add(
-                        str(file),
-                        collection,
-                        collection_lock,
-                        stats,
-                        stats_lock,
-                        configs,
-                        max_batch_size,
-                        semaphore,
-                    )
-                )
-                for file in files
-            ]
-            for task in asyncio.as_completed(tasks):
-                await task
-                bar.update(1)
-        except asyncio.CancelledError:
-            print("Abort.", file=sys.stderr)
+            collection = await get_collection(client, configs, True)
+        except IndexError as e:
+            print(
+                f"{e.__class__.__name__}: Failed to get/create the collection. Please check your config."
+            )
+            return 1
+        if not verify_ef(collection, configs):
             return 1
 
-    async with collection_lock:
-        all_results = await collection.get(include=[IncludeEnum.metadatas])
-        if all_results is not None and all_results.get("metadatas"):
-            paths = (meta["path"] for meta in (all_results["metadatas"] or []))
-            orphans = set()
-            for path in paths:
-                if isinstance(path, str) and not os.path.isfile(path):
-                    orphans.add(path)
-            async with stats_lock:
-                stats["removed"] = len(orphans)
-            if len(orphans):
-                logger.info(f"Removing {len(orphans)} orphaned files from database.")
-                await collection.delete(where={"path": {"$in": list(orphans)}})
+        files = await expand_globs(
+            configs.files or load_files_from_include(str(configs.project_root)),
+            recursive=configs.recursive,
+            include_hidden=configs.include_hidden,
+        )
 
-    show_stats(configs=configs, stats=stats)
-    return 0
+        if not configs.force:
+            for spec_path in find_exclude_specs(configs):
+                if os.path.isfile(spec_path):
+                    logger.info(f"Loading ignore specs from {spec_path}.")
+                    files = exclude_paths_by_spec(
+                        (str(i) for i in files), spec_path, str(configs.project_root)
+                    )
+                    logger.debug(f"Files after excluding: {files}")
+        else:  # pragma: nocover
+            logger.info("Ignoring exclude specs.")
+
+        stats = VectoriseStats()
+        collection_lock = Lock()
+        stats_lock = Lock()
+        max_batch_size = await client.get_max_batch_size()
+        semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+
+        with tqdm.tqdm(
+            total=len(files), desc="Vectorising files...", disable=configs.pipe
+        ) as bar:
+            try:
+                tasks = [
+                    asyncio.create_task(
+                        chunked_add(
+                            str(file),
+                            collection,
+                            collection_lock,
+                            stats,
+                            stats_lock,
+                            configs,
+                            max_batch_size,
+                            semaphore,
+                        )
+                    )
+                    for file in files
+                ]
+                for task in asyncio.as_completed(tasks):
+                    await task
+                    bar.update(1)
+            except asyncio.CancelledError:
+                print("Abort.", file=sys.stderr)
+                return 1
+
+        await remove_orphanes(collection, collection_lock, stats, stats_lock)
+
+        show_stats(configs=configs, stats=stats)
+        return 0

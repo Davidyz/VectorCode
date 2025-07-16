@@ -24,6 +24,7 @@
   * [Removing a Collection](#removing-a-collection)
   * [Checking Project Setup](#checking-project-setup)
   * [Cleaning up](#cleaning-up)
+  * [Inspecting and Manupulating Files in an Indexed Project](#inspecting-and-manupulating-files-in-an-indexed-project)
   * [Debugging and Diagnosing](#debugging-and-diagnosing)
 * [Shell Completion](#shell-completion)
 * [Hardware Acceleration](#hardware-acceleration)
@@ -32,6 +33,7 @@
     * [`vectorcode query`](#vectorcode-query)
     * [`vectorcode vectorise`](#vectorcode-vectorise)
     * [`vectorcode ls`](#vectorcode-ls)
+    * [`vectorcode files ls`](#vectorcode-files-ls)
   * [LSP Mode](#lsp-mode)
   * [MCP Server](#mcp-server)
   * [Writing Prompts](#writing-prompts)
@@ -99,9 +101,8 @@ set up a standalone local server (they provides detailed instructions through
 will significantly reduce the IO overhead and avoid potential race condition.
 
 > If you're setting up a standalone ChromaDB server, I recommend sticking to
-> v0.6.3.
-> ChromaDB recently released v1.0.0, which may not work with VectorCode. I'm
-> testing with v1.0.0 and will publish a new release when it's ready.
+> v0.6.3,
+> because VectorCode is not ready for the upgrade to ChromaDB 1.0 yet.
 
 ### For Windows Users
 
@@ -120,7 +121,9 @@ architecture, python version and the vectorcode virtual environment
 ### Nix
 
 A community-maintained Nix package is available 
-[here](https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=vectorcode).
+[here](https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=vectorcode). 
+If you're using nix to install a standalone Chromadb server, make sure to stick
+to [0.6.3](https://github.com/NixOS/nixpkgs/pull/412528).
 
 ## Getting Started
 
@@ -173,9 +176,9 @@ reading or use the `--help` flag.
 
 To maintain the accuracy of the vector search, it's important to keep your
 embeddings up-to-date. You can simply run the `vectorise` subcommand on a file
-to refresh the embedding for a particular file, and the CLI provides a 
+to refresh the embedding for that file. Apart from that, the CLI provides a 
 `vectorcode update` subcommand, which updates the embeddings for all files that 
-are currently indexed by VectorCode for the current project. 
+are currently indexed by VectorCode for the current project.
 
 If you want something more automagic, check out 
 [the advanced usage section](#git-hooks) 
@@ -197,7 +200,7 @@ For each project, VectorCode creates a collection (similar to tables in
 traditional databases) and puts the code embeddings in the corresponding
 collection. In the root directory of a project, you may run `vectorcode init`.
 This will initialise the repository with a subdirectory
-`project_root/.vectorcode/`. This will mark this directory a _project root_, a
+`project_root/.vectorcode/`. This will mark this directory as a _project root_, a
 concept that will later be used to construct the collection. You may put a
 `config.json` file in `project_root/.vectorcode`. This file may be used to store
 project-specific settings such as embedding functions and database entry point
@@ -226,29 +229,21 @@ hooks. The `init` subcommand provides a `--hooks` flag which helps you manage
 hooks when working with a git repository. You can put some custom hooks in
 `~/.config/vectorcode/hooks/` and the `vectorcode init --hooks` command will 
 pick them up and append them to your existing hooks, or create new hook scripts 
-if they don't exist yet. The hook files should be named the same as they would 
-be under the `.git/hooks` directory. For example, a pre-commit hook would be named 
-`~/.config/vectorcode/hooks/pre-commit`. 
+if they don't exist yet. The custom hook files should be named the same as they 
+would be under the `.git/hooks` directory. For example, a pre-commit hook would 
+be named `~/.config/vectorcode/hooks/pre-commit`. 
 
 By default, there are 2 pre-defined hooks:
-```bash
-# pre-commit hook that vectorise changed files before you commit.
-diff_files=$(git diff --cached --name-only)
-[ -z "$diff_files" ] || vectorcode vectorise $diff_files
-```
-```bash
-# post-checkout hook that vectorise changed files when you checkout to a
-# different branch/tag/commit
-files=$(git diff --name-only "$1" "$2")
-[ -z "$files" ] || vectorcode vectorise $files
-```
-When you run `vectorcode init --hooks` in a git repo, these 2 hooks will be added 
-to your `.git/hooks/`. Hooks that are managed by VectorCode will be wrapped by 
-`# VECTORCODE_HOOK_START` and `# VECTORCODE_HOOK_END` comment lines. They help 
-VectorCode determine whether hooks have been added, so don't delete the markers 
-unless you know what you're doing. To remove the hooks, simply delete the lines
-wrapped by these 2 comment strings.
 
+1. A pre-commit hook that vectorises the modified files.
+2. A post-checkout hook that:
+    - vectorises the full repository if it's an initial commit/clone and a
+      `vectorcode.include` spec is available (either locally in the project or
+      globally);
+    - vectorises the files changed by the checkout.
+
+Both hooks will only be triggered on repositories that have a `.vectorcode`
+directory in them.
 
 ### Configuring VectorCode
 Since 0.6.4, VectorCode adapted a [json5 parser](https://github.com/dpranke/pyjson5) 
@@ -279,8 +274,9 @@ The JSON configuration file may hold the following values:
 - `db_url`: string, the url that points to the Chromadb server. VectorCode will start an
   HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
   configured `http://host:port` is not accessible. Default: `http://127.0.0.1:8000`;
-- `db_path`: string, Path to local persistent database. This is where the files for 
-  your database will be stored. Default: `~/.local/share/vectorcode/chromadb/`;
+- `db_path`: string, Path to local persistent database. If you didn't set up a standalone 
+  Chromadb server, this is where the files for your database will be stored. 
+  Default: `~/.local/share/vectorcode/chromadb/`;
 - `db_log_path`: string, path to the _directory_ where the built-in chromadb
   server will write the log to. Default: `~/.local/share/vectorcode/`;
 - `chunk_size`: integer, the maximum number of characters per chunk. A larger
@@ -288,7 +284,7 @@ The JSON configuration file may hold the following values:
   search, but at the cost of potentially truncated data and lost information.
   Default: `2500`. To disable chunking, set it to a negative number;
 - `overlap_ratio`: float between 0 and 1, the ratio of overlapping/shared content 
-  between 2 adjacent chunks. A larger ratio improves the coherences of chunks,
+  between 2 adjacent chunks. A larger ratio improves the coherence of chunks,
   but at the cost of increasing number of entries in the database and hence
   slowing down the search. Default: `0.2`. _Starting from 0.4.11, VectorCode
   will use treesitter to parse languages that it can automatically detect. It
@@ -323,7 +319,6 @@ The JSON configuration file may hold the following values:
     }
   }
   ```
-  ;
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
   for Chromadb client settings so that you can configure 
   [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
@@ -332,9 +327,8 @@ The JSON configuration file may hold the following values:
   that may improve the query performances or avoid runtime errors during
   queries. **It's recommended to re-vectorise the collection after modifying these
   options, because some of the options can only be set during collection
-  creation.** Example:
+  creation.** Example (and default):
   ```json5
-  // the following is the default value.
   "hnsw": {
     "hnsw:M": 64,
   }
@@ -415,7 +409,12 @@ specs will be vectorised when you run `vectorcode vectorise` without specifying
 files. This file has lower priority than `.gitignore`, but you can override this
 by the `-f` flag. It also doesn't assume `--recursive`, so if you want to add a
 whole directory to this file, you can use `dir/**`, which matches all content
-of `dir/` recursively.
+of `dir/` recursively. 
+
+> Note that the `include` spec only kicks in when you don't
+supply file paths when calling `vectorcode vectorise`. If you want a rule to be
+effective _whenever you vectorise some files_, you should use the `exclude`
+specs explained below.
 
 Similarly, you can also create a `project_root/.vectorcode/vectorcode.exclude`
 file to denote any files that you want to exclude. This is useful when you have
@@ -426,6 +425,10 @@ These specs can be useful if you want to automatically update the embeddings
 on certain conditions. See 
 [the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
 for an example to use it with git hooks.
+
+If you're working with nested repos, you can pass `--recursive`/`-r` so that
+the `vectorise` command will honour the `.gitignore`s and `vectorcode.exclude`s 
+in the nested repos.
 
 ### Making a Query
 
@@ -510,19 +513,30 @@ some_message` and then getting an empty results.
 For empty collections and collections for removed projects, you can use the
 `vectorcode clean` command to remove them at once.
 
+### Inspecting and Manupulating Files in an Indexed Project
+
+- `vectorcode files ls` prints a list of files that are indexed in the project.
+- `vectorcode files rm file1 file2` removes the embeddings that belong to the 
+specified files from the project.
+
+Both commands will honor the `--project_root` flag.
+
 ### Debugging and Diagnosing
 
 When something doesn't work as expected, you can enable logging by setting the
 `VECTORCODE_LOG_LEVEL` variable to one of `ERROR`, `WARN` (`WARNING`), `INFO` or
 `DEBUG`. For the CLI that you interact with in your shell, this will output logs
 to `STDERR` and write a log file to `~/.local/share/vectorcode/logs/`. For LSP
-and MCP servers, because `STDIO` is used for the RPC, only the log file will be
-written.
+and MCP servers, because `STDIO` is used for the RPC, the logs will only be
+written to the log file, not `STDERR`.
 
 For example:
 ```bash
 VECTORCODE_LOG_LEVEL=INFO vectorcode vectorise file1.py file2.lua
 ```
+
+> Depending on the MCP/LSP client implementation, you may need to take extra
+> steps to make sure the environment variables are captured by VectorCode.
 
 ## Shell Completion
 
@@ -547,7 +561,7 @@ following options in the JSON config file:
 
 For Intel users, [sentence transformer](https://www.sbert.net/index.html)
 supports [OpenVINO](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) 
-backend for supported GPU. Run `pipx install vectorcode[intel]` which will 
+backend for supported GPU. Run `uv install vectorcode[intel]` which will 
 bundle the relevant libraries when you install VectorCode. After that, you will
 need to configure `SentenceTransformer` to use `openvino` backend. In your
 `config.json`, set `backend` key in `embedding_params` to `"openvino"`:
@@ -600,22 +614,30 @@ If you used `--include chunk path` parameters, the array will look like this:
         "chunk": "foo",
         "start_line": 1,
         "end_line": 1,
+        "chunk_id": "chunk_id_1"
     },
     {
         "path": "path_to_another_file.py",
         "chunk": "bar",
         "start_line": 1,
         "end_line": 1,
+        "chunk_id": "chunk_id_2"
     }
 ]
 ```
-Keep in mind that both `start_line` and `end_line` are inclusive.
+Keep in mind that both `start_line` and `end_line` are inclusive. The `chunk_id`
+is a random string that can be used as a unique identifier to distinguish
+between chunks. These are the same IDs used in the database.
 
 #### `vectorcode vectorise`
 The output is in JSON format. It contains a dictionary with the following fields:
 - `"add"`: number of added documents;
 - `"update"`: number of updated documents;
 - `"removed"`: number of removed documents;
+- `"skipped"`: number of skipped documents (because it's empty or its hash
+  matches the metadata saved in the database);
+- `"failed"`: number of documents that failed to be vectorised. This is usually
+  due to encoding issues.
 
 #### `vectorcode ls`
 A JSON array of collection information of the following format will be printed:
@@ -638,6 +660,10 @@ A JSON array of collection information of the following format will be printed:
 - `"collection_name"`: the unique identifier for the project used in the database;
 - `"size"`: number of chunks stored in the database;
 - `"num_files"`: number of files that have been vectorised in the project.
+
+#### `vectorcode files ls`
+
+A JSON array of strings (the absolute paths to the files in the collection).
 
 ### LSP Mode
 
@@ -688,11 +714,11 @@ will:
 Note that:
 
 1. For easier parsing, `--pipe` is assumed to be enabled in LSP mode;
-2. At the time this only work with vectorcode setup that uses a **standalone
-   ChromaDB server**, which is not difficult to setup using docker;
-3. At the time this only work with `query` subcommand. I will consider adding
-   support for other subcommand but first I need to figure out how to properly
-   manage `project_root` across different requests if they change.
+2. A `vectorcode.lock` file will be created in your `db_path` directory __if
+   you're using the bundled chromadb server__. Please do not delete it while a
+   vectorcode process is running;
+3. The LSP server supports `vectorise`, `query` and `ls` subcommands. The other
+   subcommands may be added in the future.
 
 ### MCP Server
 
@@ -703,12 +729,13 @@ features:
 
 - `ls`: list local collections, similar to the `ls` subcommand in the CLI;
 - `query`: query from a given collection, similar to the `query` subcommand in
-  the CLI.
+  the CLI;
+- `vectorise`: vectorise files into a given project;
+- `files_ls`: show files that have been indexed for the current project;
+- `files_rm`: remove some files from the database for a project.
 
 To try it out, install the `vectorcode[mcp]` dependency group and the MCP server 
-is available in the shell as `vectorcode-mcp-server`, and make sure you're using 
-a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode) 
-via the `host` and `port` options. 
+is available in the shell as `vectorcode-mcp-server`. 
 
 The MCP server entry point (`vectorcode-mcp-server`) provides some CLI options
 that you can use to customise the default behaviour of the server. To view the
@@ -720,3 +747,6 @@ If you want to integrate VectorCode in your LLM application, you may want to
 write some prompt that tells the LLM how to use this tool. Apart from the
 function signatures, a list of instructions used by the MCP server is included in
 this package. This can be retrieved by running the `vectorcode prompts` command.
+This commands optionally accepts names of other subcommands as arguments. It'll
+print a list of pre-defined prompts that are suitable for the specified 
+subcommands. You may run `vectorcode prompts --help` for the supported options.

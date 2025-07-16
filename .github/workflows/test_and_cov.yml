@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11, 3.12, 3.13]
-        os: [ubuntu-latest, macos-latest, macos-14]
+        os: [ubuntu-latest, macos-latest, macos-14, ubuntu-24.04-arm]
         exclude:
           - os: macos-14
             python-version: 3.13
@@ -40,6 +40,17 @@ jobs:
         run: |
           pdm lock --group dev --group lsp --group mcp --group legacy --group debug
           pdm install
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Configure pdm to use uv
+        run: pdm config use_uv true
+
+      - name: install pdm and dependencies
+        run: make deps
 
       - name: Set custom HF cache directory
         run: |

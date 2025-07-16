@@ -5,6 +5,8 @@ import sys
 import traceback
 
 from vectorcode import __version__, debugging
+import httpx
+
 from vectorcode.cli_utils import (
     CliAction,
     config_logging,
@@ -12,6 +14,7 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
+from vectorcode.common import ClientManager
 
 logger = logging.getLogger(name=__name__)
 
@@ -66,25 +69,11 @@ async def async_main():
             from vectorcode.subcommands import chunks
 
             return await chunks(final_configs)
-        case CliAction.hooks:
-            logger.warning(
-                "`vectorcode hooks` has been deprecated and will be removed in 0.7.0."
-            )
-            logger.warning("Please use `vectorcode init --hooks`.")
-            from vectorcode.subcommands import hooks
 
-            return await hooks(cli_args)
-
-    from vectorcode.common import start_server, try_server
-
-    server_process = None
-    if not await try_server(final_configs.db_url):
-        server_process = await start_server(final_configs)
-
-    if final_configs.pipe:
+    if final_configs.pipe:  # pragma: nocover
         # NOTE: NNCF (intel GPU acceleration for sentence transformer) keeps showing logs.
         # This disables logs below ERROR so that it doesn't hurt the `pipe` output.
-        logging.disable(logging.ERROR)
+        logging.disable(logging.ERROR - 1)
 
     return_val = 0
     try:
@@ -113,14 +102,19 @@ async def async_main():
                 from vectorcode.subcommands import clean
 
                 return_val = await clean(final_configs)
-    except Exception:
+            case CliAction.files:
+                from vectorcode.subcommands import files
+
+                return_val = await files(final_configs)
+    except Exception as e:
         return_val = 1
+        if isinstance(e, httpx.RemoteProtocolError):  # pragma: nocover
+            e.add_note(
+                f"Please verify that {final_configs.db_url} is a working chromadb server."
+            )
         logger.error(traceback.format_exc())
     finally:
-        if server_process is not None:
-            logger.info("Shutting down the bundled Chromadb instance.")
-            server_process.terminate()
-            await server_process.wait()
+        await ClientManager().kill_servers()
         return return_val
 
 
