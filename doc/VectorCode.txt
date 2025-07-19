@@ -16,8 +16,8 @@ Table of Contents                               *VectorCode-table-of-contents*
 
 
   [!NOTE] This plugin depends on the CLI tool. Please go through the CLI
-  documentation <./cli.md> and make sure the VectorCode CLI is working before
-  proceeding.
+  documentation <../cli/README.md> and make sure the VectorCode CLI is working
+  before proceeding.
 
   [!NOTE] When the neovim plugin doesn’t work properly, please try upgrading
   both the CLI and the neovim plugin to the latest version before opening an
