@@ -125,6 +125,10 @@ A community-maintained Nix package is available
 If you're using nix to install a standalone Chromadb server, make sure to stick
 to [0.6.3](https://github.com/NixOS/nixpkgs/pull/412528).
 
+If you install via Nix and run into an issue, please try to reproduce with the
+PyPi package (install via `uv` or `pipx`). If it's not reproducible on the
+non-nix package, I may close the issue immediately.
+
 ## Getting Started
 
 `cd` into your project root repo, and run:
@@ -305,7 +309,12 @@ The JSON configuration file may hold the following values:
   `CrossEncoderReranker` (default, using 
   [sentence-transformers cross-encoder](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html)
   ) and `NaiveReranker` (sort chunks by the "distance" between the embedding
-  vectors);
+  vectors).
+  Note: If you're using a good embedding model (eg. a hosted service from OpenAI, or 
+  a LLM-based embedding model like 
+  [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)), you
+  may get better results if you use `NaiveReranker` here because a good embedding
+  model may understand texts better than a mediocre reranking model.
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
   passed to the reranker class constructor. For `CrossEncoderReranker`, these
   are the options passed to the 

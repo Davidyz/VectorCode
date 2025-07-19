@@ -15,7 +15,7 @@ jobs:
         uses: kdheepak/panvimdoc@main
         with:
           vimdoc: "VectorCode" # Output vimdoc project name (required)
-          pandoc: "./docs/neovim.md" # Input pandoc file
+          pandoc: "./docs/neovim/README.md" # Input pandoc file
           toc: true # Table of contents
           description: "A code repository indexing tool to supercharge your LLM experience." # Project description used in title (if empty, uses neovim version and current date)
           titledatepattern: "%Y %B %d" # Pattern for the date that used in the title
@@ -32,7 +32,7 @@ jobs:
         uses: kdheepak/panvimdoc@main
         with:
           vimdoc: "VectorCode-cli" # Output vimdoc project name (required)
-          pandoc: "./docs/cli.md" # Input pandoc file
+          pandoc: "./docs/cli/README.md" # Input pandoc file
           toc: true # Table of contents
           description: "A code repository indexing tool to supercharge your LLM experience." # Project description used in title (if empty, uses neovim version and current date)
           titledatepattern: "%Y %B %d" # Pattern for the date that used in the title
