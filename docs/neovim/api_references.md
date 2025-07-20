@@ -1,6 +1,6 @@
 # Lua API References
 
-This plugin provides 2 sets of APIs that provides similar functionalities. The
+This plugin provides 2 sets of high-level APIs that provides similar functionalities. The
 synchronous APIs provide more up-to-date retrieval results at the cost of
 blocking the main neovim UI, while the async APIs use a caching mechanism to 
 provide asynchronous retrieval results almost instantaneously, but the result
@@ -8,6 +8,13 @@ may be slightly out-of-date. For some tasks like chat, the main UI being
 blocked/frozen doesn't hurt much because you spend the time waiting for response
 anyway, and you can use the synchronous API in this case. For other tasks like 
 completion, the async API will minimise the interruption to your workflow.
+
+These APIs are wrappers around the lower-level 
+[job runner API](https://github.com/Davidyz/VectorCode/tree/main/lua/vectorcode/jobrunner), 
+which provides a unified interface for calling VectorCode commands that can be
+executed by either the LSP or the generic CLI backend. If the high-level APIs
+are sufficient for your usecase, it's usually not necessary to use the job
+runners directly.
 
 <!-- mtoc-start -->
 
@@ -24,6 +31,10 @@ completion, the async API will minimise the interruption to your workflow.
   * [`cacher_backend.buf_job_count(bufnr?)`](#cacher_backendbuf_job_countbufnr)
   * [`cacher_backend.make_prompt_component(bufnr?, component_cb?)`](#cacher_backendmake_prompt_componentbufnr-component_cb)
   * [Built-in Query Callbacks](#built-in-query-callbacks)
+* [JobRunners](#jobrunners)
+  * [`run_async(args, callback, bufnr)` and `run(args, timeout_ms, bufnr)`](#run_asyncargs-callback-bufnr-and-runargs-timeout_ms-bufnr)
+  * [`is_job_running(job_handle):boolean`](#is_job_runningjob_handleboolean)
+  * [`stop_job(job_handle)`](#stop_jobjob_handle)
 
 <!-- mtoc-end -->
 
@@ -272,3 +283,69 @@ constructor for you to play around with it, but you can easily build your own!
   fallback to `make_surrounding_lines_cb(-1)`. The default value for `max_num`
   is 50.
 
+
+## JobRunners
+
+The `VectorCode.JobRunner` is an abstract class for vectorcode command
+execution. There are 2 concrete child classes that you can use: 
+- `require("vectorcode.jobrunner.cmd")` uses the CLI (`vectorcode` commands) to
+  interact with the database;
+- `quire("vectorcode.jobrunner.lsp")` use the LSP server, which avoids some of
+  the IO overhead and provides LSP progress notifications.
+
+The available methods for a `VectorCode.JobRunner` object includes:
+
+### `run_async(args, callback, bufnr)` and `run(args, timeout_ms, bufnr)`
+Calls a vectorcode command.
+
+The `args` parameter (of type `string[]`) is whatever argument that comes after
+`vectorcode` when you run it in the CLI. For example, if you want to query for
+10 chunks in the shell, you'd call the following command:
+
+```bash
+vectorcode query -n 10 keyword1 keyword2 --include chunk
+```
+
+Then for the job runner (either LSP or cmd), the `args` parameter would be:
+```lua
+args = {"query", "-n", "10", "keyword1", "keyword2", "--include", "chunk"}
+```
+
+For the `run_async` method, the `callback` function has the
+following signature:
+```lua
+---@type fun(result: table, error: table, code:integer, signal: integer?)?
+```
+For the `run` method, the return value can be captured as follow:
+```lua
+res, err, _code, _signal = jobrunner.run(args, -1, 0)
+```
+
+The result (for both synchronous and asynchronous method) is a `vim.json.decode`ed 
+table of the result of the command execution. Consult 
+[the CLI documentation](../cli.md#for-developers) for the schema of the results for 
+the command that you call.
+
+For example, the query command mentioned above will return a
+`VectorCode.QueryResult[]`, where `VectorCode.QueryResult` is defined as
+follows:
+```lua
+---@class VectorCode.QueryResult
+---@field path string Path to the file
+---@field document string? Content of the file
+---@field chunk string?
+---@field start_line integer?
+---@field end_line integer?
+---@field chunk_id string?
+```
+
+The `run_async` will return a `job_handle` which is defined as an `integer?`.
+For the LSP backend, the job handle is the `request_id`. For the cmd runner, the
+job handle is the `PID` of the process.
+
+### `is_job_running(job_handle):boolean`
+Checks if a job associated with the given handle is currently running;
+
+
+### `stop_job(job_handle)`
+Attempts to stop or cancel the async job associated with the given handle.
