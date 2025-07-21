@@ -1,19 +1,20 @@
 # Lua API References
 
-This plugin provides 2 sets of high-level APIs that provides similar functionalities. The
+This plugin provides 2 sets of _high-level APIs_ that provides similar functionalities. The
 synchronous APIs provide more up-to-date retrieval results at the cost of
 blocking the main neovim UI, while the async APIs use a caching mechanism to 
 provide asynchronous retrieval results almost instantaneously, but the result
 may be slightly out-of-date. For some tasks like chat, the main UI being
 blocked/frozen doesn't hurt much because you spend the time waiting for response
 anyway, and you can use the synchronous API in this case. For other tasks like 
-completion, the async API will minimise the interruption to your workflow.
+completion, the cached API will minimise the interruption to your workflow, but
+at a cost of providing less up-to-date results.
 
-These APIs are wrappers around the lower-level 
-[job runner API](https://github.com/Davidyz/VectorCode/tree/main/lua/vectorcode/jobrunner), 
+These APIs are wrappers around the _lower-level 
+[job runner API](https://github.com/Davidyz/VectorCode/tree/main/lua/vectorcode/jobrunner)_, 
 which provides a unified interface for calling VectorCode commands that can be
 executed by either the LSP or the generic CLI backend. If the high-level APIs
-are sufficient for your usecase, it's usually not necessary to use the job
+are sufficient for your use-case, it's usually not necessary to use the job
 runners directly.
 
 <!-- mtoc-start -->
