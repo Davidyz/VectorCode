@@ -135,7 +135,7 @@ require("vectorcode").setup(
     on_setup = {
       update = false, -- set to true to enable update when `setup` is called.
       lsp = false,
-    }
+    },
     sync_log_env_var = false,
   }
 )
