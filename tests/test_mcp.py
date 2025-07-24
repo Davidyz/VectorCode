@@ -91,6 +91,7 @@ async def test_query_tool_success():
     mock_client = AsyncMock()
 
     with tempfile.TemporaryDirectory() as temp_dir:
+        os.chdir(temp_dir)
         # Mock the collection's query method to return a valid QueryResult
         mock_collection = AsyncMock()
         mock_collection.query.return_value = {
@@ -103,7 +104,7 @@ async def test_query_tool_success():
             "distances": [[0.1, 0.2]],  # Valid distances
         }
         for i in range(1, 3):
-            with open(f"file{i}.py", "w") as fin:
+            with open(os.path.join(temp_dir, f"file{i}.py"), "w") as fin:
                 fin.writelines([f"doc{i}"])
         with (
             patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
@@ -126,9 +127,9 @@ async def test_query_tool_success():
 
             mock_get_collection.return_value = mock_collection
 
-            mock_get_query_result_files.return_value = ["file1.py", "file2.py"]
-            mock_file_handle = MagicMock()
-            mock_file_handle.__enter__.return_value.read.return_value = "file content"
+            mock_get_query_result_files.return_value = [
+                os.path.join(temp_dir, i) for i in ("file1.py", "file2.py")
+            ]
 
             result = await query_tool(
                 n_query=2, query_messages=["keyword1"], project_root=temp_dir
@@ -202,7 +203,7 @@ async def test_vectorise_files_success():
             f.write("def func(): pass")
         mock_client = AsyncMock()
 
-        mock_embedding_function = AsyncMock(return_value=numpy.random.random((100,)))
+        mock_embedding_function = MagicMock(return_value=numpy.random.random((100,)))
         with (
             patch("os.path.isdir", return_value=True),
             patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
