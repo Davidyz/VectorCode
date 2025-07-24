@@ -3,6 +3,7 @@ import tempfile
 from argparse import ArgumentParser
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
+import numpy
 import pytest
 from mcp import McpError
 
@@ -202,6 +203,7 @@ async def test_vectorise_files_success():
             f.write("def func(): pass")
         mock_client = AsyncMock()
 
+        mock_embedding_function = AsyncMock(return_value=numpy.random.random((100,)))
         with (
             patch("os.path.isdir", return_value=True),
             patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
@@ -209,6 +211,10 @@ async def test_vectorise_files_success():
             patch(
                 "vectorcode.mcp_main.ClientManager._create_client",
                 return_value=mock_client,
+            ),
+            patch(
+                "vectorcode.subcommands.vectorise.get_embedding_function",
+                return_value=mock_embedding_function,
             ),
             patch("vectorcode.subcommands.vectorise.chunked_add"),
             patch(

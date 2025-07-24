@@ -134,7 +134,7 @@ def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction:
         ef = getattr(embedding_functions, configs.embedding_function)(
             **configs.embedding_params
         )
-        if ef is None:
+        if ef is None:  # pragma: nocover
             raise AttributeError()
         return ef
     except AttributeError:

@@ -64,8 +64,14 @@ def mock_config():
 
 @pytest.mark.asyncio
 async def test_get_query_result_files(mock_collection, mock_config):
-    # Mock the reranker
-    with patch("vectorcode.subcommands.query.get_reranker") as mock_get_reranker:
+    mock_embedding_function = MagicMock()
+    with (
+        patch("vectorcode.subcommands.query.get_reranker") as mock_get_reranker,
+        patch(
+            "vectorcode.subcommands.query.get_embedding_function",
+            return_value=mock_embedding_function,
+        ),
+    ):
         mock_reranker_instance = MagicMock()
         mock_reranker_instance.rerank = AsyncMock(
             return_value=[
@@ -82,9 +88,7 @@ async def test_get_query_result_files(mock_collection, mock_config):
         # Check that query was called with the right parameters
         mock_collection.query.assert_called_once()
         args, kwargs = mock_collection.query.call_args
-        assert kwargs["query_texts"] == [
-            "test query"
-        ]  # Assuming chunking produces this
+        mock_embedding_function.assert_called_once_with(["test query"])
         assert kwargs["n_results"] == 6  # n_result(3) * query_multiplier(2)
         assert IncludeEnum.metadatas in kwargs["include"]
         assert IncludeEnum.distances in kwargs["include"]
@@ -285,10 +289,14 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
     mock_config.query = [
         "this is a longer query that should be chunked into multiple parts"
     ]
-
+    mock_embedding_function = MagicMock()
     with (
         patch("vectorcode.subcommands.query.StringChunker") as MockChunker,
         patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker,
+        patch(
+            "vectorcode.subcommands.query.get_embedding_function",
+            return_value=mock_embedding_function,
+        ),
     ):
         # Set up MockChunker to chunk the query
         mock_chunker_instance = MagicMock()
@@ -309,7 +317,7 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
         # Check query was called with chunked query
         mock_collection.query.assert_called_once()
         _, kwargs = mock_collection.query.call_args
-        assert kwargs["query_texts"] == ["chunk1", "chunk2", "chunk3"]
+        mock_embedding_function.assert_called_once_with(["chunk1", "chunk2", "chunk3"])
 
         # Check the result
         assert result == ["file1.py", "file2.py"]
@@ -319,10 +327,14 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
 async def test_get_query_result_files_multiple_queries(mock_collection, mock_config):
     # Set multiple query terms
     mock_config.query = ["term1", "term2", "term3"]
-
+    mock_embedding_function = MagicMock()
     with (
         patch("vectorcode.subcommands.query.StringChunker") as MockChunker,
         patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker,
+        patch(
+            "vectorcode.subcommands.query.get_embedding_function",
+            return_value=mock_embedding_function,
+        ),
     ):
         # Set up MockChunker to return the query terms as is
         mock_chunker_instance = MagicMock()
@@ -342,7 +354,7 @@ async def test_get_query_result_files_multiple_queries(mock_collection, mock_con
         # Check query was called with all query terms
         mock_collection.query.assert_called_once()
         _, kwargs = mock_collection.query.call_args
-        assert set(kwargs["query_texts"]) == set(["term1", "term2", "term3"])
+        mock_embedding_function.assert_called_once_with(["term1", "term2", "term3"])
 
         # Check the result
         assert result == ["file1.py", "file2.py"]
