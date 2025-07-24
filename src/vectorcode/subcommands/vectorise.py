@@ -28,6 +28,7 @@ from vectorcode.cli_utils import (
 from vectorcode.common import (
     ClientManager,
     get_collection,
+    get_embedding_function,
     list_collection_files,
     verify_ef,
 )
@@ -92,6 +93,7 @@ async def chunked_add(
     max_batch_size: int,
     semaphore: asyncio.Semaphore,
 ):
+    embedding_function = get_embedding_function(configs)
     full_path_str = str(expand_path(str(file_path), True))
     orig_sha256 = None
     new_sha256 = hash_file(full_path_str)
@@ -147,6 +149,9 @@ async def chunked_add(
                     await collection.add(
                         ids=[get_uuid() for _ in inserted_chunks],
                         documents=[str(i) for i in inserted_chunks],
+                        embeddings=embedding_function(
+                            list(str(c) for c in inserted_chunks)
+                        ),
                         metadatas=metas,
                     )
     except (UnicodeDecodeError, UnicodeError):  # pragma: nocover
