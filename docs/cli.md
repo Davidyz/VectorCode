@@ -67,7 +67,7 @@ uv tool install vectorcode --index https://download.pytorch.org/whl/cpu --index-
 If you need to install multiple dependency group (for [LSP](#lsp-mode) or
 [MCP](#mcp-server)), you can use the following syntax:
 ```bash
-uv tool install vectorcode[lsp,mcp]
+uv tool install 'vectorcode[lsp,mcp]'
 ```
 > [!NOTE] 
 > The command only install VectorCode and `SentenceTransformer`, the default
@@ -113,7 +113,7 @@ tracks my progress trying to provide better experiences for windows users.
 
 If your environment doesn't support `numpy` version 2.0+, the default,
 unconstrained numpy may not work for you. In this case, you can
-try installing the package by `uv tool install vectorcode[legacy]`, which enforces 
+try installing the package by `uv tool install 'vectorcode[legacy]'`, which enforces 
 numpy `v1.x`. If this doesn't help, please open an issue with your OS, CPU
 architecture, python version and the vectorcode virtual environment 
 (`uv tool run --from=vectorcode python -m ensurepip && uv tool run --from=vectorcode python -m pip freeze`).
@@ -570,7 +570,7 @@ following options in the JSON config file:
 
 For Intel users, [sentence transformer](https://www.sbert.net/index.html)
 supports [OpenVINO](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) 
-backend for supported GPU. Run `uv install vectorcode[intel]` which will 
+backend for supported GPU. Run `uv install 'vectorcode[intel]'` which will 
 bundle the relevant libraries when you install VectorCode. After that, you will
 need to configure `SentenceTransformer` to use `openvino` backend. In your
 `config.json`, set `backend` key in `embedding_params` to `"openvino"`:
@@ -685,11 +685,11 @@ loading the models.
 The experimental language server can be installed via the `lsp` dependency
 group:
 ```bash
-pipx install vectorcode[lsp]
+pipx install 'vectorcode[lsp]'
 
 ## or if you have an existing `vectorcode` install:
 
-pipx inject vectorcode vectorcode[lsp] --force
+pipx inject vectorcode 'vectorcode[lsp]' --force
 ```
 
 The LSP request for the `workspace/executeCommand` is defined as follows: 
