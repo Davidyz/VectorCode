@@ -19,6 +19,7 @@ from vectorcode.cli_utils import (
 from vectorcode.common import (
     ClientManager,
     get_collection,
+    get_embedding_function,
     verify_ef,
 )
 from vectorcode.subcommands.query.reranker import (
@@ -67,7 +68,7 @@ async def get_query_result_files(
                 )
                 logger.info(f"Querying {num_query} chunks for reranking.")
         results = await collection.query(
-            query_texts=query_chunks,
+            query_embeddings=get_embedding_function(configs)(query_chunks),
             n_results=num_query,
             include=[
                 IncludeEnum.metadatas,

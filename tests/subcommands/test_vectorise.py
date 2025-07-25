@@ -6,6 +6,7 @@ import tempfile
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
+import numpy
 import pytest
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from tree_sitter import Point
@@ -511,6 +512,7 @@ async def test_vectorise_orphaned_files():
         else:
             return True
 
+    mock_embedding_function = MagicMock(return_value=numpy.random.random((100,)))
     with (
         patch("os.path.isfile", side_effect=is_file_side_effect),
         patch(
@@ -521,6 +523,10 @@ async def test_vectorise_orphaned_files():
         patch(
             "vectorcode.subcommands.vectorise.get_collection",
             return_value=mock_collection,
+        ),
+        patch(
+            "vectorcode.subcommands.vectorise.get_embedding_function",
+            return_value=mock_embedding_function,
         ),
         patch("vectorcode.subcommands.vectorise.verify_ef", return_value=True),
         patch(
