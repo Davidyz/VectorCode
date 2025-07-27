@@ -7,6 +7,13 @@ return {
   chat = {
     ---@param component_cb (fun(result:VectorCode.QueryResult):string)?
     make_slash_command = check_cli_wrap(function(component_cb)
+      vim.deprecate(
+        "vectorcode slash command",
+        "vectorcode tool/extension",
+        "0.8.0",
+        "VectorCode",
+        true
+      )
       return {
         description = "Add relevant files from the codebase.",
         ---@param chat CodeCompanion.Chat

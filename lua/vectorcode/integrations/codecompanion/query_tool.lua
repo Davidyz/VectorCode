@@ -164,18 +164,18 @@ local result_tracker = {}
 ---@param chat CodeCompanion.Chat
 ---@return VectorCode.QueryResult[]
 local filter_results = function(results, chat)
-  local existing_refs = chat.refs or {}
+  local existing_refs = chat.context_items or {}
 
   existing_refs = vim
     .iter(existing_refs)
     :filter(
-      ---@param ref CodeCompanion.Chat.Ref
+      ---@param ref CodeCompanion.Chat.ContextItem
       function(ref)
         return ref.source == cc_common.tool_result_source or ref.path or ref.bufnr
       end
     )
     :map(
-      ---@param ref CodeCompanion.Chat.Ref
+      ---@param ref CodeCompanion.Chat.ContextItem
       function(ref)
         if ref.source == cc_common.tool_result_source then
           return ref.id
@@ -386,10 +386,14 @@ return check_cli_wrap(function(opts)
           end
         end
 
-        if opts.no_duplicate and agent.chat.refs ~= nil and action.deduplicate then
+        if
+          opts.no_duplicate
+          and agent.chat.context_items ~= nil
+          and action.deduplicate
+        then
           -- exclude files that has been added to the context
           local existing_files = { "--exclude" }
-          for _, ref in pairs(agent.chat.refs) do
+          for _, ref in pairs(agent.chat.context_items) do
             if ref.source == cc_common.tool_result_source then
               table.insert(existing_files, ref.id)
             elseif type(ref.path) == "string" then
@@ -596,7 +600,7 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
         if not opts.chunk_mode then
           for _, result in pairs(stdout.raw_results) do
             -- skip referencing because there will be multiple chunks with the same path (id).
-            agent.chat.references:add({
+            agent.chat.context:add({
               source = cc_common.tool_result_source,
               id = result.path,
               path = result.path,
