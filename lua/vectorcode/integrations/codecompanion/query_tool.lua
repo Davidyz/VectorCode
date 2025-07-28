@@ -156,8 +156,8 @@ local process_result = function(result)
 end
 
 ---@alias chat_id integer
----@alias result_id string
----@type <chat_id: result_id>
+---@alias results table<string,boolean>
+---@type table<chat_id, results>
 local result_tracker = {}
 
 ---@param results VectorCode.QueryResult[]
