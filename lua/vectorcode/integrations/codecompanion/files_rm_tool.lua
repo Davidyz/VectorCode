@@ -12,14 +12,14 @@ local default_opts = {
 ---@alias FilesRmArgs { paths: string[], project_root: string }
 
 ---@param opts VectorCode.CodeCompanion.FilesRmToolOpts
----@return CodeCompanion.Agent.Tool
+---@return CodeCompanion.Tools
 return function(opts)
   opts = vim.tbl_deep_extend("force", default_opts, opts or {})
 
   local tool_name = "vectorcode_files_rm"
   local job_runner = cc_common.initialise_runner(opts.use_lsp)
 
-  ---@type CodeCompanion.Agent.Tool|{}
+  ---@type CodeCompanion.Tools|{}
   return {
     name = tool_name,
     schema = {
@@ -47,10 +47,10 @@ return function(opts)
       },
     },
     cmds = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param action VectoriseToolArgs
       ---@return nil|{ status: string, data: string }
-      function(agent, action, _, cb)
+      function(tools, action, _, cb)
         local args = { "files", "rm", "--pipe" }
         local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root or ""))
         if project_root ~= "" then
@@ -99,22 +99,22 @@ return function(opts)
               cb({ status = "error", data = { error = error, code = code } })
             end
           end,
-          agent.chat.bufnr
+          tools.chat.bufnr
         )
       end,
     },
     output = {
-      ---@param self CodeCompanion.Agent.Tool
+      ---@param self CodeCompanion.Tools.Tool
       prompt = function(self, _)
         return string.format(
           "Remove %d files from VectorCode database?",
           #self.args.paths
         )
       end,
-      ---@param self CodeCompanion.Agent.Tool
-      ---@param agent CodeCompanion.Agent
-      success = function(self, agent, _, _)
-        agent.chat:add_tool_output(self, "**VectorCode `files_rm` tool**: successful.")
+      ---@param self CodeCompanion.Tools.Tool
+      ---@param tools CodeCompanion.Tools
+      success = function(self, tools, _, _)
+        tools.chat:add_tool_output(self, "**VectorCode `files_rm` tool**: successful.")
       end,
     },
   }

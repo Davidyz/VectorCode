@@ -29,13 +29,13 @@ local get_vectorise_tool_opts = function(opts)
 end
 
 ---@param opts VectorCode.CodeCompanion.VectoriseToolOpts|{}|nil
----@return CodeCompanion.Agent.Tool
+---@return CodeCompanion.Tools
 return function(opts)
   opts = get_vectorise_tool_opts(opts)
   local tool_name = "vectorcode_vectorise"
   local job_runner = cc_common.initialise_runner(opts.use_lsp)
 
-  ---@type CodeCompanion.Agent.Tool|{}
+  ---@type CodeCompanion.Tools|{}
   return {
     name = tool_name,
     schema = {
@@ -66,10 +66,10 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
       },
     },
     cmds = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param action VectoriseToolArgs
       ---@return nil|{ status: string, data: string }
-      function(agent, action, _, cb)
+      function(tools, action, _, cb)
         local args = { "vectorise", "--pipe" }
         local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root or ""))
         if project_root ~= "" then
@@ -118,22 +118,22 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
               cb({ status = "error", data = { error = error, code = code } })
             end
           end,
-          agent.chat.bufnr
+          tools.chat.bufnr
         )
       end,
     },
     output = {
-      ---@param self CodeCompanion.Agent.Tool
+      ---@param self CodeCompanion.Tools.Tool
       prompt = function(self, _)
         return string.format("Vectorise %d files with VectorCode?", #self.args.paths)
       end,
-      ---@param self CodeCompanion.Agent.Tool
-      ---@param agent CodeCompanion.Agent
+      ---@param self CodeCompanion.Tools
+      ---@param tools CodeCompanion.Tools
       ---@param cmd VectoriseToolArgs
       ---@param stdout VectorCode.VectoriseResult[]
-      success = function(self, agent, cmd, stdout)
+      success = function(self, tools, cmd, stdout)
         stdout = stdout[1]
-        agent.chat:add_tool_output(
+        tools.chat:add_tool_output(
           self,
           string.format(
             [[**VectorCode Vectorise Tool**:
@@ -151,7 +151,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
           )
         )
         if cmd.project_root and cmd.project_root then
-          agent.chat:add_tool_output(
+          tools.chat:add_tool_output(
             self,
             string.format("\nThe files were added to `%s`", cmd.project_root),
             ""
