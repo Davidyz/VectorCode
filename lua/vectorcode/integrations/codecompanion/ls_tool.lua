@@ -63,7 +63,13 @@ return function(opts)
 Retrieve a list of projects accessible via the VectorCode tools.
 Where relevant, use paths from this tool as the `project_root` parameter in other vectorcode tools.
 ]],
-        parameters = { type = "object" },
+        parameters = {
+          -- make anthropic models happy.
+          type = "object",
+          properties = vim.empty_dict(),
+          required = {},
+          additionalProperties = false,
+        },
       },
     },
     output = {
