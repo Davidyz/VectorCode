@@ -52,7 +52,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
             paths = {
               type = "array",
               items = { type = "string" },
-              description = "Paths to the files to be vectorised",
+              description = "Paths to the files to be vectorised. DO NOT use directories for this parameter.",
             },
             project_root = {
               type = "string",
@@ -91,23 +91,22 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
         if project_root ~= "" then
           action.project_root = project_root
         end
-        vim.list_extend(
-          args,
-          vim
-            .iter(action.paths)
-            :filter(
-              ---@param item string
-              function(item)
-                local stat = vim.uv.fs_stat(item)
-                if stat and stat.type == "file" then
-                  return true
-                else
-                  return false
-                end
-              end
-            )
-            :totable()
-        )
+        if
+          vim.iter(action.paths):any(function(p)
+            local stat = vim.uv.fs_stat(vim.fs.normalize(p))
+            if stat and stat.type == "directory" then
+              return true
+            end
+            return false
+          end)
+        then
+          return {
+            status = "error",
+            data = "Please only supply paths to files as the `paths` parameter, not directories.",
+          }
+        end
+
+        vim.list_extend(args, action.paths)
         job_runner.run_async(
           args,
           ---@param result VectoriseResult
@@ -127,7 +126,23 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
       prompt = function(self, _)
         return string.format("Vectorise %d files with VectorCode?", #self.args.paths)
       end,
-      ---@param self CodeCompanion.Tools
+      ---@param self CodeCompanion.Tools.Tool
+      ---@param tools CodeCompanion.Tools
+      ---@param cmd VectoriseToolArgs
+      error = function(self, tools, cmd, stderr)
+        logger.error(
+          ("CodeCompanion tool with command %s thrown with the following error: %s"):format(
+            vim.inspect(cmd),
+            vim.inspect(stderr)
+          )
+        )
+        stderr = cc_common.flatten_table_to_string(stderr)
+        tools.chat:add_tool_output(
+          self,
+          string.format("**VectorCode Vectorise Tool: %s", stderr)
+        )
+      end,
+      ---@param self CodeCompanion.Tools.Tool
       ---@param tools CodeCompanion.Tools
       ---@param cmd VectoriseToolArgs
       ---@param stdout VectorCode.VectoriseResult[]
