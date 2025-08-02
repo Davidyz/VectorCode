@@ -143,11 +143,11 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
   - Up-to-date files skipped: %d
   - Failed to decode: %d
   ]],
-            stdout.add,
-            stdout.update,
-            stdout.removed,
-            stdout.skipped,
-            stdout.failed
+            stdout.add or 0,
+            stdout.update or 0,
+            stdout.removed or 0,
+            stdout.skipped or 0,
+            stdout.failed or 0
           )
         )
         if cmd.project_root and cmd.project_root then
