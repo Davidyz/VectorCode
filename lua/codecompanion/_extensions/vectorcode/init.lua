@@ -52,7 +52,8 @@ local M = {
     opts.tool_opts = merge_tool_opts(opts.tool_opts)
     logger.info("Received codecompanion extension opts:\n", opts)
     local cc_config = require("codecompanion.config").config
-    local cc_integration = require("vectorcode.integrations").codecompanion.chat
+    local cc_integration = require("vectorcode.integrations").codecompanion
+    local cc_chat_integration = cc_integration.chat
     for _, sub_cmd in pairs(valid_tools) do
       local tool_name = string.format("vectorcode_%s", sub_cmd)
       if cc_config.strategies.chat.tools[tool_name] ~= nil then
@@ -73,7 +74,7 @@ local M = {
       else
         cc_config.strategies.chat.tools[tool_name] = {
           description = string.format("Run VectorCode %s tool", sub_cmd),
-          callback = cc_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
+          callback = cc_chat_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
           opts = { requires_approval = opts.tool_opts[sub_cmd].requires_approval },
         }
         logger.info(string.format("%s tool has been created.", tool_name))
@@ -104,6 +105,14 @@ local M = {
         description = "Use VectorCode to automatically build and retrieve repository-level context.",
         tools = included_tools,
       }
+    end
+
+    for _, prompt in pairs(cc_integration.prompts) do
+      if type(prompt) == "function" then
+        ---@diagnostic disable-next-line: cast-local-type
+        prompt = prompt()
+      end
+      cc_config.prompt_library[prompt.name] = prompt.prompts
     end
   end),
 }
