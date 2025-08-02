@@ -10,7 +10,7 @@ local default_opts = {
 }
 
 ---@param opts VectorCode.CodeCompanion.FilesLsToolOpts
----@return CodeCompanion.Agent.Tool
+---@return CodeCompanion.Tools.Tool
 return function(opts)
   opts = vim.tbl_deep_extend("force", default_opts, opts or {})
   local job_runner =
@@ -18,14 +18,14 @@ return function(opts)
       opts.use_lsp
     )
   local tool_name = "vectorcode_files_ls"
-  ---@type CodeCompanion.Agent.Tool|{}
+  ---@type CodeCompanion.Tools.Tool|{}
   return {
     name = tool_name,
     cmds = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param action {project_root: string}
       ---@return nil|{ status: string, data: string }
-      function(agent, action, _, cb)
+      function(tools, action, _, cb)
         local args = { "files", "ls", "--pipe" }
         if action ~= nil then
           action.project_root = action.project_root
@@ -50,7 +50,7 @@ return function(opts)
               data = error,
             })
           end
-        end, agent.chat.bufnr)
+        end, tools.chat.bufnr)
       end,
     },
     schema = {
@@ -70,9 +70,9 @@ return function(opts)
       },
     },
     output = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param stdout string[][]
-      success = function(_, agent, _, stdout)
+      success = function(_, tools, _, stdout)
         stdout = stdout[1]
         local user_message
         for i, col in ipairs(stdout) do
@@ -82,8 +82,8 @@ return function(opts)
           else
             user_message = ""
           end
-          agent.chat:add_tool_output(
-            agent.tool,
+          tools.chat:add_tool_output(
+            tools.tool,
             string.format("<path>%s</path>", col),
             user_message
           )

@@ -25,7 +25,7 @@ local get_ls_tool_opts = function(opts)
 end
 
 ---@param opts VectorCode.CodeCompanion.LsToolOpts
----@return CodeCompanion.Agent.Tool
+---@return CodeCompanion.Tools.Tool
 return function(opts)
   opts = get_ls_tool_opts(opts)
   local job_runner =
@@ -33,13 +33,13 @@ return function(opts)
       opts.use_lsp
     )
   local tool_name = "vectorcode_ls"
-  ---@type CodeCompanion.Agent.Tool|{}
+  ---@type CodeCompanion.Tools.Tool|{}
   return {
     name = tool_name,
     cmds = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@return nil|{ status: string, data: string }
-      function(agent, _, _, cb)
+      function(tools, _, _, cb)
         job_runner.run_async({ "ls", "--pipe" }, function(result, error)
           if vim.islist(result) and #result > 0 then
             cb({ status = "success", data = result })
@@ -52,7 +52,7 @@ return function(opts)
               data = error,
             })
           end
-        end, agent.chat.bufnr)
+        end, tools.chat.bufnr)
       end,
     },
     schema = {
@@ -73,9 +73,9 @@ Where relevant, use paths from this tool as the `project_root` parameter in othe
       },
     },
     output = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param stdout VectorCode.LsResult[][]
-      success = function(_, agent, _, stdout)
+      success = function(_, tools, _, stdout)
         stdout = stdout[1]
         local user_message
         for i, col in ipairs(stdout) do
@@ -85,8 +85,8 @@ Where relevant, use paths from this tool as the `project_root` parameter in othe
           else
             user_message = ""
           end
-          agent.chat:add_tool_output(
-            agent.tool,
+          tools.chat:add_tool_output(
+            tools.tool,
             string.format("<collection>%s</collection>", col["project-root"]),
             user_message
           )
