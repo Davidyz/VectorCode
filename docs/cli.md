@@ -275,6 +275,10 @@ The JSON configuration file may hold the following values:
   Then the embedding function object will be initialised as
   `OllamaEmbeddingFunction(url="http://127.0.0.1:11434/api/embeddings",
   model_name="nomic-embed-text")`. Default: `{}`;
+- `embedding_dims`: integer or `null`, the number of dimensions to truncate the embeddings
+  to. _Make sure your model supports Matryoshka Representation Learning (MRL) 
+  before using this._ Learn more about MRL [here](https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings).
+  When set to `null` (or unset), the embeddings won't be truncated;
 - `db_url`: string, the url that points to the Chromadb server. VectorCode will start an
   HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
   configured `http://host:port` is not accessible. Default: `http://127.0.0.1:8000`;
