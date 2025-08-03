@@ -67,8 +67,11 @@ async def get_query_result_files(
                     await collection.count(),
                 )
                 logger.info(f"Querying {num_query} chunks for reranking.")
+        query_embeddings = get_embedding_function(configs)(query_chunks)
+        if isinstance(configs.embedding_dims, int) and configs.embedding_dims > 0:
+            query_embeddings = [e[: configs.embedding_dims] for e in query_embeddings]
         results = await collection.query(
-            query_embeddings=get_embedding_function(configs)(query_chunks),
+            query_embeddings=query_embeddings,
             n_results=num_query,
             include=[
                 IncludeEnum.metadatas,

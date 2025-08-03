@@ -146,12 +146,21 @@ async def chunked_add(
             async with collection_lock:
                 for idx in range(0, len(chunks), max_batch_size):
                     inserted_chunks = chunks[idx : idx + max_batch_size]
+                    embeddings = embedding_function(
+                        list(str(c) for c in inserted_chunks)
+                    )
+                    if (
+                        isinstance(configs.embedding_dims, int)
+                        and configs.embedding_dims > 0
+                    ):
+                        logger.debug(
+                            f"Truncating embeddings to {configs.embedding_dims} dimensions."
+                        )
+                        embeddings = [e[: configs.embedding_dims] for e in embeddings]
                     await collection.add(
                         ids=[get_uuid() for _ in inserted_chunks],
                         documents=[str(i) for i in inserted_chunks],
-                        embeddings=embedding_function(
-                            list(str(c) for c in inserted_chunks)
-                        ),
+                        embeddings=embeddings,
                         metadatas=metas,
                     )
     except (UnicodeDecodeError, UnicodeError):  # pragma: nocover

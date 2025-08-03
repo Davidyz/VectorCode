@@ -104,6 +104,44 @@ async def test_chunked_add():
 
 
 @pytest.mark.asyncio
+async def test_chunked_add_truncated():
+    file_path = "test_file.py"
+    collection = AsyncMock()
+    collection_lock = asyncio.Lock()
+    stats = VectoriseStats()
+    stats_lock = asyncio.Lock()
+    configs = Config(
+        chunk_size=100, overlap_ratio=0.2, project_root=".", embedding_dims=10
+    )
+    max_batch_size = 50
+    semaphore = asyncio.Semaphore(1)
+
+    with (
+        patch("vectorcode.chunking.TreeSitterChunker.chunk") as mock_chunk,
+        patch("vectorcode.subcommands.vectorise.hash_file") as mock_hash_file,
+    ):
+        mock_hash_file.return_value = "hash1"
+        mock_chunk.return_value = [Chunk("chunk1", Point(1, 0), Point(1, 5)), "chunk2"]
+        await chunked_add(
+            file_path,
+            collection,
+            collection_lock,
+            stats,
+            stats_lock,
+            configs,
+            max_batch_size,
+            semaphore,
+        )
+
+    assert stats.add == 1
+    assert stats.update == 0
+    collection.add.assert_called()
+    assert collection.add.call_count == 1
+
+    assert all(len(i) == 10 for i in collection.add.call_args.kwargs["embeddings"])
+
+
+@pytest.mark.asyncio
 async def test_chunked_add_with_existing():
     file_path = "test_file.py"
     collection = AsyncMock()

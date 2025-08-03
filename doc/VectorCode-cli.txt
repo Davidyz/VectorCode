@@ -322,17 +322,23 @@ embedding function takes. For `OllamaEmbeddingFunction`, if you set
 "model_name": "nomic-embed-text" }` Then the embedding function object will be
 initialised as
 `OllamaEmbeddingFunction(url="http://127.0.0.1:11434/api/embeddings",
-model_name="nomic-embed-text")`. Default: `{}`; - `db_url`string, the url that
-points to the Chromadb server. VectorCode will start an HTTP server for
-Chromadb at a randomly picked free port on `localhost` if your configured
-`http://host:port` is not accessible. Default: `http://127.0.0.1:8000`; -
-`db_path`string, Path to local persistent database. If you didn’t set up a
-standalone Chromadb server, this is where the files for your database will be
-stored. Default: `~/.local/share/vectorcode/chromadb/`; - `db_log_path`string,
-path to the _directory_ where the built-in chromadb server will write the log
-to. Default: `~/.local/share/vectorcode/`; - `chunk_size`integer, the maximum
-number of characters per chunk. A larger value reduces the number of items in
-the database, and hence accelerates the search, but at the cost of potentially
+model_name="nomic-embed-text")`. Default: `{}`; - `embedding_dims`integer or
+`null`, the number of dimensions to truncate the embeddings to. _Make sure your
+model supports Matryoshka Representation Learning (MRL) before using this._
+Learn more about MRL here
+<https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings>.
+When set to `null` (or unset), the embeddings won’t be truncated; -
+`db_url`string, the url that points to the Chromadb server. VectorCode will
+start an HTTP server for Chromadb at a randomly picked free port on `localhost`
+if your configured `http://host:port` is not accessible. Default:
+`http://127.0.0.1:8000`; - `db_path`string, Path to local persistent database.
+If you didn’t set up a standalone Chromadb server, this is where the files
+for your database will be stored. Default:
+`~/.local/share/vectorcode/chromadb/`; - `db_log_path`string, path to the
+_directory_ where the built-in chromadb server will write the log to. Default:
+`~/.local/share/vectorcode/`; - `chunk_size`integer, the maximum number of
+characters per chunk. A larger value reduces the number of items in the
+database, and hence accelerates the search, but at the cost of potentially
 truncated data and lost information. Default: `2500`. To disable chunking, set
 it to a negative number; - `overlap_ratio`float between 0 and 1, the ratio of
 overlapping/shared content between 2 adjacent chunks. A larger ratio improves

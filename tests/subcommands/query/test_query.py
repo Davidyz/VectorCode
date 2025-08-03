@@ -327,14 +327,11 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
 async def test_get_query_result_files_multiple_queries(mock_collection, mock_config):
     # Set multiple query terms
     mock_config.query = ["term1", "term2", "term3"]
-    mock_embedding_function = MagicMock()
+    mock_config.embedding_dims = 10
+
     with (
         patch("vectorcode.subcommands.query.StringChunker") as MockChunker,
         patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker,
-        patch(
-            "vectorcode.subcommands.query.get_embedding_function",
-            return_value=mock_embedding_function,
-        ),
     ):
         # Set up MockChunker to return the query terms as is
         mock_chunker_instance = MagicMock()
@@ -354,7 +351,7 @@ async def test_get_query_result_files_multiple_queries(mock_collection, mock_con
         # Check query was called with all query terms
         mock_collection.query.assert_called_once()
         _, kwargs = mock_collection.query.call_args
-        mock_embedding_function.assert_called_once_with(["term1", "term2", "term3"])
+        assert all(len(i) == 10 for i in kwargs["query_embeddings"])
 
         # Check the result
         assert result == ["file1.py", "file2.py"]
