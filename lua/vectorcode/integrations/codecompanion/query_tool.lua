@@ -325,8 +325,7 @@ local function cleanup_paths(results)
       :map(
         ---@param res VectorCode.QueryResult
         function(res)
-          local orig_path = res.path
-          res.path = vim.fs.relpath(cwd, orig_path) or orig_path
+          res.path = cc_common.cleanup_path(res.path)
           return res
         end
       )

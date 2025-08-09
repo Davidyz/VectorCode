@@ -147,7 +147,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
       ---@param cmd VectoriseToolArgs
       ---@param stdout VectorCode.VectoriseResult[]
       success = function(self, tools, cmd, stdout)
-        stdout = stdout[1]
+        stdout = stdout[#stdout]
         tools.chat:add_tool_output(
           self,
           string.format(

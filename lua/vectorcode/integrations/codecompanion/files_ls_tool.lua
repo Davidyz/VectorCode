@@ -57,7 +57,11 @@ return function(opts)
       type = "function",
       ["function"] = {
         name = tool_name,
-        description = "Retrieve a list of files that have been added to the database for a given project.",
+        description = [[
+Retrieve a list of files that have been added to the database for a given project.
+**ABSOLUTE PATHS** in the results indicate that the files are OUTSIDE of the current working directories and you can **ONLY** access them via the VectorCode tools.
+**RELATIVE PATHS** in the results indicate that the files are INSIDE the current project. You can use VectorCode tools or any other tools that the user provided to interact with them.
+          ]],
         parameters = {
           type = "object",
           properties = {
@@ -73,7 +77,7 @@ return function(opts)
       ---@param tools CodeCompanion.Tools
       ---@param stdout string[][]
       success = function(_, tools, _, stdout)
-        stdout = stdout[1]
+        stdout = stdout[#stdout]
         local user_message
         for i, col in ipairs(stdout) do
           if i == 1 then
@@ -84,7 +88,7 @@ return function(opts)
           end
           tools.chat:add_tool_output(
             tools.tool,
-            string.format("<path>%s</path>", col),
+            string.format("<path>%s</path>", cc_common.cleanup_path(col)),
             user_message
           )
         end
