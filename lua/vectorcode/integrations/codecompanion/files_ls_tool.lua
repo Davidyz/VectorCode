@@ -60,7 +60,7 @@ return function(opts)
         description = [[
 Retrieve a list of files that have been added to the database for a given project.
 **ABSOLUTE PATHS** in the results indicate that the files are OUTSIDE of the current working directories and you can **ONLY** access them via the VectorCode tools.
-**RELATIVE PATHS** in the results indicate that the files are INSIDE the current project. You can use VectorCode tools or any other tools that the user provided to interact with them.
+**RELATIVE PATHS** in the results indicate that the files are INSIDE the current project. You can use VectorCode tools or any other tools that the user provided to interact with them. They are relative to the project root.
           ]],
         parameters = {
           type = "object",
