@@ -7,6 +7,7 @@ import time
 import traceback
 import uuid
 from typing import cast
+from urllib.parse import urlparse
 
 import shtab
 from chromadb.types import Where
@@ -88,6 +89,15 @@ async def execute_command(ls: LanguageServer, args: list[str]):
         parsed_args = await parse_cli_args(args)
         logger.info("Parsed command arguments: %s", parsed_args)
         if parsed_args.project_root is None:
+            workspace_folders = ls.workspace.folders
+            if len(workspace_folders.keys()) == 1:
+                _, workspace_folder = workspace_folders.popitem()
+                lsp_dir = urlparse(workspace_folder.uri).path
+                if os.path.isdir(lsp_dir):
+                    logger.debug(f"Using LSP workspace {lsp_dir} as project root.")
+                    DEFAULT_PROJECT_ROOT = lsp_dir
+            elif len(workspace_folders) > 1:  # pragma: nocover
+                logger.info("Too many LSP workspace folders. Ignoring them...")
             if DEFAULT_PROJECT_ROOT is not None:
                 parsed_args.project_root = DEFAULT_PROJECT_ROOT
                 logger.warning("Using DEFAULT_PROJECT_ROOT: %s", DEFAULT_PROJECT_ROOT)
