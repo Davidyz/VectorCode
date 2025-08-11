@@ -44,6 +44,8 @@ return {
   end,
 
   ---Convert `path` to a relative path if it's within the current project.
+  ---When `base` is `nil`, this function will attempt to find a project root
+  ---or use `cwd`.
   ---@param path string
   ---@param base? string
   ---@return string
