@@ -730,8 +730,11 @@ Note that:
 2. A `vectorcode.lock` file will be created in your `db_path` directory __if
    you're using the bundled chromadb server__. Please do not delete it while a
    vectorcode process is running;
-3. The LSP server supports `vectorise`, `query` and `ls` subcommands. The other
-   subcommands may be added in the future.
+3. The LSP server supports `vectorise`, `query`, `ls` and `files` subcommands. The other
+   subcommands may be added in the future;
+4. If the `--project_root` parameter is not provided, the LSP server will try to use the 
+   [workspace folders](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_workspaceFolders)
+   provided by the LSP client as the project root (if available).
 
 ### MCP Server
 
