@@ -1,7 +1,6 @@
 name: panvimdoc
 
 on: 
-  push:
   pull_request:
 
 permissions:
