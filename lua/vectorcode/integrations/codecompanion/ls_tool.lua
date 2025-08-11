@@ -76,7 +76,7 @@ Where relevant, use paths from this tool as the `project_root` parameter in othe
       ---@param tools CodeCompanion.Tools
       ---@param stdout VectorCode.LsResult[][]
       success = function(_, tools, _, stdout)
-        stdout = stdout[1]
+        stdout = stdout[#stdout]
         local user_message
         for i, col in ipairs(stdout) do
           if i == 1 then

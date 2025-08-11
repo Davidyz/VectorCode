@@ -315,6 +315,25 @@ When summarising the code, pay extra attention on information related to the que
   end
 end
 
+---@param results VectorCode.QueryResult[]
+---@return VectorCode.QueryResult[]
+local function cleanup_paths(results)
+  local cwd = vim.fs.root(0, { ".vectorcode", ".git" }) or vim.uv.cwd()
+  if cwd then
+    results = vim
+      .iter(results)
+      :map(
+        ---@param res VectorCode.QueryResult
+        function(res)
+          res.path = cc_common.cleanup_path(res.path)
+          return res
+        end
+      )
+      :totable()
+  end
+  return results
+end
+
 ---@param opts VectorCode.CodeCompanion.QueryToolOpts?
 ---@return CodeCompanion.Tools.Tool
 return check_cli_wrap(function(opts)
@@ -436,6 +455,8 @@ return check_cli_wrap(function(opts)
               result = filter_results(result, tools.chat)
             end
 
+            result = cleanup_paths(result)
+
             local max_result = #result
             if opts.max_num > 0 then
               max_result = math.min(tonumber(opts.max_num) or 1, max_result)
@@ -477,6 +498,8 @@ Make use of the line numbers (NOT THE XML TAGS) when you're quoting the source c
 Include one single command call for VectorCode each time.
 You may include multiple keywords in the command.
 **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `vectorcode_ls` tool or from user input**
+**ABSOLUTE PATHS** in the results indicate that the files are OUTSIDE of the current working directories and you can **ONLY** access them via the VectorCode tools.
+**RELATIVE PATHS** in the results indicate that the files are INSIDE the current project. You can use VectorCode tools or any other tools that the user provided to interact with them. They are relative to the project root.
         ]],
         parameters = {
           type = "object",
@@ -572,7 +595,7 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
       ---@param cmd QueryToolArgs
       ---@param stdout VectorCode.CodeCompanion.QueryToolResult[]
       success = function(self, tools, cmd, stdout)
-        stdout = stdout[1]
+        stdout = stdout[#stdout]
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
         )

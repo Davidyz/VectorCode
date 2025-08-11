@@ -42,4 +42,15 @@ return {
     end
     return job_runner
   end,
+
+  ---Convert `path` to a relative path if it's within the current project.
+  ---When `base` is `nil`, this function will attempt to find a project root
+  ---or use `cwd`.
+  ---@param path string
+  ---@param base? string
+  ---@return string
+  cleanup_path = function(path, base)
+    base = base or vim.fs.root(0, { ".vectorcode", ".git" }) or vim.uv.cwd() or "."
+    return vim.fs.relpath(base, path) or path
+  end,
 }
