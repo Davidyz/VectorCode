@@ -1,241 +1,46 @@
-# NeoVim Plugin
-> [!NOTE]
-> This plugin depends on the CLI tool. Please go through 
-> [the CLI documentation](./cli.md) and make sure the VectorCode CLI is working
-> before proceeding.
+# Lua API References
 
-> [!NOTE]
-> When the neovim plugin doesn't work properly, please try upgrading both the CLI
-> and the neovim plugin to the latest version before opening an issue.
-
-
-<!-- mtoc-start -->
-
-* [Installation](#installation)
-  * [Mason.nvim ](#masonnvim-)
-  * [Nix](#nix)
-* [Integrations](#integrations)
-* [Configuration](#configuration)
-  * [`setup(opts?)`](#setupopts)
-* [User Command](#user-command)
-  * [`VectorCode register`](#vectorcode-register)
-  * [`VectorCode deregister`](#vectorcode-deregister)
-* [API Usage](#api-usage)
-  * [Synchronous API](#synchronous-api)
-    * [`query(query_message, opts?, callback?)`](#queryquery_message-opts-callback)
-    * [`check(check_item?)`](#checkcheck_item)
-    * [`update(project_root?)`](#updateproject_root)
-  * [Cached Asynchronous API](#cached-asynchronous-api)
-    * [`cacher_backend.register_buffer(bufnr?, opts?)`](#cacher_backendregister_bufferbufnr-opts)
-    * [`cacher_backend.query_from_cache(bufnr?)`](#cacher_backendquery_from_cachebufnr)
-    * [`cacher_backend.async_check(check_item?, on_success?, on_failure?)`](#cacher_backendasync_checkcheck_item-on_success-on_failure)
-    * [`cacher_backend.buf_is_registered(bufnr?)`](#cacher_backendbuf_is_registeredbufnr)
-    * [`cacher_backend.buf_is_enabled(bufnr?)`](#cacher_backendbuf_is_enabledbufnr)
-    * [`cacher_backend.buf_job_count(bufnr?)`](#cacher_backendbuf_job_countbufnr)
-    * [`cacher_backend.make_prompt_component(bufnr?, component_cb?)`](#cacher_backendmake_prompt_componentbufnr-component_cb)
-    * [Built-in Query Callbacks](#built-in-query-callbacks)
-* [Debugging and Logging](#debugging-and-logging)
-
-<!-- mtoc-end -->
-
-## Installation
-Using Lazy:
-
-```lua 
-{
-  "Davidyz/VectorCode",
-  version = "*", -- optional, depending on whether you're on nightly or release
-  dependencies = { "nvim-lua/plenary.nvim" },
-  cmd = "VectorCode", -- if you're lazy-loading VectorCode
-}
-```
-The VectorCode CLI and neovim plugin share the same release scheme (version
-numbers). In other words, CLI 0.1.3 is guaranteed to work with neovim plugin
-0.1.3, but if you use CLI 0.1.0 with neovim plugin 0.1.3, they may not work
-together because the neovim plugin is built for a newer CLI release and depends
-on newer features/breaking changes.
-
-To ensure maximum compatibility, please either:
-1. Use release build for VectorCode CLI and pin to the releases for the
-   neovim plugin;
-
-**OR**
-
-2. Use the latest commit for the neovim plugin with VectorCode installed from
-   the latest GitHub commit.
-
-It may be helpful to use a `build` hook to automatically upgrade the CLI when
-the neovim plugin updates. For example, if you're using lazy.nvim and `uv`,
-you can use the following plugin spec:
-
-```lua
-{
-  "Davidyz/VectorCode",
-  version = "*",
-  build = "uv tool upgrade vectorcode", -- This helps keeping the CLI up-to-date
-  -- build = "pipx upgrade vectorcode", -- If you used pipx to install the CLI
-  dependencies = { "nvim-lua/plenary.nvim" },
-}
-```
-
-> This plugin is developed and tested on neovim _v0.11_. It may work on older
-> versions, but I do not test on them before publishing.
-
-### Mason.nvim 
-
-The VectorCode CLI and LSP server are available in `mason.nvim`. If you choose to
-install the CLI through mason, you may need to pay extra attention to the version 
-pinning because the package updates on mason usually takes extra time.
-
-### Nix
-
-There's a community-maintained [nix package](https://nixpk.gs/pr-tracker.html?pr=413395) 
-submitted by [@sarahec](https://github.com/sarahec) for the Neovim plugin.
-
-## Integrations
-
-[The wiki](https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations)
-contains instructions to integrate VectorCode with the following plugins:
-
-- [milanglacier/minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim);
-- [olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim);
-- [nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim);
-- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim);
-- [ravitemer/mcphub.nvim](https://github.com/ravitemer/mcphub.nvim);
-- [rebelot/heirline.nvim](https://github.com/rebelot/heirline.nvim).
-
-## Configuration
-
-### `setup(opts?)`
-This function initialises the VectorCode client and sets up some default
-
-```lua
--- Default configuration
-require("vectorcode").setup(
-  ---@type VectorCode.Opts
-  {
-    cli_cmds = {
-      vectorcode = "vectorcode",
-    },
-    ---@type VectorCode.RegisterOpts
-    async_opts = {
-      debounce = 10,
-      events = { "BufWritePost", "InsertEnter", "BufReadPost" },
-      exclude_this = true,
-      n_query = 1,
-      notify = false,
-      query_cb = require("vectorcode.utils").make_surrounding_lines_cb(-1),
-      run_on_register = false,
-    },
-    async_backend = "default", -- or "lsp"
-    exclude_this = true,
-    n_query = 1,
-    notify = true,
-    timeout_ms = 5000,
-    on_setup = {
-      update = false, -- set to true to enable update when `setup` is called.
-      lsp = false,
-    }
-    sync_log_env_var = false,
-  }
-)
-```
-
-The following are the available options for the parameter of this function:
-- `cli_cmds`: A table to customize the CLI command names / paths used by the plugin.
-  Supported key:
-  - `vectorcode`: The command / path to use for the main CLI tool. Default: `"vectorcode"`.
-- `n_query`: number of retrieved documents. A large number gives a higher chance
-  of including the right file, but with the risk of saturating the context 
-  window and getting truncated. Default: `1`;
-- `notify`: whether to show notifications when a query is completed.
-  Default: `true`;
-- `timeout_ms`: timeout in milliseconds for the query operation. Applies to
-  synchronous API only. Default: 
-  `5000` (5 seconds);
-- `exclude_this`: whether to exclude the file you're editing. Setting this to
-  `false` may lead to an outdated version of the current file being sent to the
-  LLM as the prompt, and can lead to generations with outdated information;
-- `async_opts`: default options used when registering buffers. See 
-  [`register_buffer(bufnr?, opts?)`](#register_bufferbufnr-opts) for details;
-- `async_backend`: the async backend to use, currently either `"default"` or
-  `"lsp"`. Default: `"default"`;
-- `on_setup`: some actions that can be registered to run when `setup` is called.
-  Supported keys:
-  - `update`: if `true`, the plugin will run `vectorcode update` on startup to
-    update the embeddings;
-  - `lsp`: if `true`, the plugin will try to start the LSP server on startup so
-    that you won't need to wait for the server loading when making your first 
-    request. _Please pay extra attention on lazy-loading so that the LSP server
-    won't be started without a buffer to be attached to (see [here](https://github.com/Davidyz/VectorCode/pull/234))._
-- `sync_log_env_var`: `boolean`. If true, this plugin will automatically set the
-  `VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
-  within your neovim session when logging is turned on for this plugin. Use at 
-  caution because the non-LSP CLI write all logs to stderr, which _may_ make this plugin 
-  VERY verbose. See [Debugging and Logging](#debugging-and-logging) for details
-  on how to turn on logging.
-
-You may notice that a lot of options in `async_opts` are the same as the other
-options in the top-level of the main option table. This is because the top-level
-options are designated for the [Synchronous API](#synchronous-api) and the ones
-in `async_opts` is for the [Cached Asynchronous API](#cached-asynchronous-api).
-The `async_opts` will reuse the synchronous API options if not explicitly
-configured.
-
-## User Command
-
-The neovim plugin provides user commands to work with [async caching](#cached-asynchronous-api).
-
-### `VectorCode register`
-
-Register the current buffer for async caching. It's possible to register the
-current buffer to a different vectorcode project by passing the `project_root`
-parameter:
-```
-:VectorCode register project_root=path/to/another/project/
-```
-This is useful if you're working on a project that is closely related to a
-different project, for example a utility repository for a main library or a
-documentation repository. Alternatively, you can call the [lua API](#cached-asynchronous-api) in an autocmd:
-```lua
-vim.api.nvim_create_autocmd("LspAttach", {
-  callback = function()
-    local bufnr = vim.api.nvim_get_current_buf()
-    cacher.async_check("config", function()
-      cacher.register_buffer(
-        bufnr,
-        { 
-          n_query = 10,
-        }
-      )
-    end, nil)
-  end,
-  desc = "Register buffer for VectorCode",
-})
-```
-The latter avoids the manual registrations, but registering too many buffers
-means there will be a lot of background processes/requests being sent to
-VectorCode. Choose these based on your workflow and the capability of your
-system.
-
-### `VectorCode deregister`
-
-Deregister the current buffer. Any running jobs will be killed, cached results
-will be deleted, and no more queries will be run.
-
-## API Usage
-This plugin provides 2 sets of APIs that provides similar functionalities. The
+This plugin provides 2 sets of _high-level APIs_ that provides similar functionalities. The
 synchronous APIs provide more up-to-date retrieval results at the cost of
 blocking the main neovim UI, while the async APIs use a caching mechanism to 
 provide asynchronous retrieval results almost instantaneously, but the result
 may be slightly out-of-date. For some tasks like chat, the main UI being
 blocked/frozen doesn't hurt much because you spend the time waiting for response
 anyway, and you can use the synchronous API in this case. For other tasks like 
-completion, the async API will minimise the interruption to your workflow.
+completion, the cached API will minimise the interruption to your workflow, but
+at a cost of providing less up-to-date results.
 
+These APIs are wrappers around the _lower-level 
+[job runner API](https://github.com/Davidyz/VectorCode/tree/main/lua/vectorcode/jobrunner)_, 
+which provides a unified interface for calling VectorCode commands that can be
+executed by either the LSP or the generic CLI backend. If the high-level APIs
+are sufficient for your use-case, it's usually not necessary to use the job
+runners directly.
 
-### Synchronous API
-#### `query(query_message, opts?, callback?)`
+<!-- mtoc-start -->
+
+* [Synchronous API](#synchronous-api)
+  * [`query(query_message, opts?, callback?)`](#queryquery_message-opts-callback)
+  * [`check(check_item?)`](#checkcheck_item)
+  * [`update(project_root?)`](#updateproject_root)
+* [Cached Asynchronous API](#cached-asynchronous-api)
+  * [`cacher_backend.register_buffer(bufnr?, opts?)`](#cacher_backendregister_bufferbufnr-opts)
+  * [`cacher_backend.query_from_cache(bufnr?)`](#cacher_backendquery_from_cachebufnr)
+  * [`cacher_backend.async_check(check_item?, on_success?, on_failure?)`](#cacher_backendasync_checkcheck_item-on_success-on_failure)
+  * [`cacher_backend.buf_is_registered(bufnr?)`](#cacher_backendbuf_is_registeredbufnr)
+  * [`cacher_backend.buf_is_enabled(bufnr?)`](#cacher_backendbuf_is_enabledbufnr)
+  * [`cacher_backend.buf_job_count(bufnr?)`](#cacher_backendbuf_job_countbufnr)
+  * [`cacher_backend.make_prompt_component(bufnr?, component_cb?)`](#cacher_backendmake_prompt_componentbufnr-component_cb)
+  * [Built-in Query Callbacks](#built-in-query-callbacks)
+* [JobRunners](#jobrunners)
+  * [`run_async(args, callback, bufnr)` and `run(args, timeout_ms, bufnr)`](#run_asyncargs-callback-bufnr-and-runargs-timeout_ms-bufnr)
+  * [`is_job_running(job_handle):boolean`](#is_job_runningjob_handleboolean)
+  * [`stop_job(job_handle)`](#stop_jobjob_handle)
+
+<!-- mtoc-end -->
+
+## Synchronous API
+### `query(query_message, opts?, callback?)`
 This function queries VectorCode and returns an array of results.
 
 ```lua
@@ -288,7 +93,7 @@ end
 Keep in mind that this `query` function call will be synchronous and therefore
 block the neovim UI. This is where the async cache comes in.
 
-#### `check(check_item?)`
+### `check(check_item?)`
 This function checks if VectorCode has been configured properly for your project. See the [CLI manual for details](./cli.md).
 
 ```lua 
@@ -310,7 +115,7 @@ The use of this API is entirely optional. You can totally ignore this and call
 `query` anyway, but if `check` fails, you might be spending the waiting time for
 nothing.
 
-#### `update(project_root?)`
+### `update(project_root?)`
 This function calls `vectorcode update` at the current working directory.
 `--project_root` will be added if the `project_root` parameter is not `nil`.
 This runs async and doesn't block the main UI.
@@ -319,7 +124,7 @@ This runs async and doesn't block the main UI.
 require("vectorcode").update()
 ```
 
-### Cached Asynchronous API
+## Cached Asynchronous API
 
 The async cache mechanism helps mitigate the issue where the `query` API may
 take too long and block the main thread. The following are the functions
@@ -355,7 +160,7 @@ In the remaining section of this documentation, I'll use `cacher_backend` to
 represent either of the backends. Unless otherwise noticed, all the asynchronous APIs 
 work for both backends.
 
-#### `cacher_backend.register_buffer(bufnr?, opts?)`
+### `cacher_backend.register_buffer(bufnr?, opts?)`
 This function registers a buffer to be cached by VectorCode.
 
 ```lua
@@ -389,7 +194,7 @@ The following are the available options for this function:
     cancelled. Default: `false`.
 
 
-#### `cacher_backend.query_from_cache(bufnr?)`
+### `cacher_backend.query_from_cache(bufnr?)`
 This function queries VectorCode from cache.
 
 ```lua
@@ -405,7 +210,7 @@ The following are the available options for this function:
 Return value: an array of results. Each item of the array is in the format of 
 `{path="path/to/your/code.lua", document="document content"}`.
 
-#### `cacher_backend.async_check(check_item?, on_success?, on_failure?)`
+### `cacher_backend.async_check(check_item?, on_success?, on_failure?)`
 This function checks if VectorCode has been configured properly for your project.
 
 ```lua 
@@ -422,14 +227,14 @@ The following are the available options for this function:
 - `on_success`: a callback function that is called when the check passes;
 - `on_failure`: a callback function that is called when the check fails.
 
-#### `cacher_backend.buf_is_registered(bufnr?)`
+### `cacher_backend.buf_is_registered(bufnr?)`
 This function checks if a buffer has been registered with VectorCode.
 
 The following are the available options for this function:
 - `bufnr`: buffer number. Default: current buffer.
 Return value: `true` if registered, `false` otherwise.
 
-#### `cacher_backend.buf_is_enabled(bufnr?)`
+### `cacher_backend.buf_is_enabled(bufnr?)`
 This function checks if a buffer has been enabled with VectorCode. It is slightly
 different from `buf_is_registered`, because it does not guarantee VectorCode is actively
 caching the content of the buffer. It is the same as `buf_is_registered && not is_paused`.
@@ -438,10 +243,10 @@ The following are the available options for this function:
 - `bufnr`: buffer number. Default: current buffer.
 Return value: `true` if enabled, `false` otherwise.
 
-#### `cacher_backend.buf_job_count(bufnr?)`
+### `cacher_backend.buf_job_count(bufnr?)`
 Returns the number of running jobs in the background.
 
-#### `cacher_backend.make_prompt_component(bufnr?, component_cb?)`
+### `cacher_backend.make_prompt_component(bufnr?, component_cb?)`
 Compile the retrieval results into a string.
 Parameters:
 - `bufnr`: buffer number. Default: current buffer;
@@ -459,7 +264,7 @@ end
 - `content`: The retrieval results concatenated together into a string. Each
   result is formatted by `component_cb`.
 
-#### Built-in Query Callbacks
+### Built-in Query Callbacks
 
 When using async cache, the query message is constructed by a function that
 takes the buffer ID as the only parameter, and return a string or a list of
@@ -479,10 +284,69 @@ constructor for you to play around with it, but you can easily build your own!
   fallback to `make_surrounding_lines_cb(-1)`. The default value for `max_num`
   is 50.
 
-## Debugging and Logging
 
-You can enable logging by setting `VECTORCODE_NVIM_LOG_LEVEL` environment
-variable to a 
-[supported log level](https://github.com/nvim-lua/plenary.nvim/blob/857c5ac632080dba10aae49dba902ce3abf91b35/lua/plenary/log.lua#L44). 
-The log file will be written to `stdpath("log")` or `stdpath("cache")`. On
-Linux, this is usually `~/.local/state/nvim/`.
+## JobRunners
+
+The `VectorCode.JobRunner` is an abstract class for vectorcode command
+execution. There are 2 concrete child classes that you can use: 
+- `require("vectorcode.jobrunner.cmd")` uses the CLI (`vectorcode` commands) to
+  interact with the database;
+- `quire("vectorcode.jobrunner.lsp")` use the LSP server, which avoids some of
+  the IO overhead and provides LSP progress notifications.
+
+The available methods for a `VectorCode.JobRunner` object includes:
+
+### `run_async(args, callback, bufnr)` and `run(args, timeout_ms, bufnr)`
+Calls a vectorcode command.
+
+The `args` parameter (of type `string[]`) is whatever argument that comes after
+`vectorcode` when you run it in the CLI. For example, if you want to query for
+10 chunks in the shell, you'd call the following command:
+
+```bash
+vectorcode query -n 10 keyword1 keyword2 --include chunk
+```
+
+Then for the job runner (either LSP or cmd), the `args` parameter would be:
+```lua
+args = {"query", "-n", "10", "keyword1", "keyword2", "--include", "chunk"}
+```
+
+For the `run_async` method, the `callback` function has the
+following signature:
+```lua
+---@type fun(result: table, error: table, code:integer, signal: integer?)?
+```
+For the `run` method, the return value can be captured as follow:
+```lua
+res, err, _code, _signal = jobrunner.run(args, -1, 0)
+```
+
+The result (for both synchronous and asynchronous method) is a `vim.json.decode`ed 
+table of the result of the command execution. Consult 
+[the CLI documentation](../cli.md#for-developers) for the schema of the results for 
+the command that you call.
+
+For example, the query command mentioned above will return a
+`VectorCode.QueryResult[]`, where `VectorCode.QueryResult` is defined as
+follows:
+```lua
+---@class VectorCode.QueryResult
+---@field path string Path to the file
+---@field document string? Content of the file
+---@field chunk string?
+---@field start_line integer?
+---@field end_line integer?
+---@field chunk_id string?
+```
+
+The `run_async` will return a `job_handle` which is defined as an `integer?`.
+For the LSP backend, the job handle is the `request_id`. For the cmd runner, the
+job handle is the `PID` of the process.
+
+### `is_job_running(job_handle):boolean`
+Checks if a job associated with the given handle is currently running;
+
+
+### `stop_job(job_handle)`
+Attempts to stop or cancel the async job associated with the given handle.

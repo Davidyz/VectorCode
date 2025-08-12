@@ -8,6 +8,7 @@ import subprocess
 import sys
 from asyncio.subprocess import Process
 from dataclasses import dataclass
+from functools import cache
 from typing import Any, AsyncGenerator, Optional
 from urllib.parse import urlparse
 
@@ -127,11 +128,15 @@ def get_collection_name(full_path: str) -> str:
     return collection_id
 
 
-def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction | None:
+@cache
+def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction:
     try:
-        return getattr(embedding_functions, configs.embedding_function)(
+        ef = getattr(embedding_functions, configs.embedding_function)(
             **configs.embedding_params
         )
+        if ef is None:  # pragma: nocover
+            raise AttributeError()
+        return ef
     except AttributeError:
         logger.warning(
             f"Failed to use {configs.embedding_function}. Falling back to Sentence Transformer.",
@@ -161,7 +166,6 @@ async def get_collection(
     full_path = str(expand_path(str(configs.project_root), absolute=True))
     if __COLLECTION_CACHE.get(full_path) is None:
         collection_name = get_collection_name(full_path)
-        embedding_function = get_embedding_function(configs)
 
         collection_meta: dict[str, str | int] = {
             "path": full_path,
@@ -183,14 +187,11 @@ async def get_collection(
             f"Getting/Creating collection with the following metadata: {collection_meta}"
         )
         if not make_if_missing:
-            __COLLECTION_CACHE[full_path] = await client.get_collection(
-                collection_name, embedding_function
-            )
+            __COLLECTION_CACHE[full_path] = await client.get_collection(collection_name)
         else:
             collection = await client.get_or_create_collection(
                 collection_name,
                 metadata=collection_meta,
-                embedding_function=embedding_function,
             )
             if (
                 not collection.metadata.get("hostname") == socket.gethostname()

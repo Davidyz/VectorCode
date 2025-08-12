@@ -67,7 +67,7 @@ uv tool install vectorcode --index https://download.pytorch.org/whl/cpu --index-
 If you need to install multiple dependency group (for [LSP](#lsp-mode) or
 [MCP](#mcp-server)), you can use the following syntax:
 ```bash
-uv tool install vectorcode[lsp,mcp]
+uv tool install 'vectorcode[lsp,mcp]'
 ```
 > [!NOTE] 
 > The command only install VectorCode and `SentenceTransformer`, the default
@@ -113,7 +113,7 @@ tracks my progress trying to provide better experiences for windows users.
 
 If your environment doesn't support `numpy` version 2.0+, the default,
 unconstrained numpy may not work for you. In this case, you can
-try installing the package by `uv tool install vectorcode[legacy]`, which enforces 
+try installing the package by `uv tool install 'vectorcode[legacy]'`, which enforces 
 numpy `v1.x`. If this doesn't help, please open an issue with your OS, CPU
 architecture, python version and the vectorcode virtual environment 
 (`uv tool run --from=vectorcode python -m ensurepip && uv tool run --from=vectorcode python -m pip freeze`).
@@ -124,6 +124,10 @@ A community-maintained Nix package is available
 [here](https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=vectorcode). 
 If you're using nix to install a standalone Chromadb server, make sure to stick
 to [0.6.3](https://github.com/NixOS/nixpkgs/pull/412528).
+
+If you install via Nix and run into an issue, please try to reproduce with the
+PyPi package (install via `uv` or `pipx`). If it's not reproducible on the
+non-nix package, I may close the issue immediately.
 
 ## Getting Started
 
@@ -271,6 +275,10 @@ The JSON configuration file may hold the following values:
   Then the embedding function object will be initialised as
   `OllamaEmbeddingFunction(url="http://127.0.0.1:11434/api/embeddings",
   model_name="nomic-embed-text")`. Default: `{}`;
+- `embedding_dims`: integer or `null`, the number of dimensions to truncate the embeddings
+  to. _Make sure your model supports Matryoshka Representation Learning (MRL) 
+  before using this._ Learn more about MRL [here](https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings).
+  When set to `null` (or unset), the embeddings won't be truncated;
 - `db_url`: string, the url that points to the Chromadb server. VectorCode will start an
   HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
   configured `http://host:port` is not accessible. Default: `http://127.0.0.1:8000`;
@@ -305,7 +313,12 @@ The JSON configuration file may hold the following values:
   `CrossEncoderReranker` (default, using 
   [sentence-transformers cross-encoder](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html)
   ) and `NaiveReranker` (sort chunks by the "distance" between the embedding
-  vectors);
+  vectors).
+  Note: If you're using a good embedding model (eg. a hosted service from OpenAI, or 
+  a LLM-based embedding model like 
+  [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)), you
+  may get better results if you use `NaiveReranker` here because a good embedding
+  model may understand texts better than a mediocre reranking model.
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
   passed to the reranker class constructor. For `CrossEncoderReranker`, these
   are the options passed to the 
@@ -561,7 +574,7 @@ following options in the JSON config file:
 
 For Intel users, [sentence transformer](https://www.sbert.net/index.html)
 supports [OpenVINO](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) 
-backend for supported GPU. Run `uv install vectorcode[intel]` which will 
+backend for supported GPU. Run `uv install 'vectorcode[intel]'` which will 
 bundle the relevant libraries when you install VectorCode. After that, you will
 need to configure `SentenceTransformer` to use `openvino` backend. In your
 `config.json`, set `backend` key in `embedding_params` to `"openvino"`:
@@ -676,11 +689,11 @@ loading the models.
 The experimental language server can be installed via the `lsp` dependency
 group:
 ```bash
-pipx install vectorcode[lsp]
+pipx install 'vectorcode[lsp]'
 
 ## or if you have an existing `vectorcode` install:
 
-pipx inject vectorcode vectorcode[lsp] --force
+pipx inject vectorcode 'vectorcode[lsp]' --force
 ```
 
 The LSP request for the `workspace/executeCommand` is defined as follows: 
@@ -717,8 +730,11 @@ Note that:
 2. A `vectorcode.lock` file will be created in your `db_path` directory __if
    you're using the bundled chromadb server__. Please do not delete it while a
    vectorcode process is running;
-3. The LSP server supports `vectorise`, `query` and `ls` subcommands. The other
-   subcommands may be added in the future.
+3. The LSP server supports `vectorise`, `query`, `ls` and `files` subcommands. The other
+   subcommands may be added in the future;
+4. If the `--project_root` parameter is not provided, the LSP server will try to use the 
+   [workspace folders](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_workspaceFolders)
+   provided by the LSP client as the project root (if available).
 
 ### MCP Server
 

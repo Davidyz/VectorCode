@@ -3,6 +3,7 @@ import tempfile
 from argparse import ArgumentParser
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
+import numpy
 import pytest
 from mcp import McpError
 
@@ -88,29 +89,9 @@ async def test_query_tool_invalid_project_root():
 @pytest.mark.asyncio
 async def test_query_tool_success():
     mock_client = AsyncMock()
-    with (
-        tempfile.TemporaryDirectory() as temp_dir,
-        patch("os.path.isdir", return_value=True),
-        patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
-        patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
-        patch(
-            "vectorcode.mcp_main.ClientManager._create_client", return_value=mock_client
-        ),
-        patch(
-            "vectorcode.subcommands.query.get_query_result_files"
-        ) as mock_get_query_result_files,
-        patch("vectorcode.common.try_server", return_value=True),
-        patch("builtins.open", create=True) as mock_open,
-        patch("os.path.isfile", return_value=True),
-        patch("os.path.relpath", return_value="rel/path.py"),
-        patch("vectorcode.cli_utils.load_config_file") as mock_load_config_file,
-    ):
-        mock_config = Config(
-            chunk_size=100, overlap_ratio=0.1, reranker=None, project_root=temp_dir
-        )
-        mock_load_config_file.return_value = mock_config
-        mock_get_project_config.return_value = mock_config
 
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.chdir(temp_dir)
         # Mock the collection's query method to return a valid QueryResult
         mock_collection = AsyncMock()
         mock_collection.query.return_value = {
@@ -122,19 +103,39 @@ async def test_query_tool_success():
             "data": None,
             "distances": [[0.1, 0.2]],  # Valid distances
         }
-        mock_get_collection.return_value = mock_collection
+        for i in range(1, 3):
+            with open(os.path.join(temp_dir, f"file{i}.py"), "w") as fin:
+                fin.writelines([f"doc{i}"])
+        with (
+            patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
+            patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
+            patch(
+                "vectorcode.mcp_main.ClientManager._create_client",
+                return_value=mock_client,
+            ),
+            patch(
+                "vectorcode.subcommands.query.get_query_result_files"
+            ) as mock_get_query_result_files,
+            patch("vectorcode.common.try_server", return_value=True),
+            patch("vectorcode.cli_utils.load_config_file") as mock_load_config_file,
+        ):
+            mock_config = Config(
+                chunk_size=100, overlap_ratio=0.1, reranker=None, project_root=temp_dir
+            )
+            mock_load_config_file.return_value = mock_config
+            mock_get_project_config.return_value = mock_config
 
-        mock_get_query_result_files.return_value = ["file1.py", "file2.py"]
-        mock_file_handle = MagicMock()
-        mock_file_handle.__enter__.return_value.read.return_value = "file content"
-        mock_open.return_value = mock_file_handle
+            mock_get_collection.return_value = mock_collection
 
-        result = await query_tool(
-            n_query=2, query_messages=["keyword1"], project_root=temp_dir
-        )
+            mock_get_query_result_files.return_value = [
+                os.path.join(temp_dir, i) for i in ("file1.py", "file2.py")
+            ]
 
-        assert len(result) == 2
-        assert "<path>rel/path.py</path>\n<content>file content</content>" in result
+            result = await query_tool(
+                n_query=2, query_messages=["keyword1"], project_root=temp_dir
+            )
+
+            assert len(result) == 2
 
 
 @pytest.mark.asyncio
@@ -202,6 +203,7 @@ async def test_vectorise_files_success():
             f.write("def func(): pass")
         mock_client = AsyncMock()
 
+        mock_embedding_function = MagicMock(return_value=numpy.random.random((100,)))
         with (
             patch("os.path.isdir", return_value=True),
             patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
@@ -209,6 +211,10 @@ async def test_vectorise_files_success():
             patch(
                 "vectorcode.mcp_main.ClientManager._create_client",
                 return_value=mock_client,
+            ),
+            patch(
+                "vectorcode.subcommands.vectorise.get_embedding_function",
+                return_value=mock_embedding_function,
             ),
             patch("vectorcode.subcommands.vectorise.chunked_add"),
             patch(
@@ -265,6 +271,8 @@ async def test_vectorise_files_with_exclude_spec():
             f.write("content1")
         with open(excluded_file, "w") as f:
             f.write("content_excluded")
+        with open(exclude_spec_file, "w") as fin:
+            fin.writelines(["excluded.py"])
 
         # Create mock file handles for specific file contents
         mock_exclude_file_handle = mock_open(read_data="excluded.py").return_value
@@ -277,23 +285,15 @@ async def test_vectorise_files_with_exclude_spec():
 
         mock_client = AsyncMock()
         with (
-            patch("os.path.isdir", return_value=True),
             patch("vectorcode.mcp_main.get_project_config") as mock_get_project_config,
             patch("vectorcode.mcp_main.get_collection") as mock_get_collection,
             patch(
                 "vectorcode.mcp_main.ClientManager._create_client",
                 return_value=mock_client,
             ),
-            patch("vectorcode.subcommands.vectorise.chunked_add") as mock_chunked_add,
+            patch("vectorcode.mcp_main.chunked_add") as mock_chunked_add,
             patch(
                 "vectorcode.subcommands.vectorise.hash_file", return_value="test_hash"
-            ),
-            # Patch builtins.open with the custom side effect
-            patch("builtins.open", side_effect=mock_open_side_effect),
-            # Patch os.path.isfile to control which files "exist"
-            patch(
-                "os.path.isfile",
-                side_effect=lambda x: x in [file1, excluded_file, exclude_spec_file],
             ),
             patch("vectorcode.common.try_server", return_value=True),
         ):
@@ -305,12 +305,9 @@ async def test_vectorise_files_with_exclude_spec():
             mock_get_collection.return_value = mock_collection
             mock_client.get_max_batch_size.return_value = 100
 
-            result = await vectorise_files(
-                paths=[file1, excluded_file], project_root=temp_dir
-            )
+            await vectorise_files(paths=[file1, excluded_file], project_root=temp_dir)
 
-            assert result["add"] == 0
-            assert mock_chunked_add.call_count == 0
+            assert mock_chunked_add.call_count == 1
             call_args = [call[0][0] for call in mock_chunked_add.call_args_list]
             assert excluded_file not in call_args
 

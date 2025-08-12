@@ -8,7 +8,7 @@
 ---@field start_line integer?
 ---@field end_line integer?
 ---@field chunk_id string?
----@field summary string?
+---@field summary string? Used by the CodeCompanion tool only. Not part of the backend response
 
 ---@class VectorCode.LsResult
 ---@field project-root string

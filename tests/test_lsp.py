@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from lsprotocol.types import WorkspaceFolder
 from pygls.exceptions import JsonRpcInternalError, JsonRpcInvalidRequest
 from pygls.server import LanguageServer
 
@@ -20,6 +21,7 @@ def mock_language_server():
     ls.progress.create_async = AsyncMock()
     ls.progress.begin = MagicMock()
     ls.progress.end = MagicMock()
+    ls.workspace = MagicMock()
     return ls
 
 
@@ -92,7 +94,6 @@ async def test_execute_command_query_default_proj_root(
         patch("builtins.open", MagicMock()) as mock_open,
     ):
         global DEFAULT_PROJECT_ROOT
-
         mock_config.project_root = None
         mock_parse_cli_args.return_value = mock_config
         mock_get_query_result_files.return_value = ["/test/file.txt"]
@@ -113,6 +114,46 @@ async def test_execute_command_query_default_proj_root(
         assert isinstance(result, list)
         mock_language_server.progress.begin.assert_called()
         mock_language_server.progress.end.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_execute_command_query_workspace_dir(mock_language_server, mock_config):
+    workspace_folder = WorkspaceFolder(uri="file:///dummy_dir", name="dummy_dir")
+    with (
+        patch(
+            "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
+        ) as mock_parse_cli_args,
+        patch("vectorcode.lsp_main.ClientManager"),
+        patch("vectorcode.lsp_main.get_collection", new_callable=AsyncMock),
+        patch(
+            "vectorcode.lsp_main.build_query_results", new_callable=AsyncMock
+        ) as mock_get_query_result_files,
+        patch("os.path.isfile", return_value=True),
+        patch("os.path.isdir", return_value=True),
+        patch("builtins.open", MagicMock()) as mock_open,
+    ):
+        mock_language_server.workspace = MagicMock()
+        mock_language_server.workspace.folders = {"dummy_dir": workspace_folder}
+        mock_config.project_root = None
+        mock_parse_cli_args.return_value = mock_config
+        mock_get_query_result_files.return_value = ["/test/file.txt"]
+
+        # Configure the MagicMock object to return a string when read() is called
+        mock_file = MagicMock()
+        mock_file.__enter__.return_value.read.return_value = "{}"  # Return valid JSON
+        mock_open.return_value = mock_file
+
+        # Mock the merge_from method
+        mock_config.merge_from = AsyncMock(return_value=mock_config)
+
+        result = await execute_command(mock_language_server, ["query", "test"])
+
+        assert isinstance(result, list)
+        mock_language_server.progress.begin.assert_called()
+        mock_language_server.progress.end.assert_called()
+        assert (
+            mock_get_query_result_files.call_args.args[1].project_root == "/dummy_dir"
+        )
 
 
 @pytest.mark.asyncio

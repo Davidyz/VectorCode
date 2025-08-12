@@ -90,6 +90,7 @@ class Config:
     db_url: str = "http://127.0.0.1:8000"
     embedding_function: str = "SentenceTransformerEmbeddingFunction"  # This should fallback to whatever the default is.
     embedding_params: dict[str, Any] = field(default_factory=(lambda: {}))
+    embedding_dims: Optional[int] = None
     n_result: int = 1
     force: bool = False
     db_path: Optional[str] = "~/.local/share/vectorcode/chromadb/"
@@ -115,6 +116,9 @@ class Config:
     files_action: Optional[FilesAction] = None
     rm_paths: list[str] = field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.__repr__())
+
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
         """
@@ -136,6 +140,9 @@ class Config:
                 ),
                 "embedding_params": config_dict.get(
                     "embedding_params", default_config.embedding_params
+                ),
+                "embedding_dims": config_dict.get(
+                    "embedding_dims", default_config.embedding_dims
                 ),
                 "db_url": config_dict.get("db_url", default_config.db_url),
                 "db_path": db_path,

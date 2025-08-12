@@ -156,26 +156,26 @@ local process_result = function(result)
 end
 
 ---@alias chat_id integer
----@alias result_id string
----@type <chat_id: result_id>
+---@alias results table<string,boolean>
+---@type table<chat_id, results>
 local result_tracker = {}
 
 ---@param results VectorCode.QueryResult[]
 ---@param chat CodeCompanion.Chat
 ---@return VectorCode.QueryResult[]
 local filter_results = function(results, chat)
-  local existing_refs = chat.refs or {}
+  local existing_refs = chat.context_items or {}
 
   existing_refs = vim
     .iter(existing_refs)
     :filter(
-      ---@param ref CodeCompanion.Chat.Ref
+      ---@param ref CodeCompanion.Chat.ContextItem
       function(ref)
         return ref.source == cc_common.tool_result_source or ref.path or ref.bufnr
       end
     )
     :map(
-      ---@param ref CodeCompanion.Chat.Ref
+      ---@param ref CodeCompanion.Chat.ContextItem
       function(ref)
         if ref.source == cc_common.tool_result_source then
           return ref.id
@@ -315,8 +315,27 @@ When summarising the code, pay extra attention on information related to the que
   end
 end
 
+---@param results VectorCode.QueryResult[]
+---@return VectorCode.QueryResult[]
+local function cleanup_paths(results)
+  local cwd = vim.fs.root(0, { ".vectorcode", ".git" }) or vim.uv.cwd()
+  if cwd then
+    results = vim
+      .iter(results)
+      :map(
+        ---@param res VectorCode.QueryResult
+        function(res)
+          res.path = cc_common.cleanup_path(res.path)
+          return res
+        end
+      )
+      :totable()
+  end
+  return results
+end
+
 ---@param opts VectorCode.CodeCompanion.QueryToolOpts?
----@return CodeCompanion.Agent.Tool
+---@return CodeCompanion.Tools.Tool
 return check_cli_wrap(function(opts)
   opts = get_query_tool_opts(opts)
   assert(
@@ -337,14 +356,15 @@ return check_cli_wrap(function(opts)
   return {
     name = tool_name,
     cmds = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param action QueryToolArgs
       ---@return nil|{ status: string, data: string }
-      function(agent, action, _, cb)
+      function(tools, action, _, cb)
         logger.info(
           "CodeCompanion query tool called with the following arguments:\n",
           action
         )
+
         job_runner = cc_common.initialise_runner(opts.use_lsp)
         assert(job_runner ~= nil, "Jobrunner not initialised!")
         assert(
@@ -386,10 +406,14 @@ return check_cli_wrap(function(opts)
           end
         end
 
-        if opts.no_duplicate and agent.chat.refs ~= nil and action.deduplicate then
+        if
+          opts.no_duplicate
+          and tools.chat.context_items ~= nil
+          and action.deduplicate
+        then
           -- exclude files that has been added to the context
           local existing_files = { "--exclude" }
-          for _, ref in pairs(agent.chat.refs) do
+          for _, ref in pairs(tools.chat.context_items) do
             if ref.source == cc_common.tool_result_source then
               table.insert(existing_files, ref.id)
             elseif type(ref.path) == "string" then
@@ -418,7 +442,7 @@ return check_cli_wrap(function(opts)
           if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.QueryResult[]
             local summary_opts = vim.deepcopy(opts.summarise) or {}
             if type(summary_opts.enabled) == "function" then
-              summary_opts.enabled = summary_opts.enabled(agent.chat, result) --[[@as  boolean]]
+              summary_opts.enabled = summary_opts.enabled(tools.chat, result) --[[@as  boolean]]
             end
 
             if
@@ -428,8 +452,10 @@ return check_cli_wrap(function(opts)
             then
               -- NOTE: deduplication in summary mode prevents the model from requesting
               -- the same content without summarysation.
-              result = filter_results(result, agent.chat)
+              result = filter_results(result, tools.chat)
             end
+
+            result = cleanup_paths(result)
 
             local max_result = #result
             if opts.max_num > 0 then
@@ -454,7 +480,7 @@ return check_cli_wrap(function(opts)
               data = error,
             })
           end
-        end, agent.chat.bufnr)
+        end, tools.chat.bufnr)
       end,
     },
     schema = {
@@ -472,6 +498,8 @@ Make use of the line numbers (NOT THE XML TAGS) when you're quoting the source c
 Include one single command call for VectorCode each time.
 You may include multiple keywords in the command.
 **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `vectorcode_ls` tool or from user input**
+**ABSOLUTE PATHS** in the results indicate that the files are OUTSIDE of the current working directories and you can **ONLY** access them via the VectorCode tools.
+**RELATIVE PATHS** in the results indicate that the files are INSIDE the current project. You can use VectorCode tools or any other tools that the user provided to interact with them. They are relative to the project root.
         ]],
         parameters = {
           type = "object",
@@ -527,10 +555,10 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
       },
     },
     output = {
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param cmd QueryToolArgs
       ---@param stderr table|string
-      error = function(self, agent, cmd, stderr)
+      error = function(self, tools, cmd, stderr)
         logger.error(
           ("CodeCompanion tool with command %s thrown with the following error: %s"):format(
             vim.inspect(cmd),
@@ -540,7 +568,7 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
         stderr = cc_common.flatten_table_to_string(stderr)
         if string.find(stderr, "InvalidCollectionException") then
           if cmd.project_root then
-            agent.chat:add_tool_output(
+            tools.chat:add_tool_output(
               self,
               string.format(
                 "`%s` hasn't been vectorised. Please use the `vectorcode_vectorise` tool or vectorise it from the CLI.",
@@ -548,13 +576,13 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
               )
             )
           else
-            agent.chat:add_tool_output(
+            tools.chat:add_tool_output(
               self,
               "Failed to query from the requested project. Please verify the available projects via the `vectorcode_ls` tool or run it from the CLI."
             )
           end
         else
-          agent.chat:add_tool_output(
+          tools.chat:add_tool_output(
             self,
             string.format(
               "**VectorCode `query` Tool**: Failed with error:\n```\n%s\n```",
@@ -563,17 +591,17 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
           )
         end
       end,
-      ---@param agent CodeCompanion.Agent
+      ---@param tools CodeCompanion.Tools
       ---@param cmd QueryToolArgs
       ---@param stdout VectorCode.CodeCompanion.QueryToolResult[]
-      success = function(self, agent, cmd, stdout)
-        stdout = stdout[1]
+      success = function(self, tools, cmd, stdout)
+        stdout = stdout[#stdout]
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
         )
         if vim.tbl_isempty(stdout.raw_results) then
           logger.info("CodeCompanion query tool recieved empty result.")
-          return agent.chat:add_tool_output(
+          return tools.chat:add_tool_output(
             self,
             string.format(
               "`%s` tool returned empty result. Please retry without deduplication.",
@@ -582,7 +610,7 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
             "**VectorCode `query` Tool**: Retrieved 0 result. Retrying..."
           )
         end
-        agent.chat:add_tool_output(
+        tools.chat:add_tool_output(
           self,
           stdout.summary
             or table.concat(vim
@@ -596,7 +624,7 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
         if not opts.chunk_mode then
           for _, result in pairs(stdout.raw_results) do
             -- skip referencing because there will be multiple chunks with the same path (id).
-            agent.chat.references:add({
+            tools.chat.context:add({
               source = cc_common.tool_result_source,
               id = result.path,
               path = result.path,

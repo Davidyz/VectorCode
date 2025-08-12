@@ -8,7 +8,6 @@ Table of Contents                               *VectorCode-table-of-contents*
   - Integrations                       |VectorCode-neovim-plugin-integrations|
   - Configuration                     |VectorCode-neovim-plugin-configuration|
   - User Command                       |VectorCode-neovim-plugin-user-command|
-  - API Usage                             |VectorCode-neovim-plugin-api-usage|
   - Debugging and Logging     |VectorCode-neovim-plugin-debugging-and-logging|
 2. Links                                                    |VectorCode-links|
 
@@ -17,8 +16,8 @@ Table of Contents                               *VectorCode-table-of-contents*
 
 
   [!NOTE] This plugin depends on the CLI tool. Please go through the CLI
-  documentation <./cli.md> and make sure the VectorCode CLI is working before
-  proceeding.
+  documentation <../cli/README.md> and make sure the VectorCode CLI is working
+  before proceeding.
 
   [!NOTE] When the neovim plugin doesn’t work properly, please try upgrading
   both the CLI and the neovim plugin to the latest version before opening an
@@ -26,26 +25,26 @@ Table of Contents                               *VectorCode-table-of-contents*
 - |VectorCode-installation|
     - |VectorCode-mason.nvim|
     - |VectorCode-nix|
+    - |VectorCode-lazy-loading|
 - |VectorCode-integrations|
+    - |VectorCode-milanglacier/minuet-ai.nvim|
+    - |VectorCode-olimorris/codecompanion.nvim|
+    - |VectorCode-copilotc-nvim/copilotchat.nvim|
+        - |VectorCode-setup|
+        - |VectorCode-configuration-options|
+        - |VectorCode-usage-tips|
+        - |VectorCode-performance-optimization|
+        - |VectorCode-using-with-sticky-prompts|
+    - |VectorCode-status-line-component|
+        - |VectorCode-nvim-lualine/lualine.nvim|
+        - |VectorCode-heirline.nvim|
+    - |VectorCode-fidget.nvim|
+    - |VectorCode-model-context-protocol-(mcp)|
 - |VectorCode-configuration|
     - |VectorCode-`setup(opts?)`|
 - |VectorCode-user-command|
     - |VectorCode-`vectorcode-register`|
     - |VectorCode-`vectorcode-deregister`|
-- |VectorCode-api-usage|
-    - |VectorCode-synchronous-api|
-        - |VectorCode-`query(query_message,-opts?,-callback?)`|
-        - |VectorCode-`check(check_item?)`|
-        - |VectorCode-`update(project_root?)`|
-    - |VectorCode-cached-asynchronous-api|
-        - |VectorCode-`cacher_backend.register_buffer(bufnr?,-opts?)`|
-        - |VectorCode-`cacher_backend.query_from_cache(bufnr?)`|
-        - |VectorCode-`cacher_backend.async_check(check_item?,-on_success?,-on_failure?)`|
-        - |VectorCode-`cacher_backend.buf_is_registered(bufnr?)`|
-        - |VectorCode-`cacher_backend.buf_is_enabled(bufnr?)`|
-        - |VectorCode-`cacher_backend.buf_job_count(bufnr?)`|
-        - |VectorCode-`cacher_backend.make_prompt_component(bufnr?,-component_cb?)`|
-        - |VectorCode-built-in-query-callbacks|
 - |VectorCode-debugging-and-logging|
 
 
@@ -108,23 +107,377 @@ There’s a community-maintained nix package
 <https://github.com/sarahec> for the Neovim plugin.
 
 
+LAZY LOADING ~
+
+When you call VectorCode APIs or integration interfaces as a part of another
+plugin’s configuration, it’s important to make sure that VectorCode is
+loaded BEFORE the plugin you’re trying to use.
+
+For example, in lazy.nvim <https://github.com/folke/lazy.nvim>, it’s not
+sufficient to simply add VectorCode as a dependency. You’d also need to wrap
+the `opts` table in a function:
+
+>lua
+    {
+      "olimorris/codecompanion.nvim",
+      opts = function()
+        return your_opts_here
+      end
+    }
+<
+
+If you pass a table, instead of a function, as the value for the `opts` key,
+neovim will try to load the VectorCode components immediately on startup
+(potentially even before the plugin is added to the |`rtp`|) and will cause
+some errors.
+
+
 INTEGRATIONS                           *VectorCode-neovim-plugin-integrations*
 
-The wiki <https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations>
-contains instructions to integrate VectorCode with the following plugins:
+VectorCode is a _library_ plugin that needs to be paired with some AI plugin to
+assist your workflow. The core APIs are documented in the API references
+<./api_references.md>. For some plugins, we provide built-in support that
+simplify the integrations. You can read about the relevant sections below about
+the specific plugin that you want to use VectorCode with.
 
-- milanglacier/minuet-ai.nvim <https://github.com/milanglacier/minuet-ai.nvim>;
-- olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim>;
-- nvim-lualine/lualine.nvim <https://github.com/nvim-lualine/lualine.nvim>;
-- CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim>;
-- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>;
-- rebelot/heirline.nvim <https://github.com/rebelot/heirline.nvim>.
+If, unfortunately, your AI plugin of choice is not listed here, you can either
+use the APIs listed in the API references <./api_references.md> to build your
+own integration interface, or open an issue (either in this repo or in the AI
+plugin’s repo) to request for support.
+
+Currently supported plugins: - milanglacier/minuet-ai.nvim
+<https://github.com/milanglacier/minuet-ai.nvim>; -
+olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim>;
+- CopilotC-Nvim/CopilotChat.nvim
+<https://github.com/CopilotC-Nvim/CopilotChat.nvim>; - ravitemer/mcphub.nvim
+<https://github.com/ravitemer/mcphub.nvim>; - nvim-lualine/lualine.nvim
+<https://github.com/nvim-lualine/lualine.nvim>; - rebelot/heirline.nvim
+<https://github.com/rebelot/heirline.nvim>.
+
+
+MILANGLACIER/MINUET-AI.NVIM ~
+
+You can use the aysnc caching API <./api_references.md#cached-asynchronous-api>
+to include query results in the prompt.
+
+See minuet-ai documentation
+<https://github.com/milanglacier/minuet-ai.nvim/blob/main/recipes.md#integration-with-vectorcode>
+and Prompt Gallery <https://github.com/Davidyz/VectorCode/wiki/Prompt-Gallery>
+for instructions to modify the prompts to use VectorCode context for
+completion.
+
+To control the number of results to be included in the prompt and some other
+behaviour, you can either set the opts when calling the `register_buffer`
+function, or change the value of `async_opts.n_query` in the `setup` function
+(see |VectorCode-configuration|).
+
+
+OLIMORRIS/CODECOMPANION.NVIM ~
+
+<https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD?t=3>
+
+The following requires VectorCode 0.7+ and a recent version of
+CodeCompanion.nvim.
+
+The CodeCompanion extension will register the following tools: -
+`@{vectorcode_ls}`an equivalent of `vectorcode ls` command that shows the
+indexed projects on your system; - `@{vectorcode_query}`an equivalent of
+`vectorcode query` command that searches from a project; -
+`@{vectorcode_vectorise}`an equivalent of `vectorcode vectorise` command that
+adds files to the database; - `@{vectorcode_files_ls}`an equivalent of
+`vectorcode files ls` command that gives a list of indexed files in a project;
+- `@{vectorcode_files_rm}`an equivalent of `vectorcode files rm` command that
+removes files from a collection.
+
+By default, it’ll also create a tool group called `@{vectorcode_toolbox}`,
+which contains the `vectorcode_ls`, `vectorcode_query` and
+`vectorcode_vectorise` tools. You can customise the members of this toolbox by
+the `include_in_toolbox` option explained below.
+
+>lua
+    ---@module "vectorcode"
+    opts = {
+      extensions = {
+        vectorcode = {
+          ---@type VectorCode.CodeCompanion.ExtensionOpts
+          opts = {
+            tool_group = {
+              -- this will register a tool group called `@vectorcode_toolbox` that contains all 3 tools
+              enabled = true,
+              -- a list of extra tools that you want to include in `@vectorcode_toolbox`.
+              -- if you use @vectorcode_vectorise, it'll be very handy to include
+              -- `file_search` here.
+              extras = {},
+              collapse = false, -- whether the individual tools should be shown in the chat
+            },
+            tool_opts = {
+              ---@type VectorCode.CodeCompanion.ToolOpts
+              ["*"] = {},
+              ---@type VectorCode.CodeCompanion.LsToolOpts
+              ls = {},
+              ---@type VectorCode.CodeCompanion.VectoriseToolOpts
+              vectorise = {},
+              ---@type VectorCode.CodeCompanion.QueryToolOpts
+              query = {
+                max_num = { chunk = -1, document = -1 },
+                default_num = { chunk = 50, document = 10 },
+                include_stderr = false,
+                use_lsp = false,
+                no_duplicate = true,
+                chunk_mode = false,
+                ---@type VectorCode.CodeCompanion.SummariseOpts
+                summarise = {
+                  ---@type boolean|(fun(chat: CodeCompanion.Chat, results: VectorCode.QueryResult[]):boolean)|nil
+                  enabled = false,
+                  adapter = nil,
+                  query_augmented = true,
+                }
+              },
+              files_ls = {},
+              files_rm = {}
+            }
+          },
+        },
+      }
+    }
+<
+
+The following are the common options that all tools supports:
+
+- `use_lsp`whether to use the LSP backend to run the queries. Using LSP
+    provides some insignificant performance boost and a nice notification pop-up
+    if you’re using fidget.nvim <https://github.com/j-hui/fidget.nvim>. Default:
+    `true` if `async_backend` is set to `"lsp"` in `setup()`. Otherwise, it’ll be
+    `false`;
+- `requires_approval`whether CodeCompanion.nvim asks for your approval before
+    executing the tool call. Default: `false` for `ls` and `query`; `true` for
+    `vectorise`;
+- `include_in_toolbox`whether this tool should be included in
+    `vectorcode_toolbox`. Default: `true` for `query`, `vectorise` and `ls`,
+    `false` for `files_*`.
+
+In the `tool_opts` table, you may either configure these common options
+individually, or use the `["*"]` key to specify the default settings for all
+tools. If you’ve set both the default settings (via `["*"]`) and the
+individual settings for a tool, the individual settings take precedence.
+
+The `query` tool contains the following extra config options: -
+`chunk_mode`boolean, whether the VectorCode backend should return chunks or
+full documents. Default: `false`; - `max_num` and `default_num`If they’re set
+to integers, they represent the default and maximum allowed number of results
+returned by VectorCode (regardless of document or chunk mode). They can also be
+set to tables with 2 keys: `document` and `chunk`. In this case, their values
+would be used for the corresponding mode. You may ask the LLM to request a
+different number of chunks or documents, but they’ll be capped by the values
+in `max_num`. Default: See the sample snippet above. Negative values for
+`max_num` means unlimited. - `no_duplicate`boolean, whether the query calls
+should attempt to exclude files that has been retrieved and provided in the
+previous turns of the current chat. This helps saving tokens and increase the
+chance of retrieving the correct files when the previous retrievals fail to do
+so. Default: `true`. - `summarise`optional summarisation for the retrieval
+results. This is a table with the following keys: - `enabled`This can either be
+a boolean that toggles summarisation on/off completely, or a function that
+accepts the `CodeCompanion.Chat` object and the raw query results as the 2
+paramters and returns a boolean. When it’s the later, it’ll be evaluated
+for every tool call. This allows you to write some custom logic to dynamically
+turn summarisation on and off. _When the summarisation is enabled, but you find
+the summaries not informative enough, you can tell the LLM to disable the
+summarisation during the chat so that it sees the raw information_; -
+`adapter`See CodeCompanion documentation
+<https://codecompanion.olimorris.dev/configuration/adapters.html#configuring-adapters>.
+When not provided, it’ll use the chat adapter; - `system_prompt`When set to a
+string, this will be used as the system prompt for the summarisation model.
+When set to a function, it’ll be called with the default system prompt as the
+only parameter, and it should return a string that will be used as a system
+prompt. This allows you to append/prepend things to the default system prompt;
+- `query_augmented`boolean, whether the system prompt should contain the query
+so that when the LLM decide what information to include, it _may_ be able to
+avoid omitting stuff related to query.
+
+
+COPILOTC-NVIM/COPILOTCHAT.NVIM ~
+
+CopilotC-Nvim/CopilotChat.nvim
+<https://github.com/CopilotC-Nvim/CopilotChat.nvim> is a Neovim plugin that
+provides an interface to GitHub Copilot Chat. VectorCode integration enriches
+the conversations by providing relevant repository context.
+
+
+SETUP
+
+VectorCode offers a dedicated integration with CopilotChat.nvim that provides
+contextual information about your codebase to enhance Copilot’s responses.
+Add this to your CopilotChat configuration:
+
+>lua
+    local vectorcode_ctx = require('vectorcode.integrations.copilotchat').make_context_provider({
+      prompt_header = "Here are relevant files from the repository:", -- Customize header text
+      prompt_footer = "\nConsider this context when answering:", -- Customize footer text
+      skip_empty = true, -- Skip adding context when no files are retrieved
+    })
+    
+    require('CopilotChat').setup({
+      -- Your other CopilotChat options...
+    
+      contexts = {
+        -- Add the VectorCode context provider
+        vectorcode = vectorcode_ctx,
+      },
+    
+      -- Enable VectorCode context in your prompts
+      prompts = {
+        Explain = {
+          prompt = "Explain the following code in detail:\n$input",
+          context = {"selection", "vectorcode"}, -- Add vectorcode to the context
+        },
+        -- Other prompts...
+      }
+    })
+<
+
+
+CONFIGURATION OPTIONS
+
+The `make_context_provider` function accepts these options:
+
+- `prompt_header`Text that appears before the code context (default: "The following are relevant files from the repository. Use them as extra context for helping with code completion and understanding:")
+- `prompt_footer`Text that appears after the code context (default: "and provide a strategy with examples about: ")
+- `skip_empty`Whether to skip adding context when no files are retrieved (default: true)
+- `format_file`A function that formats each retrieved file (takes a file result object and returns formatted string)
+
+
+USAGE TIPS
+
+1. Register your buffers with VectorCode (`:VectorCode register`) to enable context fetching
+2. Create different prompt templates with or without VectorCode context depending on your needs
+3. For large codebases, consider adjusting the number of retrieved documents using `n_query` when registering buffers
+
+
+PERFORMANCE OPTIMIZATION
+
+The integration includes caching to avoid sending duplicate context to the LLM,
+which helps reduce token usage when asking multiple questions about the same
+codebase.
+
+
+USING WITH STICKY PROMPTS
+
+You can configure VectorCode to be part of your sticky prompts, ensuring every
+conversation includes relevant codebase context automatically:
+
+>lua
+    require('CopilotChat').setup({
+      -- Your other CopilotChat options...
+    
+      sticky = {
+        "Using the model $claude-3.7-sonnet-thought",
+        "#vectorcode", -- Automatically includes repository context in every conversation
+      },
+    })
+<
+
+This configuration will include both the model specification and repository
+context in every conversation with CopilotChat.
+
+------------------------------------------------------------------------------
+
+STATUS LINE COMPONENT ~
+
+
+NVIM-LUALINE/LUALINE.NVIM
+
+A `lualine` component that shows the status of the async job and the number of
+cached retrieval results.
+
+>lua
+    tabline = {
+      lualine_y = {
+        require("vectorcode.integrations").lualine(opts)
+      }
+    }
+<
+
+`opts` is a table with the following configuration option: -
+`show_job_count`boolean, whether to show the number of running jobs for the
+buffer. Default: `false`.
+
+This will, however, start VectorCode when lualine starts (which usually means
+when neovim starts). If this bothers you, you can use the following snippet:
+
+>lua
+    tabline = {
+      lualine_y = {
+        {
+          function()
+            return require("vectorcode.integrations").lualine(opts)[1]()
+          end,
+          cond = function()
+            if package.loaded["vectorcode"] == nil then
+              return false
+            else
+              return require("vectorcode.integrations").lualine(opts).cond()
+            end
+          end,
+        },
+      }
+    }
+<
+
+This will further delay the loading of VectorCode to the moment you (or one of
+your plugins that actually retrieves context from VectorCode) load VectorCode.
+
+
+HEIRLINE.NVIM
+
+A heirline component is available as:
+
+>lua
+    local vectorcode_component = require("vectorcode.integrations").heirline({
+      show_job_count = true,
+      component_opts = {
+        -- put other field of the components here.
+        -- they'll be merged into the final component.
+      },
+    })
+<
+
+
+FIDGET.NVIM ~
+
+If you’re using a LSP backend
+<https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#lsp-mode>, there
+will be a notification when there’s a pending request for queries. As long as
+the LSP backend is working, no special configuration is needed for this.
+
+
+MODEL CONTEXT PROTOCOL (MCP) ~
+
+The Python package contains an optional `mcp` dependency group. After
+installing this, you can use the MCP server with any MCP client. For example,
+to use it with mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>, simply
+add this server in the JSON config:
+
+>json
+    {
+      "mcpServers": {
+        "vectorcode-mcp-server": {
+          "command": "vectorcode-mcp-server",
+          "args": []
+        }
+      }
+    }
+<
 
 
 CONFIGURATION                         *VectorCode-neovim-plugin-configuration*
 
 
 SETUP(OPTS?) ~
+
+This function controls the behaviour of some of the APIs provided by the
+VectorCode neovim plugin. If you’re using built-in integration interfaces,
+you usually don’t have to worry about this section, unless otherwise
+specified in the relevant section.
 
 This function initialises the VectorCode client and sets up some default
 
@@ -154,7 +507,7 @@ This function initialises the VectorCode client and sets up some default
         on_setup = {
           update = false, -- set to true to enable update when `setup` is called.
           lsp = false,
-        }
+        },
         sync_log_env_var = false,
       }
     )
@@ -246,297 +599,6 @@ Deregister the current buffer. Any running jobs will be killed, cached results
 will be deleted, and no more queries will be run.
 
 
-API USAGE                                 *VectorCode-neovim-plugin-api-usage*
-
-This plugin provides 2 sets of APIs that provides similar functionalities. The
-synchronous APIs provide more up-to-date retrieval results at the cost of
-blocking the main neovim UI, while the async APIs use a caching mechanism to
-provide asynchronous retrieval results almost instantaneously, but the result
-may be slightly out-of-date. For some tasks like chat, the main UI being
-blocked/frozen doesn’t hurt much because you spend the time waiting for
-response anyway, and you can use the synchronous API in this case. For other
-tasks like completion, the async API will minimise the interruption to your
-workflow.
-
-
-SYNCHRONOUS API ~
-
-
-QUERY(QUERY_MESSAGE, OPTS?, CALLBACK?)
-
-This function queries VectorCode and returns an array of results.
-
->lua
-    require("vectorcode").query("some query message", {
-        n_query = 5,
-    })
-<
-
-- `query_message`string or a list of strings, the query messages;
-- `opts`The following are the available options for this function (see |VectorCode-`setup(opts?)`| for details):
-
->lua
-    {
-        exclude_this = true,
-        n_query = 1,
-        notify = true,
-        timeout_ms = 5000,
-    }
-<
-
-- `callback`a callback function that takes the result of the retrieval as the
-    only parameter. If this is set, the `query` function will be non-blocking and
-    runs in an async manner. In this case, it doesn’t return any value and
-    retrieval results can only be accessed by this callback function.
-
-The return value of this function is an array of results in the format of
-`{path="path/to/your/code.lua", document="document content"}`.
-
-For example, in cmp-ai <https://github.com/tzachar/cmp-ai>, you can add the
-path/document content to the prompt like this:
-
->lua
-    prompt = function(prefix, suffix)
-        local retrieval_results = require("vectorcode").query("some query message", {
-            n_query = 5,
-        })
-        for _, source in pairs(retrieval_results) do
-            -- This works for qwen2.5-coder.
-            file_context = file_context
-                .. "<|file_sep|>"
-                .. source.path
-                .. "\n"
-                .. source.document
-                .. "\n"
-        end
-        return file_context
-            .. "<|fim_prefix|>" 
-            .. prefix 
-            .. "<|fim_suffix|>" 
-            .. suffix 
-            .. "<|fim_middle|>"
-    end
-<
-
-Keep in mind that this `query` function call will be synchronous and therefore
-block the neovim UI. This is where the async cache comes in.
-
-
-CHECK(CHECK_ITEM?)
-
-This function checks if VectorCode has been configured properly for your
-project. See the CLI manual for details <./cli.md>.
-
->lua
-    require("vectorcode").check()
-<
-
-The following are the available options for this function: - `check_item`Only
-supports `"config"` at the moment. Checks if a project-local config is present.
-Return value: `true` if passed, `false` if failed.
-
-This involves the `check` command of the CLI that checks the status of the
-VectorCode project setup. Use this as a pre-condition of any subsequent use of
-other VectorCode APIs that may be more expensive (if this fails, VectorCode
-hasn’t been properly set up for the project, and you should not use
-VectorCode APIs).
-
-The use of this API is entirely optional. You can totally ignore this and call
-`query` anyway, but if `check` fails, you might be spending the waiting time
-for nothing.
-
-
-UPDATE(PROJECT_ROOT?)
-
-This function calls `vectorcode update` at the current working directory.
-`--project_root` will be added if the `project_root` parameter is not `nil`.
-This runs async and doesn’t block the main UI.
-
->lua
-    require("vectorcode").update()
-<
-
-
-CACHED ASYNCHRONOUS API ~
-
-The async cache mechanism helps mitigate the issue where the `query` API may
-take too long and block the main thread. The following are the functions
-available through the `require("vectorcode.cacher")` module.
-
-From 0.4.0, the async cache module came with 2 backends that exposes the same
-interface:
-
-1. The `default` backend which works exactly like the original implementation
-used in previous versions;
-2. The `lsp` based backend, which make use of the experimental `vectorcode-server`
-implemented in version 0.4.0. If you want to customise the LSP executable or
-any options supported by `vim.lsp.ClientConfig`, you can do so by using
-`vim.lsp.config()`. This plugin will load the config associated with the name
-`vectorcode_server`. You can override the default config (for example, the
-path to the executable) by calling `vim.lsp.config('vectorcode_server', opts)`.
-
-  -------------------------------------------------------------------------------
-  Features   default                         lsp
-  ---------- ------------------------------- ------------------------------------
-  Pros       Fully backward compatible with  Less IO overhead for
-             minimal extra config required   loading/unloading embedding models;
-                                             Progress reports.
-
-  Cons       Heavy IO overhead because the   Requires vectorcode-server
-             embedding model and database    
-             client need to be initialised   
-             for every query.                
-  -------------------------------------------------------------------------------
-You may choose which backend to use by setting the |VectorCode-`setup`| option
-`async_backend`, and acquire the corresponding backend by the following API:
-
->lua
-    local cacher_backend = require("vectorcode.config").get_cacher_backend()
-<
-
-and you can use `cacher_backend` wherever you used to use
-`require("vectorcode.cacher")`. For example,
-`require("vectorcode.cacher").query_from_cache(0)` becomes
-`require("vectorcode.config").get_cacher_backend().query_from_cache(0)`. In the
-remaining section of this documentation, I’ll use `cacher_backend` to
-represent either of the backends. Unless otherwise noticed, all the
-asynchronous APIs work for both backends.
-
-
-CACHER_BACKEND.REGISTER_BUFFER(BUFNR?, OPTS?)
-
-This function registers a buffer to be cached by VectorCode.
-
->lua
-    cacher_backend.register_buffer(0, {
-        n_query = 1,
-    })
-<
-
-The following are the available options for this function: - `bufnr`buffer
-number. Default: `0` (current buffer); - `opts`accepts a lua table with the
-following keys: - `project_root`a string of the path that overrides the
-detected project root. Default: `nil`. This is mostly intended to use with the
-|VectorCode-user-command|, and you probably should not use this directly in
-your config. **If you’re using the LSP backend and did not specify this
-value, it will be automatically detected based on .vectorcode or .git. If this
-fails, LSP backend will not work**; - `exclude_this`whether to exclude the file
-you’re editing. Default: `true`; - `n_query`number of retrieved documents.
-Default: `1`; - `debounce`debounce time in milliseconds. Default: `10`; -
-`notify`whether to show notifications when a query is completed. Default:
-`false`; - `query_cb``fun(bufnr: integer):string|string[]`, a callback function
-that accepts the buffer ID and returns the query message(s). Default:
-`require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See
-|VectorCode-this-section| for a list of built-in query callbacks; -
-`events`list of autocommand events that triggers the query. Default:
-`{"BufWritePost", "InsertEnter", "BufReadPost"}`; - `run_on_register`whether to
-run the query when the buffer is registered. Default: `false`; -
-`single_job`boolean. If this is set to `true`, there will only be one running
-job for each buffer, and when a new job is triggered, the last-running job will
-be cancelled. Default: `false`.
-
-
-CACHER_BACKEND.QUERY_FROM_CACHE(BUFNR?)
-
-This function queries VectorCode from cache.
-
->lua
-    local query_results = cacher_backend.query_from_cache(0, {notify=false})
-<
-
-The following are the available options for this function: - `bufnr`buffer
-number. Default: current buffer; - `opts`accepts a lua table with the following
-keys: - `notify`boolean, whether to show notifications when a query is
-completed. Default: `false`;
-
-Return value: an array of results. Each item of the array is in the format of
-`{path="path/to/your/code.lua", document="document content"}`.
-
-
-CACHER_BACKEND.ASYNC_CHECK(CHECK_ITEM?, ON_SUCCESS?, ON_FAILURE?)
-
-This function checks if VectorCode has been configured properly for your
-project.
-
->lua
-    cacher_backend.async_check(
-        "config", 
-        do_something(), -- on success
-        do_something_else()  -- on failure
-    )
-<
-
-The following are the available options for this function: - `check_item`any
-check that works with `vectorcode check` command. If not set, it defaults to
-`"config"`; - `on_success`a callback function that is called when the check
-passes; - `on_failure`a callback function that is called when the check fails.
-
-
-CACHER_BACKEND.BUF_IS_REGISTERED(BUFNR?)
-
-This function checks if a buffer has been registered with VectorCode.
-
-The following are the available options for this function: - `bufnr`buffer
-number. Default: current buffer. Return value: `true` if registered, `false`
-otherwise.
-
-
-CACHER_BACKEND.BUF_IS_ENABLED(BUFNR?)
-
-This function checks if a buffer has been enabled with VectorCode. It is
-slightly different from `buf_is_registered`, because it does not guarantee
-VectorCode is actively caching the content of the buffer. It is the same as
-`buf_is_registered && not is_paused`.
-
-The following are the available options for this function: - `bufnr`buffer
-number. Default: current buffer. Return value: `true` if enabled, `false`
-otherwise.
-
-
-CACHER_BACKEND.BUF_JOB_COUNT(BUFNR?)
-
-Returns the number of running jobs in the background.
-
-
-CACHER_BACKEND.MAKE_PROMPT_COMPONENT(BUFNR?, COMPONENT_CB?)
-
-Compile the retrieval results into a string. Parameters: - `bufnr`buffer
-number. Default: current buffer; - `component_cb`a callback function that
-formats each retrieval result, so that you can customise the control token,
-etc. for the component. The default is the following:
-
->lua
-    function(result)
-        return "<|file_sep|>" .. result.path .. "\n" .. result.document
-    end
-<
-
-`make_prompt_component` returns a table with 2 keys: - `count`number of
-retrieved documents; - `content`The retrieval results concatenated together
-into a string. Each result is formatted by `component_cb`.
-
-
-BUILT-IN QUERY CALLBACKS
-
-When using async cache, the query message is constructed by a function that
-takes the buffer ID as the only parameter, and return a string or a list of
-strings. The `vectorcode.utils` module provides the following callback
-constructor for you to play around with it, but you can easily build your own!
-
-- `require("vectorcode.utils").make_surrounding_lines_cb(line_count)`returns a
-    callback that uses `line_count` lines around the cursor as the query. When
-    `line_count` is negative, it uses the full buffer;
-- `require("vectorcode.utils").make_lsp_document_symbol_cb()`returns a
-    callback which uses the `textDocument/documentSymbol` method to retrieve a
-    list of symbols in the current document. This will fallback to
-    `make_surrounding_lines_cb(-1)` when there’s no LSP that supports the
-    `documentSymbol` method;
-- `require("vectorcode.utils").make_changes_cb(max_num)`returns a callback
-    that fetches `max_num` unique items from the `:changes` list. This will also
-    fallback to `make_surrounding_lines_cb(-1)`. The default value for `max_num`
-    is 50.
-
-
 DEBUGGING AND LOGGING         *VectorCode-neovim-plugin-debugging-and-logging*
 
 You can enable logging by setting `VECTORCODE_NVIM_LOG_LEVEL` environment
@@ -549,6 +611,7 @@ Linux, this is usually `~/.local/state/nvim/`.
 2. Links                                                    *VectorCode-links*
 
 1. *@sarahec*: 
+2. *asciicast*: https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD.svg
 
 Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
 

@@ -44,11 +44,11 @@ model output and reduce hallucination.
 
 - For the setup and usage of the command-line tool, see [the CLI documentation](./docs/cli.md);
 - For neovim users, after you've gone through the CLI documentation, please refer to 
-  [the neovim plugin documentation](./docs/neovim.md) for further instructions.
+  [the neovim plugin documentation](./docs/neovim/README.md) (and optionally the [lua API reference](./docs/neovim/api_references.md)) 
+  for further instructions.
 - Additional resources:
   - the [wiki](https://github.com/Davidyz/VectorCode/wiki) for extra tricks and
-    tips that will help you get the most out of VectorCode, as well as
-    instructions to setup VectorCode to work with some other neovim plugins;
+    tips that will help you get the most out of VectorCode;
   - the [discussions](https://github.com/Davidyz/VectorCode/discussions) where
     you can ask general questions and share your cool usages about VectorCode.
   - If you're feeling adanvturous, feel free to check out 
