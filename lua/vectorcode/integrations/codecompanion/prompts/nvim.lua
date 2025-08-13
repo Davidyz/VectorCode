@@ -8,7 +8,7 @@ local prepare = function(rtp)
     config.notify_opts
   )
   require("vectorcode.integrations.codecompanion.prompts").vectorise_files(
-    vim.fs.joinpath(rtp, "**/*.lua"),
+    { vim.fs.joinpath(rtp, "lua/**/*.lua"), vim.fs.joinpath(rtp, "doc/**/*.txt") },
     rtp,
     function(result, _, _, _)
       if result ~= nil and not vim.tbl_isempty(result) then
