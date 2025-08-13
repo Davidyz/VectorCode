@@ -1,38 +1,49 @@
 import logging
 import os
+import cProfile
+import pstats
 from datetime import datetime
 
-# import atexit
+import atexit
 
 __LOG_DIR = os.path.expanduser("~/.local/share/vectorcode/logs/")
 
 logger = logging.getLogger(name=__name__)
 
-__tracer = None
+__profiler: cProfile.Profile | None = None
 
 
 def finish():
-    if __tracer is not None:
-        __tracer.stop()
-        __tracer.save(
-            output_file=os.path.join(
+    """Clean up profiling and save results"""
+    if __profiler is not None:
+        try:
+            __profiler.disable()
+            stats_file = os.path.join(
                 __LOG_DIR,
-                f"viztracer-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json",
+                f"cprofile-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.stats",
             )
-        )
+            __profiler.dump_stats(stats_file)
+            logger.info(f"cProfile stats saved to: {stats_file}")
+            
+            # Print summary stats
+            stats = pstats.Stats(__profiler)
+            stats.sort_stats('cumulative')
+            stats.print_stats(20)
+        except Exception as e:
+            logger.warning(f"Failed to save cProfile output: {e}")
 
 
 def enable():
-    global __tracer
+    """Enable cProfile-based profiling"""
+    global __profiler
+    
     try:
-        import coredumpy
-        # import viztracer
-    except ModuleNotFoundError:
-        logger.warning("Failed to import modules. Please install vectorcode[debug]")
-        return
-
-    coredumpy.patch_except(directory=__LOG_DIR)
-    # if __tracer is None:
-    #     __tracer = viztracer.VizTracer(log_async=True)
-    # __tracer.start()
-    # atexit.register(finish)
+        # Initialize cProfile for comprehensive profiling
+        __profiler = cProfile.Profile()
+        __profiler.enable()
+        atexit.register(finish)
+        logger.info("cProfile profiling enabled successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize cProfile: {e}")
+        logger.warning("Profiling will not be available for this session")
