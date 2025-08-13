@@ -1,17 +1,25 @@
 ---@module "codecompanion"
 
 local config = require("vectorcode.config")
+
+---@param rtp string path to the project_root
 local prepare = function(rtp)
-  vim.notify(
-    "Vectorising neovim runtime files...",
-    vim.log.levels.INFO,
-    config.notify_opts
-  )
+  if config.get_user_config().notify then
+    vim.notify(
+      "Vectorising neovim runtime files...",
+      vim.log.levels.INFO,
+      config.notify_opts
+    )
+  end
   require("vectorcode.integrations.codecompanion.prompts").vectorise_files(
     { vim.fs.joinpath(rtp, "lua/**/*.lua"), vim.fs.joinpath(rtp, "doc/**/*.txt") },
     rtp,
     function(result, _, _, _)
-      if result ~= nil and not vim.tbl_isempty(result) then
+      if
+        result ~= nil
+        and not vim.tbl_isempty(result)
+        and config.get_user_config().notify
+      then
         vim.schedule_wrap(vim.notify)(
           string.format("Added %d files to the database!", result.add or 0),
           vim.log.levels.INFO,
@@ -21,6 +29,7 @@ local prepare = function(rtp)
     end
   )
 end
+
 return require("vectorcode.config").check_cli_wrap(function()
   local constants = require("codecompanion.config").config.constants
   local rtp = vim.fs.normalize(vim.env.VIMRUNTIME)
@@ -61,6 +70,7 @@ You can ONLY use the vectorcode tools to interact with these files or directory.
 DO NOT attempt to read from or write into this directory.
 When the user asked a question that is not part of a previous query tool call, make a new query using new keywords that are directly relevant to the new question.
 If the tool returns an error that says the collection doesn't exist, it's because the files are still being indexed, and you should ask the user to wait for it to finish.
+Do not cite information that was not part of the provided context or tool output.
 ]],
             rtp
           ),
