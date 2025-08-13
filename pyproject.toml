@@ -78,7 +78,7 @@ legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
 intel = ['optimum[openvino]', 'openvino']
 lsp = ['pygls<2.0.0', 'lsprotocol']
 mcp = ['mcp<2.0.0', 'pydantic']
-debug = ["coredumpy>=0.4.1", "viztracer>=1.0.0"]
+debug = ["coredumpy>=0.4.1"]
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
