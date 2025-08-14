@@ -203,7 +203,7 @@ def get_cli_parser():
         "--debug",
         default=False,
         action="store_true",
-        help="Enable debug mode (requires vectorcode[debug]).",
+        help="Enable debug mode.",
     )
     chunking_parser = argparse.ArgumentParser(add_help=False)
     chunking_parser.add_argument(
