@@ -3,7 +3,7 @@
 DEFAULT_GROUPS=--group dev --group lsp --group mcp
 
 deps:
-	pdm lock --group dev --group lsp --group mcp --group debug; \
+	pdm lock $(DEFAULT_GROUPS) || pdm lock $(DEFAULT_GROUPS) --group legacy; \
 	pdm install
 	
 test:
