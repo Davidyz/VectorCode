@@ -4,9 +4,9 @@ import os
 import sys
 import traceback
 
-from vectorcode import __version__, debugging
 import httpx
 
+from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
     config_logging,
@@ -25,6 +25,8 @@ async def async_main():
         sys.stderr = open(os.devnull, "w")
 
     if cli_args.debug:
+        from vectorcode import debugging
+
         debugging.enable()
 
     logger.info("Collected CLI arguments: %s", cli_args)
