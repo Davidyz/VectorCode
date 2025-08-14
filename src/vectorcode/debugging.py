@@ -52,7 +52,7 @@ def enable():
         logger.info("cProfile profiling enabled successfully")
         
         try:
-            import coredumpy
+            import coredumpy  # noqa: F401
             logger.info("coredumpy crash debugging enabled successfully")
         except Exception as e:
             logger.warning(f"Crash debugging will not be available. Failed to import coredumpy: {e}")
