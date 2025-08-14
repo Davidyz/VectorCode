@@ -13,6 +13,11 @@ logger = logging.getLogger(name=__name__)
 __profiler: cProfile.Profile | None = None
 
 
+def _ensure_log_dir():
+    """Ensure the log directory exists"""
+    os.makedirs(__LOG_DIR, exist_ok=True)
+
+
 def finish():
     """Clean up profiling and save results"""
     if __profiler is not None:
@@ -23,7 +28,7 @@ def finish():
                 f"cprofile-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.stats",
             )
             __profiler.dump_stats(stats_file)
-            logger.info(f"cProfile stats saved to: {stats_file}")
+            print(f"cProfile stats saved to: {stats_file}")
             
             # Print summary stats
             stats = pstats.Stats(__profiler)
@@ -34,16 +39,24 @@ def finish():
 
 
 def enable():
-    """Enable cProfile-based profiling"""
+    """Enable cProfile-based profiling and crash debugging"""
     global __profiler
     
     try:
+        _ensure_log_dir()
+
         # Initialize cProfile for comprehensive profiling
         __profiler = cProfile.Profile()
         __profiler.enable()
         atexit.register(finish)
         logger.info("cProfile profiling enabled successfully")
         
+        try:
+            import coredumpy
+            logger.info("coredumpy crash debugging enabled successfully")
+        except Exception as e:
+            logger.warning(f"Crash debugging will not be available. Failed to import coredumpy: {e}")
+
     except Exception as e:
         logger.error(f"Failed to initialize cProfile: {e}")
         logger.warning("Profiling will not be available for this session")
