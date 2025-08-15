@@ -57,6 +57,7 @@ return require("vectorcode.config").check_cli_wrap(function()
         pre_hook = function()
           prepare(rtp)
         end,
+        ignore_system_prompt = true,
       },
       prompts = {
         {
