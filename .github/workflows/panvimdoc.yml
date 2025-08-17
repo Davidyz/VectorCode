@@ -1,7 +1,9 @@
 name: panvimdoc
 
 on: 
-  pull_request:
+  push:
+    branches-ignore:
+      - 'main'
 
 permissions:
   contents: write
@@ -64,7 +66,8 @@ jobs:
           shiftheadinglevelby: 0 # Shift heading levels by specified number
           incrementheadinglevelby: 0 # Increment heading levels by specified number
 
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@v6.0.1
         with:
           commit_message: "Auto generate docs"
           branch: ${{ github.head_ref }}
+          file_pattern: 'doc/*.txt'

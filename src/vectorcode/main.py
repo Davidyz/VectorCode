@@ -23,6 +23,12 @@ async def async_main():
     cli_args = await parse_cli_args()
     if cli_args.no_stderr:
         sys.stderr = open(os.devnull, "w")
+
+    if cli_args.debug:
+        from vectorcode import debugging
+
+        debugging.enable()
+
     logger.info("Collected CLI arguments: %s", cli_args)
 
     if cli_args.project_root is None:

@@ -26,6 +26,8 @@
   * [Cleaning up](#cleaning-up)
   * [Inspecting and Manupulating Files in an Indexed Project](#inspecting-and-manupulating-files-in-an-indexed-project)
   * [Debugging and Diagnosing](#debugging-and-diagnosing)
+    * [Profiling](#profiling)
+    * [Post-mortem debugging](#post-mortem-debugging)
 * [Shell Completion](#shell-completion)
 * [Hardware Acceleration](#hardware-acceleration)
 * [For Developers](#for-developers)
@@ -550,6 +552,21 @@ VECTORCODE_LOG_LEVEL=INFO vectorcode vectorise file1.py file2.lua
 
 > Depending on the MCP/LSP client implementation, you may need to take extra
 > steps to make sure the environment variables are captured by VectorCode.
+
+#### Profiling
+
+When you pass `--debug` parameter to the CLI, VectorCode will track the call
+stacks with [cprofile](https://docs.python.org/3/library/profile.html). The
+stats will be saved to the log directory mentioned above. You may use an
+external stats viewer (like [snakeviz](https://jiffyclub.github.io/snakeviz/))
+to load the profiling stats for a better viewing experience.
+
+#### Post-mortem debugging
+
+VectorCode can work with [coredumpy](https://github.com/gaogaotiantian/coredumpy) 
+to snapshot an exception so that developers can inspect the error
+asynchronously. To use this, you'd need to install the `vectorcode[debug]`
+dependency group: `uv tool install vectorcode[debug]`.
 
 ## Shell Completion
 
