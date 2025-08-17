@@ -9,9 +9,7 @@ from vectorcode.main import async_main
 
 @pytest.mark.asyncio
 async def test_async_main_no_stderr(monkeypatch):
-    mock_cli_args = MagicMock(
-        no_stderr=True, project_root=".", action=CliAction.version
-    )
+    mock_cli_args = Config(no_stderr=True, project_root=".", action=CliAction.version)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
@@ -24,9 +22,7 @@ async def test_async_main_no_stderr(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_default_project_root(monkeypatch):
-    mock_cli_args = MagicMock(
-        no_stderr=False, project_root=None, action=CliAction.version
-    )
+    mock_cli_args = Config(no_stderr=False, project_root=None, action=CliAction.version)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
@@ -42,9 +38,7 @@ async def test_async_main_default_project_root(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_ioerror(monkeypatch):
-    mock_cli_args = MagicMock(
-        no_stderr=False, project_root=".", action=CliAction.version
-    )
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.version)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
@@ -61,7 +55,7 @@ async def test_async_main_ioerror(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_check(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.check)
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.check)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
@@ -79,7 +73,7 @@ async def test_async_main_cli_action_check(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_init(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.init)
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.init)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
@@ -94,15 +88,15 @@ async def test_async_main_cli_action_init(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_chunks(monkeypatch):
-    mock_cli_args = MagicMock(
-        no_stderr=False, project_root=".", action=CliAction.chunks
-    )
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.chunks)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
     mock_chunks = AsyncMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.chunks", mock_chunks)
-    monkeypatch.setattr("vectorcode.main.get_project_config", AsyncMock())
+    monkeypatch.setattr(
+        "vectorcode.main.get_project_config", AsyncMock(return_value=Config())
+    )
     monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
 
     return_code = await async_main()
@@ -112,9 +106,7 @@ async def test_async_main_cli_action_chunks(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_version(monkeypatch, capsys):
-    mock_cli_args = MagicMock(
-        no_stderr=False, project_root=".", action=CliAction.version
-    )
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.version)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
@@ -127,13 +119,15 @@ async def test_async_main_cli_action_version(monkeypatch, capsys):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_prompts(monkeypatch):
-    mock_cli_args = MagicMock(project_root=".", action=CliAction.prompts)
+    mock_cli_args = Config(project_root=".", action=CliAction.prompts)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
     mock_prompts = MagicMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.prompts", mock_prompts)
-    monkeypatch.setattr("vectorcode.main.get_project_config", AsyncMock())
+    monkeypatch.setattr(
+        "vectorcode.main.get_project_config", AsyncMock(return_value=Config())
+    )
 
     return_code = await async_main()
     assert return_code == 0
@@ -142,12 +136,12 @@ async def test_async_main_cli_action_prompts(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_query(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.query)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = MagicMock(
-        host="test_host", port=1234, action=CliAction.query, pipe=False
+    mock_final_configs = Config(
+        db_url="http://test_host:1234", action=CliAction.query, pipe=False
     )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
@@ -168,7 +162,7 @@ async def test_async_main_cli_action_query(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_vectorise(monkeypatch):
-    mock_cli_args = MagicMock(
+    mock_cli_args = Config(
         no_stderr=False,
         project_root=".",
         action=CliAction.vectorise,
@@ -177,8 +171,8 @@ async def test_async_main_cli_action_vectorise(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = MagicMock(
-        host="test_host", port=1234, action=CliAction.vectorise, include_hidden=True
+    mock_final_configs = Config(
+        db_url="http://test_host:1234", action=CliAction.vectorise, include_hidden=True
     )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
@@ -199,11 +193,11 @@ async def test_async_main_cli_action_vectorise(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_drop(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.drop)
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.drop)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.drop)
+    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.drop)
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -223,11 +217,11 @@ async def test_async_main_cli_action_drop(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_ls(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.ls)
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.ls)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.ls)
+    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.ls)
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -259,13 +253,11 @@ async def test_async_main_cli_action_files(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_update(monkeypatch):
-    mock_cli_args = MagicMock(
-        no_stderr=False, project_root=".", action=CliAction.update
-    )
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.update)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.update)
+    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.update)
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -285,11 +277,11 @@ async def test_async_main_cli_action_update(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_cli_action_clean(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.clean)
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.clean)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.clean)
+    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.clean)
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -309,11 +301,11 @@ async def test_async_main_cli_action_clean(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_main_exception_handling(monkeypatch):
-    mock_cli_args = MagicMock(no_stderr=False, project_root=".", action=CliAction.query)
+    mock_cli_args = Config(no_stderr=False, project_root=".", action=CliAction.query)
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = MagicMock(host="test_host", port=1234, action=CliAction.query)
+    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.query)
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
