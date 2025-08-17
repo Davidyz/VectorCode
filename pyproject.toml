@@ -71,7 +71,6 @@ dev = [
     "pytest-asyncio>=0.25.3",
     "debugpy>=1.8.12",
     "basedpyright>=1.29.2",
-    "coredumpy>=0.4.1",
 ]
 
 [project.optional-dependencies]
@@ -79,6 +78,7 @@ legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
 intel = ['optimum[openvino]', 'openvino']
 lsp = ['pygls<2.0.0', 'lsprotocol']
 mcp = ['mcp<2.0.0', 'pydantic']
+debug = ["coredumpy>=0.4.1"]
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
