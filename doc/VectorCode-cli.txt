@@ -37,6 +37,8 @@ Table of Contents                           *VectorCode-cli-table-of-contents*
     - |VectorCode-cli-cleaning-up|
     - |VectorCode-cli-inspecting-and-manupulating-files-in-an-indexed-project|
     - |VectorCode-cli-debugging-and-diagnosing|
+        - |VectorCode-cli-profiling|
+        - |VectorCode-cli-post-mortem-debugging|
 - |VectorCode-cli-shell-completion|
 - |VectorCode-cli-hardware-acceleration|
 - |VectorCode-cli-for-developers|
@@ -604,6 +606,24 @@ For example:
 
   Depending on the MCP/LSP client implementation, you may need to take extra
   steps to make sure the environment variables are captured by VectorCode.
+
+PROFILING
+
+When you pass `--debug` parameter to the CLI, VectorCode will track the call
+stacks with cprofile <https://docs.python.org/3/library/profile.html>. The
+stats will be saved to the log directory mentioned above. You may use an
+external stats viewer (like snakeviz <https://jiffyclub.github.io/snakeviz/>)
+to load the profiling stats for a better viewing experience.
+
+
+POST-MORTEM DEBUGGING
+
+VectorCode can work with coredumpy
+<https://github.com/gaogaotiantian/coredumpy> to snapshot an exception so that
+developers can inspect the error asynchronously. To use this, you’d need to
+install the `vectorcode[debug]` dependency group: `uv tool install
+vectorcode[debug]`.
+
 
 SHELL COMPLETION*VectorCode-cli-vectorcode-command-line-tool-shell-completion*
 
