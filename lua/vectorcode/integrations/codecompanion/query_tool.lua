@@ -10,7 +10,7 @@ local logger = vc_config.logger
 
 local job_runner = nil
 
----@alias QueryToolArgs { project_root:string, count: integer, query: string[], allow_summary: boolean, deduplicate: boolean }
+---@alias QueryToolArgs { project_root:string?, count: integer?, query: string[], allow_summary: boolean?, deduplicate: boolean? }
 
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
@@ -259,7 +259,7 @@ local function generate_summary(result, summarise_opts, cmd, callback)
 
   if
     summarise_opts.enabled
-    and cmd.allow_summary
+    and cmd.allow_summary ~= false
     and type(callback) == "function"
     and #result > 0
   then
@@ -365,6 +365,10 @@ return check_cli_wrap(function(opts)
           action
         )
 
+        if action.deduplicate == nil then
+          action.deduplicate = opts.no_duplicate
+        end
+
         job_runner = cc_common.initialise_runner(opts.use_lsp)
         assert(job_runner ~= nil, "Jobrunner not initialised!")
         assert(
@@ -381,14 +385,14 @@ return check_cli_wrap(function(opts)
 
         local args = { "query" }
         vim.list_extend(args, action.query)
-        vim.list_extend(args, { "--pipe", "-n", tostring(action.count) })
+        vim.list_extend(
+          args,
+          { "--pipe", "-n", tostring(action.count or opts.default_num) }
+        )
         if opts.chunk_mode then
           vim.list_extend(args, { "--include", "path", "chunk" })
         else
           vim.list_extend(args, { "--include", "path", "document" })
-        end
-        if action.project_root == "" then
-          action.project_root = nil
         end
         if action.project_root ~= nil then
           action.project_root = vim.fs.normalize(action.project_root)
@@ -523,7 +527,7 @@ If a query returned empty or repeated results, you should avoid using these quer
             },
             project_root = {
               type = "string",
-              description = "Project path to search within (must be from 'ls' results or user instructions). Use empty string for the current project. If the user did not specify a project, assume that they're referring to the current project and use an empty string for this parameter. If this fails, use the `vectorcode_ls` tool and ask the user to clarify the project.",
+              description = "Project path to search within (must be from 'ls' results or user instructions). If the user did not specify a project, you may omit this parameter and the tool will try to query from the current project. If this fails, use the `vectorcode_ls` tool and ask the user to clarify the project.",
             },
             allow_summary = {
               type = "boolean",
@@ -544,14 +548,8 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
           },
           required = {
             "query",
-            "count",
-            "project_root",
-            "allow_summary",
-            "deduplicate",
           },
-          additionalProperties = false,
         },
-        strict = true,
       },
     },
     output = {
