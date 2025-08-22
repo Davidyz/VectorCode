@@ -37,7 +37,13 @@ return function(opts)
             },
             project_root = {
               type = "string",
-              description = "The project that the files belong to. Either use a path from the `vectorcode_ls` tool, or omit this parameter to use the current git project. If the user did not specify a path, omit this parameter.",
+              description = [[
+The project that the files belong to.
+The value should be one of the following:
+- One of the paths from the `vectorcode_ls` tool;
+- User input;
+- `null` (omit this parameter), which means the current project, if found.
+                ]],
             },
           },
           required = { "paths" },

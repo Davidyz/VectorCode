@@ -56,7 +56,13 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
             },
             project_root = {
               type = "string",
-              description = "The project that the files belong to. Either use a path from the `vectorcode_ls` tool, or leave empty to use the current git project. If the user did not specify a path, you may omit this parameter.",
+              description = [[
+The project that the files belong to.
+The value should be one of the following:
+- One of the paths from the `vectorcode_ls` tool;
+- User input;
+- `null` (omit this parameter), which means the current project, if found.
+]],
             },
           },
           required = { "paths" },
@@ -126,7 +132,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
         stderr = cc_common.flatten_table_to_string(stderr)
         tools.chat:add_tool_output(
           self,
-          string.format("**VectorCode Vectorise Tool: %s", stderr)
+          string.format("**VectorCode `vectorise` Tool: %s", stderr)
         )
       end,
       ---@param self CodeCompanion.Tools.Tool
@@ -138,7 +144,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
         tools.chat:add_tool_output(
           self,
           string.format(
-            [[**VectorCode Vectorise Tool**:
+            [[**VectorCode `vectorise` Tool**:
   - New files added: %d
   - Existing files updated: %d
   - Orphaned files removed: %d

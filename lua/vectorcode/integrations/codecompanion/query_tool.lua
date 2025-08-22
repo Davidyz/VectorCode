@@ -520,14 +520,20 @@ If a query returned empty or repeated results, you should avoid using these quer
             count = {
               type = "integer",
               description = string.format(
-                "Number of documents or chunks to retrieve, must be positive. Use %d by default. Do not query for more than %d.",
+                "Number of documents or chunks to retrieve, must be positive. The default value of this parameter is %d. Do not query for more than %d results.",
                 tonumber(opts.default_num),
                 tonumber(opts.max_num)
               ),
             },
             project_root = {
               type = "string",
-              description = "Project path to search within (must be from 'ls' results or user instructions). If the user did not specify a project, you may omit this parameter and the tool will try to query from the current project. If this fails, use the `vectorcode_ls` tool and ask the user to clarify the project.",
+              description = [[
+The project that the files belong to.
+The value should be one of the following:
+- One of the paths from the `vectorcode_ls` tool;
+- User input;
+- `null` (omit this parameter), which means the current project, if found.
+                ]],
             },
             allow_summary = {
               type = "boolean",
@@ -617,7 +623,11 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
                 return process_result(res)
               end)
               :totable()),
-          string.format("**VectorCode Tool**: Retrieved %d %s(s)", stdout.count, mode)
+          string.format(
+            "**VectorCode `query` Tool**: Retrieved %d %s(s)",
+            stdout.count,
+            mode
+          )
         )
         if not opts.chunk_mode then
           for _, result in pairs(stdout.raw_results) do

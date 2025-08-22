@@ -67,7 +67,13 @@ Retrieve a list of files that have been added to the database for a given projec
           properties = {
             project_root = {
               type = "string",
-              description = "The project for which the indexed files will be listed. Leave this empty for the current project.",
+              description = [[
+The project that the files belong to.
+The value should be one of the following:
+- One of the paths from the `vectorcode_ls` tool;
+- User input;
+- `null` (omit this parameter), which means the current project, if found.
+]],
             },
           },
         },
