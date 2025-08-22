@@ -4,7 +4,7 @@ local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
 
----@alias VectoriseToolArgs { paths: string[], project_root: string }
+---@alias VectoriseToolArgs { paths: string[], project_root: string? }
 
 ---@alias VectoriseResult { add: integer, update: integer, removed: integer }
 
@@ -56,13 +56,17 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
             },
             project_root = {
               type = "string",
-              description = "The project that the files belong to. Either use a path from the `vectorcode_ls` tool, or leave empty to use the current git project. If the user did not specify a path, use empty string for this parameter.",
+              description = [[
+The project that the files belong to.
+The value should be one of the following:
+- One of the paths from the `vectorcode_ls` tool;
+- User input;
+- `null` (omit this parameter), which means the current project, if found.
+]],
             },
           },
-          required = { "paths", "project_root" },
-          additionalProperties = false,
+          required = { "paths" },
         },
-        strict = true,
       },
     },
     cmds = {
@@ -71,25 +75,14 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
       ---@return nil|{ status: string, data: string }
       function(tools, action, _, cb)
         local args = { "vectorise", "--pipe" }
-        local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root or ""))
-        if project_root ~= "" then
+        if action.project_root then
+          local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root))
           local stat = vim.uv.fs_stat(project_root)
           if stat and stat.type == "directory" then
             vim.list_extend(args, { "--project_root", project_root })
           else
             return { status = "error", data = "Invalid path " .. project_root }
           end
-        else
-          project_root = vim.fs.root(".", { ".vectorcode", ".git" }) or ""
-          if project_root == "" then
-            return {
-              status = "error",
-              data = "Please specify a project root. You may use the `vectorcode_ls` tool to find a list of existing projects.",
-            }
-          end
-        end
-        if project_root ~= "" then
-          action.project_root = project_root
         end
         if
           vim.iter(action.paths):any(function(p)
@@ -139,7 +132,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
         stderr = cc_common.flatten_table_to_string(stderr)
         tools.chat:add_tool_output(
           self,
-          string.format("**VectorCode Vectorise Tool: %s", stderr)
+          string.format("**VectorCode `vectorise` Tool: %s", stderr)
         )
       end,
       ---@param self CodeCompanion.Tools.Tool
@@ -151,7 +144,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
         tools.chat:add_tool_output(
           self,
           string.format(
-            [[**VectorCode Vectorise Tool**:
+            [[**VectorCode `vectorise` Tool**:
   - New files added: %d
   - Existing files updated: %d
   - Orphaned files removed: %d

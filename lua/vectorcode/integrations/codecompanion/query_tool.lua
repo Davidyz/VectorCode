@@ -10,7 +10,7 @@ local logger = vc_config.logger
 
 local job_runner = nil
 
----@alias QueryToolArgs { project_root:string, count: integer, query: string[], allow_summary: boolean, deduplicate: boolean }
+---@alias QueryToolArgs { project_root:string?, count: integer?, query: string[], allow_summary: boolean?, deduplicate: boolean? }
 
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
@@ -259,7 +259,7 @@ local function generate_summary(result, summarise_opts, cmd, callback)
 
   if
     summarise_opts.enabled
-    and cmd.allow_summary
+    and cmd.allow_summary ~= false
     and type(callback) == "function"
     and #result > 0
   then
@@ -365,6 +365,10 @@ return check_cli_wrap(function(opts)
           action
         )
 
+        if action.deduplicate == nil then
+          action.deduplicate = opts.no_duplicate
+        end
+
         job_runner = cc_common.initialise_runner(opts.use_lsp)
         assert(job_runner ~= nil, "Jobrunner not initialised!")
         assert(
@@ -381,14 +385,14 @@ return check_cli_wrap(function(opts)
 
         local args = { "query" }
         vim.list_extend(args, action.query)
-        vim.list_extend(args, { "--pipe", "-n", tostring(action.count) })
+        vim.list_extend(
+          args,
+          { "--pipe", "-n", tostring(action.count or opts.default_num) }
+        )
         if opts.chunk_mode then
           vim.list_extend(args, { "--include", "path", "chunk" })
         else
           vim.list_extend(args, { "--include", "path", "document" })
-        end
-        if action.project_root == "" then
-          action.project_root = nil
         end
         if action.project_root ~= nil then
           action.project_root = vim.fs.normalize(action.project_root)
@@ -516,14 +520,20 @@ If a query returned empty or repeated results, you should avoid using these quer
             count = {
               type = "integer",
               description = string.format(
-                "Number of documents or chunks to retrieve, must be positive. Use %d by default. Do not query for more than %d.",
+                "Number of documents or chunks to retrieve, must be positive. The default value of this parameter is %d. Do not query for more than %d results.",
                 tonumber(opts.default_num),
                 tonumber(opts.max_num)
               ),
             },
             project_root = {
               type = "string",
-              description = "Project path to search within (must be from 'ls' results or user instructions). Use empty string for the current project. If the user did not specify a project, assume that they're referring to the current project and use an empty string for this parameter. If this fails, use the `vectorcode_ls` tool and ask the user to clarify the project.",
+              description = [[
+The project that the files belong to.
+The value should be one of the following:
+- One of the paths from the `vectorcode_ls` tool;
+- User input;
+- `null` (omit this parameter), which means the current project, if found.
+                ]],
             },
             allow_summary = {
               type = "boolean",
@@ -544,14 +554,8 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
           },
           required = {
             "query",
-            "count",
-            "project_root",
-            "allow_summary",
-            "deduplicate",
           },
-          additionalProperties = false,
         },
-        strict = true,
       },
     },
     output = {
@@ -619,7 +623,11 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
                 return process_result(res)
               end)
               :totable()),
-          string.format("**VectorCode Tool**: Retrieved %d %s(s)", stdout.count, mode)
+          string.format(
+            "**VectorCode `query` Tool**: Retrieved %d %s(s)",
+            stdout.count,
+            mode
+          )
         )
         if not opts.chunk_mode then
           for _, result in pairs(stdout.raw_results) do
