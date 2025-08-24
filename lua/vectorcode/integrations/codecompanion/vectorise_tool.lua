@@ -52,7 +52,7 @@ The paths should be accurate (DO NOT ASSUME A PATH EXIST) and case case-sensitiv
             paths = {
               type = "array",
               items = { type = "string" },
-              description = "Paths to the files to be vectorised. DO NOT use directories for this parameter.",
+              description = "Paths to the files to be vectorised. DO NOT use directories for this parameter. You may use wildcard here if the user instructed to do so.",
             },
             project_root = {
               type = "string",

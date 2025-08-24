@@ -16,4 +16,7 @@ return {
       end
     end,
   },
+  prompts = {
+    require("vectorcode.integrations.codecompanion.prompts.nvim"),
+  },
 }
