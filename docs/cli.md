@@ -311,16 +311,11 @@ The JSON configuration file may hold the following values:
   guarantees the return of `n` documents, but with the risk of including too
   many less-relevant chunks that may affect the document selection. Default: 
   `-1` (any negative value means selecting documents based on all indexed chunks);
-- `reranker`: string, the reranking method to use. Currently supports
-  `CrossEncoderReranker` (default, using 
+- `reranker`: string, the reranking method to use. Currently supports `NaiveReranker` 
+  (sort chunks by the "distance" between the embedding vectors) and 
+  `CrossEncoderReranker` (using 
   [sentence-transformers cross-encoder](https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html)
-  ) and `NaiveReranker` (sort chunks by the "distance" between the embedding
-  vectors).
-  Note: If you're using a good embedding model (eg. a hosted service from OpenAI, or 
-  a LLM-based embedding model like 
-  [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)), you
-  may get better results if you use `NaiveReranker` here because a good embedding
-  model may understand texts better than a mediocre reranking model.
+  ).
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
   passed to the reranker class constructor. For `CrossEncoderReranker`, these
   are the options passed to the 

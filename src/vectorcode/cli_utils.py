@@ -100,7 +100,7 @@ class Config:
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
     query_exclude: list[Union[str, os.PathLike]] = field(default_factory=list)
-    reranker: Optional[str] = "CrossEncoderReranker"
+    reranker: Optional[str] = "NaiveReranker"
     reranker_params: dict[str, Any] = field(default_factory=lambda: {})
     check_item: Optional[str] = None
     use_absolute_path: bool = False

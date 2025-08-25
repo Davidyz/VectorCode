@@ -113,7 +113,7 @@ async def test_config_import_from_missing_keys():
     assert config.chunk_size == 2500
     assert config.overlap_ratio == 0.2
     assert config.query_multiplier == -1
-    assert config.reranker == "CrossEncoderReranker"
+    assert config.reranker == "NaiveReranker"
     assert config.reranker_params == {}
     assert config.db_settings is None
 
