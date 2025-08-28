@@ -53,7 +53,7 @@ def test_QueryResult_group_by_chunk():
     res2.query = ["bye"]
     res2.scores = [0.1]
 
-    grouped_dict = QueryResult.group(res1, res2, key="chunk")
+    grouped_dict = QueryResult.group(res1, res2, by="chunk")
     assert len(grouped_dict.keys()) == 1
     assert len(grouped_dict[res1.chunk]) == 2
 

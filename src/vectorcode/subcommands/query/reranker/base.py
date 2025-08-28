@@ -62,7 +62,7 @@ class RerankerBase(ABC):
         group_by = "path"
         if QueryInclude.chunk in self.configs.include:
             group_by = "chunk"
-        grouped_results = QueryResult.group(*results, key=group_by, top_k="auto")
+        grouped_results = QueryResult.group(*results, by=group_by, top_k="auto")
 
         scores: dict[Chunk | str, float] = {}
         for key in grouped_results.keys():

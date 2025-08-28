@@ -46,14 +46,25 @@ class QueryResult:
     @staticmethod
     def group(
         *results: "QueryResult",
-        key: Union[Literal["path"], Literal["chunk"]] = "path",
+        by: Union[Literal["path"], Literal["chunk"]] = "path",
         top_k: int | Literal["auto"] | None = None,
     ) -> dict[Chunk | str, list["QueryResult"]]:
-        assert key in {"path", "chunk"}
+        """
+        Group the query results based on `key`.
+
+        args:
+        - `by`: either "path" or "chunk"
+        - `top_k`: if set, only return the top k results for each group based on mean scores. If "auto", top k is decided by the mean number of results per group.
+
+        returns:
+        - a dictionary that maps either path or chunk to a list of `QueryResult` object.
+
+        """
+        assert by in {"path", "chunk"}
         grouped_result: dict[Chunk | str, list["QueryResult"]] = defaultdict(list)
 
         for res in results:
-            grouped_result[getattr(res, key)].append(res)
+            grouped_result[getattr(res, by)].append(res)
 
         if top_k == "auto":
             top_k = int(numpy.mean(tuple(len(i) for i in grouped_result.values())))
@@ -67,10 +78,16 @@ class QueryResult:
         return float(numpy.mean(self.scores))
 
     def __lt__(self, other: "QueryResult"):
+        assert isinstance(other, QueryResult)
         return self.mean_score() < other.mean_score()
 
     def __gt__(self, other: "QueryResult"):
+        assert isinstance(other, QueryResult)
         return self.mean_score() > other.mean_score()
+
+    def __eq__(self, other: object, /) -> bool:
+        assert isinstance(other, QueryResult)
+        return self.mean_score() == other.mean_score()
 
     def is_same_doc(self, other: "QueryResult") -> bool:
         return self.path == other.path and self.chunk == other.chunk
