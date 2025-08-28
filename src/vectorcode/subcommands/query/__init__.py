@@ -5,10 +5,11 @@ from typing import Any, cast
 
 from chromadb import GetResult, Where
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
+from chromadb.api.types import IncludeEnum, QueryResult
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
+from tree_sitter import Point
 
-from vectorcode.chunking import StringChunker
+from vectorcode.chunking import Chunk, StringChunker
 from vectorcode.cli_utils import (
     Config,
     QueryInclude,
@@ -22,6 +23,7 @@ from vectorcode.common import (
     get_embedding_function,
     verify_ef,
 )
+from vectorcode.subcommands.query import types as vectorcode_types
 from vectorcode.subcommands.query.reranker import (
     RerankerError,
     get_reranker,
@@ -30,14 +32,45 @@ from vectorcode.subcommands.query.reranker import (
 logger = logging.getLogger(name=__name__)
 
 
+def conver_query_results(
+    chroma_result: QueryResult, queries: list[str]
+) -> list[vectorcode_types.QueryResult]:
+    """Convert chromadb query result to in-house query results"""
+    assert chroma_result["documents"] is not None
+    assert chroma_result["distances"] is not None
+    assert chroma_result["metadatas"] is not None
+
+    chroma_results_list: list[vectorcode_types.QueryResult] = []
+    for q_i in range(len(queries)):
+        q = queries[q_i]
+        documents = chroma_result["documents"][q_i]
+        distances = chroma_result["distances"][q_i]
+        metadatas = chroma_result["metadatas"][q_i]
+        for doc, dist, meta in zip(documents, distances, metadatas):
+            chunk = Chunk(text=doc)
+            if meta["start"]:
+                chunk.start = Point(int(meta.get("start", 0)), 0)
+            if meta["end"]:
+                chunk.end = Point(int(meta.get("end", 0)) + 1, 0)
+            chroma_results_list.append(
+                vectorcode_types.QueryResult(
+                    chunk=chunk,
+                    path=str(meta.get("path", "")),
+                    query=(q,),
+                    scores=(-dist,),
+                )
+            )
+    return chroma_results_list
+
+
 async def get_query_result_files(
     collection: AsyncCollection, configs: Config
 ) -> list[str]:
     query_chunks = []
-    if configs.query:
-        chunker = StringChunker(configs)
-        for q in configs.query:
-            query_chunks.extend(str(i) for i in chunker.chunk(q))
+    assert configs.query, "Query messages cannot be empty."
+    chunker = StringChunker(configs)
+    for q in configs.query:
+        query_chunks.extend(str(i) for i in chunker.chunk(q))
 
     configs.query_exclude = [
         expand_path(i, True)
@@ -70,7 +103,7 @@ async def get_query_result_files(
         query_embeddings = get_embedding_function(configs)(query_chunks)
         if isinstance(configs.embedding_dims, int) and configs.embedding_dims > 0:
             query_embeddings = [e[: configs.embedding_dims] for e in query_embeddings]
-        results = await collection.query(
+        chroma_query_results: QueryResult = await collection.query(
             query_embeddings=query_embeddings,
             n_results=num_query,
             include=[
@@ -85,7 +118,9 @@ async def get_query_result_files(
         return []
 
     reranker = get_reranker(configs)
-    return await reranker.rerank(results)
+    return await reranker.rerank(
+        conver_query_results(chroma_query_results, configs.query)
+    )
 
 
 async def build_query_results(

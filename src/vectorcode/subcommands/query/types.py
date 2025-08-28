@@ -1,7 +1,7 @@
 import heapq
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Literal, Optional, Sequence, Union
+from typing import Literal, Union
 
 import numpy
 
@@ -22,8 +22,8 @@ class QueryResult:
 
     path: str
     chunk: Chunk
-    query: Sequence[str]
-    scores: Sequence[float]
+    query: tuple[str, ...]
+    scores: tuple[float, ...]
 
     @classmethod
     def merge(cls, *results: "QueryResult") -> "QueryResult":
@@ -47,13 +47,16 @@ class QueryResult:
     def group(
         *results: "QueryResult",
         key: Union[Literal["path"], Literal["chunk"]] = "path",
-        top_k: Optional[int] = None,
+        top_k: int | Literal["auto"] | None = None,
     ) -> dict[Chunk | str, list["QueryResult"]]:
         assert key in {"path", "chunk"}
         grouped_result: dict[Chunk | str, list["QueryResult"]] = defaultdict(list)
 
         for res in results:
             grouped_result[getattr(res, key)].append(res)
+
+        if top_k == "auto":
+            top_k = int(numpy.mean(tuple(len(i) for i in grouped_result.values())))
 
         if top_k and top_k > 0:
             for group in grouped_result.keys():

@@ -25,8 +25,8 @@ class Chunk:
     """
 
     text: str
-    start: Point
-    end: Point
+    start: Point | None = None
+    end: Point | None = None
 
     def __str__(self):
         return self.text
@@ -35,14 +35,20 @@ class Chunk:
         return hash(f"VectorCodeChunk({self.start}:{self.end}@{self.text})")
 
     def export_dict(self):
+        d: dict[str, str | dict[str, int]] = {"text": self.text}
         if self.start is not None:
-            return {
-                "text": self.text,
-                "start": {"row": self.start.row, "column": self.start.column},
-                "end": {"row": self.end.row, "column": self.end.column},
-            }
-        else:
-            return {"text": self.text}
+            d.update(
+                {
+                    "start": {"row": self.start.row, "column": self.start.column},
+                }
+            )
+        if self.end is not None:
+            d.update(
+                {
+                    "end": {"row": self.end.row, "column": self.end.column},
+                }
+            )
+        return d
 
 
 @dataclass
