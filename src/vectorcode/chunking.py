@@ -31,6 +31,9 @@ class Chunk:
     def __str__(self):
         return self.text
 
+    def __hash__(self) -> int:
+        return hash(f"VectorCodeChunk({self.start}:{self.end}@{self.text})")
+
     def export_dict(self):
         if self.start is not None:
             return {
