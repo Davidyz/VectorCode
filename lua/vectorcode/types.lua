@@ -130,7 +130,7 @@
 --- - `VectorCode.QueryResult[]`: a list of query results.
 ---@field enabled boolean|(fun(chat: CodeCompanion.Chat, results: VectorCode.QueryResult[]):boolean)|nil
 ---The adapter used for the summarisation task. When set to `nil`, the adapter from the current chat will be used.
----@field adapter string|CodeCompanion.Adapter|nil
+---@field adapter string|CodeCompanion.HTTPAdapter|nil
 ---The system prompt sent to the summariser model.
 ---When set to a function, it'll recieve the default system prompt as the only parameter,
 ---and should return the new (full) system prompt. This allows you to customise or rewrite the system prompt.

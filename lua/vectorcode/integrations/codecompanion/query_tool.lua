@@ -86,6 +86,23 @@ General Guidelines:
   },
 }
 
+---Returns the adapter if it works with summarysation.
+---@return CodeCompanion.HTTPAdapter|nil
+local function check_adapter_for_summarisation(adapter)
+  local resolved_adapter = require("codecompanion.adapters").resolve(adapter)
+  if resolved_adapter.type == nil or resolved_adapter.type == "http" then
+    return vim.deepcopy(resolved_adapter) --[[@as CodeCompanion.HTTPAdapter]]
+  else
+    vim.schedule_wrap(vim.notify)(
+      [[VectorCode query summarisation doesn't work with ACP adapters yet.
+Summarysation will be disabled.
+Please configure an HTTP adapter for it.]],
+      vim.log.levels.WARN,
+      vc_config.notify_opts
+    )
+  end
+end
+
 ---@param opts VectorCode.CodeCompanion.QueryToolOpts|{}|nil
 ---@return VectorCode.CodeCompanion.QueryToolOpts
 local get_query_tool_opts = function(opts)
@@ -228,7 +245,7 @@ end
 
 ---@alias ChatMessage {role: string, content:string}
 
----@param adapter CodeCompanion.Adapter
+---@param adapter CodeCompanion.HTTPAdapter
 ---@param system_prompt string
 ---@param user_messages string|string[]
 ---@return {messages: ChatMessage[], tools:table?}
@@ -263,9 +280,12 @@ local function generate_summary(result, summarise_opts, cmd, callback)
     and type(callback) == "function"
     and #result > 0
   then
-    ---@type CodeCompanion.Adapter
-    local adapter =
-      vim.deepcopy(require("codecompanion.adapters").resolve(summarise_opts.adapter))
+    ---@type CodeCompanion.HTTPAdapter?
+    local adapter = check_adapter_for_summarisation(summarise_opts.adapter)
+    if adapter == nil then
+      summarise_opts.enabled = false
+      return callback(result_xml)
+    end
 
     local system_prompt = summarise_opts.system_prompt
     if type(system_prompt) == "function" then
@@ -293,10 +313,10 @@ When summarising the code, pay extra attention on information related to the que
       vim.deepcopy(adapter:map_schema_to_params(cc_schema.get_default(adapter)))
     settings.opts.stream = false
 
-    ---@type CodeCompanion.Client
+    ---@type CodeCompanion.HTTPClient
     local client = http_client.new({ adapter = settings })
     client:request(payload, {
-      ---@param _adapter CodeCompanion.Adapter
+      ---@param _adapter CodeCompanion.HTTPAdapter
       callback = function(_, data, _adapter)
         if data then
           local res = _adapter.handlers.chat_output(_adapter, data)
