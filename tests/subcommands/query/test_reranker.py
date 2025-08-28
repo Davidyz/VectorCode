@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import numpy
 import pytest
 
-from vectorcode.cli_utils import Config
+from vectorcode.cli_utils import Config, QueryInclude
 from vectorcode.subcommands.query.reranker import (
     CrossEncoderReranker,
     NaiveReranker,
@@ -127,6 +127,22 @@ async def test_naive_reranker_rerank(naive_reranker_conf, query_result):
     # Check all returned items are strings (paths)
     for res in result:
         assert isinstance(res, str)
+
+
+@pytest.mark.asyncio
+async def test_naive_reranker_rerank_chunks(naive_reranker_conf, query_result):
+    """Test basic reranking functionality of NaiveReranker"""
+    naive_reranker_conf.include = [QueryInclude.chunk]
+    reranker = NaiveReranker(naive_reranker_conf)
+    chunk_text = {str(i.chunk) for i in query_result}
+    result = await reranker.rerank(query_result)
+
+    # Check the result is a list of paths with correct length
+    assert isinstance(result, list)
+    assert len(result) <= naive_reranker_conf.n_result
+
+    for res in result:
+        assert res in chunk_text
 
 
 @pytest.mark.asyncio

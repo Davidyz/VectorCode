@@ -161,7 +161,7 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
             await remove_orphanes(collection, collection_lock, stats, stats_lock)
 
         return stats.to_dict()
-    except Exception as e:
+    except Exception as e:  # pragma: nocover
         if isinstance(e, McpError):
             logger.error("Failed to access collection at %s", project_root)
             raise
@@ -225,7 +225,7 @@ async def query_tool(
             logger.info("Retrieved the following files: %s", result_paths)
             return results
 
-    except Exception as e:
+    except Exception as e:  # pragma: nocover
         if isinstance(e, McpError):
             logger.error("Failed to access collection at %s", project_root)
             raise
