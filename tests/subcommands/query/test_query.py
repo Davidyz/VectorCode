@@ -9,7 +9,7 @@ from chromadb.errors import InvalidCollectionException, InvalidDimensionExceptio
 from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.subcommands.query import (
     build_query_results,
-    conver_query_results,
+    convert_query_results,
     get_query_result_files,
     query,
 )
@@ -66,6 +66,7 @@ def mock_config():
 @pytest.mark.asyncio
 async def test_get_query_result_files(mock_collection, mock_config):
     mock_embedding_function = MagicMock()
+    mock_config.embedding_dims = 10
     with (
         patch("vectorcode.subcommands.query.get_reranker") as mock_get_reranker,
         patch(
@@ -99,11 +100,14 @@ async def test_get_query_result_files(mock_collection, mock_config):
         # Check reranker was used correctly
         mock_get_reranker.assert_called_once_with(mock_config)
         mock_reranker_instance.rerank.assert_called_once_with(
-            conver_query_results(mock_collection.query.return_value, mock_config.query)
+            convert_query_results(mock_collection.query.return_value, mock_config.query)
         )
 
         # Check the result
         assert result == ["file1.py", "file2.py", "file3.py"]
+        assert all(
+            len(i) == 10 for i in mock_collection.query.kwargs["query_embeddings"]
+        )
 
 
 @pytest.mark.asyncio

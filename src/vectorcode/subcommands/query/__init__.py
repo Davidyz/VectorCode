@@ -32,7 +32,7 @@ from vectorcode.subcommands.query.reranker import (
 logger = logging.getLogger(name=__name__)
 
 
-def conver_query_results(
+def convert_query_results(
     chroma_result: QueryResult, queries: list[str]
 ) -> list[vectorcode_types.QueryResult]:
     """Convert chromadb query result to in-house query results"""
@@ -119,7 +119,7 @@ async def get_query_result_files(
 
     reranker = get_reranker(configs)
     return await reranker.rerank(
-        conver_query_results(chroma_query_results, configs.query)
+        convert_query_results(chroma_query_results, configs.query)
     )
 
 
