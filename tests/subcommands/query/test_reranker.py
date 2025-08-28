@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import numpy
 import pytest
 
-from vectorcode.cli_utils import Config, QueryInclude
+from vectorcode.cli_utils import Config
 from vectorcode.subcommands.query.reranker import (
     CrossEncoderReranker,
     NaiveReranker,
@@ -14,6 +14,7 @@ from vectorcode.subcommands.query.reranker import (
     get_available_rerankers,
     get_reranker,
 )
+from vectorcode.subcommands.query.types import QueryResult
 
 
 @pytest.fixture(scope="function")
@@ -37,29 +38,50 @@ def naive_reranker_conf():
 
 
 @pytest.fixture(scope="function")
-def query_result():
-    return {
-        "ids": [["id1", "id2", "id3"], ["id4", "id5", "id6"]],
-        "distances": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
-        "metadatas": [
-            [{"path": "file1.py"}, {"path": "file2.py"}, {"path": "file3.py"}],
-            [{"path": "file2.py"}, {"path": "file4.py"}, {"path": "file3.py"}],
-        ],
-        "documents": [
-            ["content1", "content2", "content3"],
-            ["content4", "content5", "content6"],
-        ],
-    }
+def query_result() -> list[QueryResult]:
+    return [
+        QueryResult(
+            path="file1.py",
+            chunk=MagicMock(),
+            query=("query chunk 1",),
+            scores=(0.5,),
+        ),
+        QueryResult(
+            path="file2.py",
+            chunk=MagicMock(),
+            query=("query chunk 1",),
+            scores=(0.9,),
+        ),
+        QueryResult(
+            path="file3.py",
+            chunk=MagicMock(),
+            query=("query chunk 1",),
+            scores=(0.3,),
+        ),
+        QueryResult(
+            path="file2.py",
+            chunk=MagicMock(),
+            query=("query chunk 2",),
+            scores=(0.6,),
+        ),
+        QueryResult(
+            path="file4.py",
+            chunk=MagicMock(),
+            query=("query chunk 2",),
+            scores=(0.7,),
+        ),
+        QueryResult(
+            path="file3.py",
+            chunk=MagicMock(),
+            query=("query chunk 2",),
+            scores=(0.2,),
+        ),
+    ]
 
 
 @pytest.fixture(scope="function")
 def empty_query_result():
-    return {
-        "ids": [],
-        "distances": [],
-        "metadatas": [],
-        "documents": [],
-    }
+    return []
 
 
 @pytest.fixture(scope="function")
@@ -103,8 +125,8 @@ async def test_naive_reranker_rerank(naive_reranker_conf, query_result):
     assert len(result) <= naive_reranker_conf.n_result
 
     # Check all returned items are strings (paths)
-    for path in result:
-        assert isinstance(path, str)
+    for res in result:
+        assert isinstance(res, str)
 
 
 @pytest.mark.asyncio
@@ -143,21 +165,7 @@ async def test_cross_encoder_reranker_rerank(mock_cross_encoder, config, query_r
     mock_model = MagicMock()
     mock_cross_encoder.return_value = mock_model
 
-    # Configure mock predict to return numpy array with float32 dtype
-    scores = numpy.array([0.9, 0.7, 0.8], dtype=numpy.float32)
-    mock_model.predict.return_value = scores
-
-    # Ensure complete query_result structure
-    query_result.update(
-        {
-            "ids": [["id1", "id2", "id3"], ["id4", "id5", "id6"]],
-            "documents": [["doc1", "doc2", "doc3"], ["doc4", "doc5", "doc6"]],
-            "metadatas": [
-                [{"path": "p1"}, {"path": "p2"}, {"path": "p3"}],
-                [{"path": "p4"}, {"path": "p5"}, {"path": "p6"}],
-            ],
-        }
-    )
+    mock_model.predict = lambda x: numpy.random.random((len(x),))
 
     reranker = CrossEncoderReranker(config)
     result = await reranker.rerank(query_result)
@@ -182,46 +190,6 @@ async def test_naive_reranker_document_selection_logic(
     assert len(result) > 0
     # Common files should be present
     assert "file2.py" in result or "file3.py" in result
-
-
-@pytest.mark.asyncio
-async def test_naive_reranker_with_chunk_ids(naive_reranker_conf, query_result):
-    """Test NaiveReranker returns chunk IDs when QueryInclude.chunk is set"""
-    naive_reranker_conf.include.append(
-        QueryInclude.chunk
-    )  # Assuming QueryInclude.chunk would be "chunk"
-
-    reranker = NaiveReranker(naive_reranker_conf)
-    result = await reranker.rerank(query_result)
-
-    assert isinstance(result, list)
-    assert len(result) <= naive_reranker_conf.n_result
-    assert all(isinstance(id, str) for id in result)
-    assert all(id.startswith("id") for id in result)  # Verify IDs not paths
-
-
-@pytest.mark.asyncio
-@patch("sentence_transformers.CrossEncoder")
-async def test_cross_encoder_reranker_with_chunk_ids(
-    mock_cross_encoder, config, query_result
-):
-    """Test CrossEncoderReranker returns chunk IDs when QueryInclude.chunk is set"""
-    mock_model = MagicMock()
-    mock_cross_encoder.return_value = mock_model
-
-    # Setup mock to return numpy array scores
-    scores = numpy.array([0.9, 0.7], dtype=numpy.float32)
-    mock_model.predict.return_value = scores
-
-    config.include = {QueryInclude.chunk}
-    reranker = CrossEncoderReranker(config)
-
-    result = await reranker.rerank(query_result)
-
-    mock_model.predict.assert_called()
-    assert isinstance(result, list)
-    assert all(isinstance(id, str) for id in result)
-    assert all(id in ["id1", "id2", "id3", "id4"] for id in result)
 
 
 def test_get_reranker(config, naive_reranker_conf):

@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import sys
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, cast
@@ -161,13 +162,16 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
 
         return stats.to_dict()
     except Exception as e:
-        logger.error("Failed to access collection at %s", project_root)
-        raise McpError(
-            ErrorData(
-                code=1,
-                message=f"{e.__class__.__name__}: Failed to create the collection at {project_root}.",
-            )
-        )
+        if isinstance(e, McpError):
+            logger.error("Failed to access collection at %s", project_root)
+            raise
+        else:
+            raise McpError(
+                ErrorData(
+                    code=1,
+                    message="\n".join(traceback.format_exception(e)),
+                )
+            ) from e
 
 
 async def query_tool(
@@ -222,13 +226,16 @@ async def query_tool(
             return results
 
     except Exception as e:
-        logger.error("Failed to access collection at %s", project_root)
-        raise McpError(
-            ErrorData(
-                code=1,
-                message=f"{e.__class__.__name__}: Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
-            )
-        )
+        if isinstance(e, McpError):
+            logger.error("Failed to access collection at %s", project_root)
+            raise
+        else:
+            raise McpError(
+                ErrorData(
+                    code=1,
+                    message="\n".join(traceback.format_exception(e)),
+                )
+            ) from e
 
 
 async def ls_files(project_root: str) -> list[str]:

@@ -48,9 +48,9 @@ def conver_query_results(
         metadatas = chroma_result["metadatas"][q_i]
         for doc, dist, meta in zip(documents, distances, metadatas):
             chunk = Chunk(text=doc)
-            if meta["start"]:
+            if meta.get("start"):
                 chunk.start = Point(int(meta.get("start", 0)), 0)
-            if meta["end"]:
+            if meta.get("end"):
                 chunk.end = Point(int(meta.get("end", 0)) + 1, 0)
             chroma_results_list.append(
                 vectorcode_types.QueryResult(

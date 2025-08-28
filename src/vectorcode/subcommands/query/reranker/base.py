@@ -46,7 +46,9 @@ class RerankerBase(ABC):
             raise
 
     @abstractmethod
-    async def compute_similarity(self, results: list[QueryResult]):  # pragma: nocover
+    async def compute_similarity(
+        self, results: list[QueryResult]
+    ) -> None:  # pragma: nocover
         """
         Modify the `QueryResult.scores` field IN-PLACE so that they contain the correct scores.
         """
@@ -55,7 +57,7 @@ class RerankerBase(ABC):
     async def rerank(self, results: list[QueryResult]) -> list[str]:
         if len(results) == 0:
             return []
-        results = await self.compute_similarity(results)
+        await self.compute_similarity(results)
 
         group_by = "path"
         if QueryInclude.chunk in self.configs.include:

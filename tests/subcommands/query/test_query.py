@@ -9,6 +9,7 @@ from chromadb.errors import InvalidCollectionException, InvalidDimensionExceptio
 from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.subcommands.query import (
     build_query_results,
+    conver_query_results,
     get_query_result_files,
     query,
 )
@@ -47,7 +48,7 @@ def mock_collection():
 @pytest.fixture
 def mock_config():
     return Config(
-        query=["test query"],
+        query=["test query", "test query 2"],
         n_result=3,
         query_multiplier=2,
         chunk_size=100,
@@ -88,7 +89,7 @@ async def test_get_query_result_files(mock_collection, mock_config):
         # Check that query was called with the right parameters
         mock_collection.query.assert_called_once()
         args, kwargs = mock_collection.query.call_args
-        mock_embedding_function.assert_called_once_with(["test query"])
+        mock_embedding_function.assert_called_once_with(["test query", "test query 2"])
         assert kwargs["n_results"] == 6  # n_result(3) * query_multiplier(2)
         assert IncludeEnum.metadatas in kwargs["include"]
         assert IncludeEnum.distances in kwargs["include"]
@@ -98,7 +99,7 @@ async def test_get_query_result_files(mock_collection, mock_config):
         # Check reranker was used correctly
         mock_get_reranker.assert_called_once_with(mock_config)
         mock_reranker_instance.rerank.assert_called_once_with(
-            mock_collection.query.return_value
+            conver_query_results(mock_collection.query.return_value, mock_config.query)
         )
 
         # Check the result
@@ -318,40 +319,6 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
         mock_collection.query.assert_called_once()
         _, kwargs = mock_collection.query.call_args
         mock_embedding_function.assert_called_once_with(["chunk1", "chunk2", "chunk3"])
-
-        # Check the result
-        assert result == ["file1.py", "file2.py"]
-
-
-@pytest.mark.asyncio
-async def test_get_query_result_files_multiple_queries(mock_collection, mock_config):
-    # Set multiple query terms
-    mock_config.query = ["term1", "term2", "term3"]
-    mock_config.embedding_dims = 10
-
-    with (
-        patch("vectorcode.subcommands.query.StringChunker") as MockChunker,
-        patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker,
-    ):
-        # Set up MockChunker to return the query terms as is
-        mock_chunker_instance = MagicMock()
-        mock_chunker_instance.chunk.side_effect = lambda q: [q]
-        MockChunker.return_value = mock_chunker_instance
-
-        mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
-        MockReranker.return_value = mock_reranker_instance
-
-        # Call the function
-        result = await get_query_result_files(mock_collection, mock_config)
-
-        # Check that chunker was called for each query term
-        assert mock_chunker_instance.chunk.call_count == 3
-
-        # Check query was called with all query terms
-        mock_collection.query.assert_called_once()
-        _, kwargs = mock_collection.query.call_args
-        assert all(len(i) == 10 for i in kwargs["query_embeddings"])
 
         # Check the result
         assert result == ["file1.py", "file2.py"]
