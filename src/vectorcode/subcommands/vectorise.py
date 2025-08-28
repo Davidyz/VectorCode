@@ -139,8 +139,10 @@ async def chunked_add(
                     "sha256": new_sha256,
                 }
                 if isinstance(chunk, Chunk):
-                    meta["start"] = chunk.start.row
-                    meta["end"] = chunk.end.row
+                    if chunk.start:
+                        meta["start"] = chunk.start.row
+                    if chunk.end:
+                        meta["end"] = chunk.end.row
 
                 metas.append(meta)
             async with collection_lock:
