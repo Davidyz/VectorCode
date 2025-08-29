@@ -50,10 +50,6 @@ class Chunk:
                     "end": {"row": self.end.row, "column": self.end.column},
                 }
             )
-        if self.path is not None:
-            d["path"] = self.path
-        if self.id:
-            d["chunk_id"] = self.id
         return d
 
 

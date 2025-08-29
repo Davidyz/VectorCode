@@ -140,7 +140,7 @@ async def build_query_results(
         else:
             rel_path = os.path.relpath(path, configs.project_root)
             if isinstance(rel_path, bytes):  # pragma: nocover
-                # for some reasons some python versions report that `os.path.relpath` returns a string.
+                # for some reasons, some python versions report that `os.path.relpath` returns a string.
                 rel_path = rel_path.decode()
             return rel_path
 
