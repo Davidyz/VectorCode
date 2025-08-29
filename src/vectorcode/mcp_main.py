@@ -215,13 +215,14 @@ async def query_tool(
                 configs=query_config,
             )
             results: list[str] = []
-            for path in result_paths:
-                if os.path.isfile(path):
-                    with open(path) as fin:
-                        rel_path = os.path.relpath(path, config.project_root)
-                        results.append(
-                            f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
-                        )
+            for result in result_paths:
+                if isinstance(result, str):
+                    if os.path.isfile(result):
+                        with open(result) as fin:
+                            rel_path = os.path.relpath(result, config.project_root)
+                            results.append(
+                                f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
+                            )
             logger.info("Retrieved the following files: %s", result_paths)
             return results
 
