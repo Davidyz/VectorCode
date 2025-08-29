@@ -50,6 +50,10 @@ class Chunk:
                     "end": {"row": self.end.row, "column": self.end.column},
                 }
             )
+        if self.path:
+            d["path"] = self.path
+        if self.id:
+            d["chunk_id"] = self.id
         return d
 
 
@@ -140,7 +144,7 @@ class FileChunker(ChunkerBase):
     ) -> Generator[Chunk, None, None]:
         logger.info("Started chunking %s using FileChunker.", data.name)
         lines = data.readlines()
-        if len(lines) == 0:
+        if len(lines) == 0:  # pragma: nocover
             return
         if (
             self.config.chunk_size < 0
