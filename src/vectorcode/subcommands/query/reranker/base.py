@@ -50,20 +50,25 @@ class RerankerBase(ABC):
         self, results: list[QueryResult]
     ) -> None:  # pragma: nocover
         """
-        Modify the `QueryResult.scores` field IN-PLACE so that they contain the correct scores.
+        Modify the `QueryResult.scores` field **IN-PLACE** so that they contain the correct scores.
         """
         raise NotImplementedError
 
-    async def rerank(self, results: list[QueryResult]) -> list[str]:
+    async def rerank(self, results: list[QueryResult]) -> list[str | Chunk]:
         if len(results) == 0:
             return []
+
+        # compute the similarity scores
         await self.compute_similarity(results)
 
+        # group the results by the query type: file (path) or chunk
+        # and only keep the `top_k` results for each group
         group_by = "path"
         if QueryInclude.chunk in self.configs.include:
             group_by = "chunk"
         grouped_results = QueryResult.group(*results, by=group_by, top_k="auto")
 
+        # compute the mean scores for each of the groups
         scores: dict[Chunk | str, float] = {}
         for key in grouped_results.keys():
             scores[key] = float(
@@ -71,7 +76,7 @@ class RerankerBase(ABC):
             )
 
         return list(
-            str(i)
+            i
             for i in heapq.nlargest(
                 self.configs.n_result, grouped_results.keys(), key=lambda x: scores[x]
             )

@@ -1,7 +1,7 @@
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from chromadb import GetResult
+from chromadb import QueryResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
@@ -136,42 +136,33 @@ async def test_build_query_results_chunk_mode_success(mock_collection, mock_conf
     mock_config.include = [QueryInclude.chunk, QueryInclude.path]
     mock_config.project_root = "/test/project"
     mock_config.use_absolute_path = False
-    identifier = "chunk_id_1"
+    mock_config.query = ["dummy_query"]
+    identifier = "chunk_id"
     file_path = "/test/project/subdir/file1.py"
     relative_path = "subdir/file1.py"
     start_line = 5
     end_line = 10
 
     full_file_content_lines = [f"line {i}\n" for i in range(15)]
-    full_file_content = "".join(full_file_content_lines)
 
     expected_chunk_content = "".join(full_file_content_lines[start_line : end_line + 1])
 
-    mock_get_result = GetResult(
-        ids=[identifier],
-        embeddings=None,
-        documents=["original chunk doc in db"],
-        metadatas=[{"path": file_path, "start": start_line, "end": end_line}],
+    mock_get_result = QueryResult(
+        ids=[[identifier]],
+        documents=[[expected_chunk_content]],
+        metadatas=[[{"path": file_path, "start": start_line, "end": end_line}]],
+        distances=[[0.2]],
     )
-
+    mock_collection.query = AsyncMock(return_value=mock_get_result)
     with (
         patch(
             "vectorcode.subcommands.query.get_query_result_files",
-            return_value=[identifier],
+            return_value=await get_query_result_files(mock_collection, mock_config),
         ),
         patch("os.path.isfile", return_value=False),
-        patch("builtins.open", mock_open(read_data=full_file_content)) as mocked_open,
         patch("os.path.relpath", return_value=relative_path) as mock_relpath,
     ):
-        mock_collection.get = AsyncMock(return_value=mock_get_result)
-
         results = await build_query_results(mock_collection, mock_config)
-
-        mock_collection.get.assert_called_once_with(
-            identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
-        )
-
-        mocked_open.assert_called_once_with(file_path)
 
         mock_relpath.assert_called_once_with(file_path, str(mock_config.project_root))
 

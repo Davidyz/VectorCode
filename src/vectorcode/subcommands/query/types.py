@@ -86,8 +86,9 @@ class QueryResult:
         return self.mean_score() > other.mean_score()
 
     def __eq__(self, other: object, /) -> bool:
-        assert isinstance(other, QueryResult)
-        return self.mean_score() == other.mean_score()
+        return (
+            isinstance(other, QueryResult) and self.mean_score() == other.mean_score()
+        )
 
     def is_same_doc(self, other: "QueryResult") -> bool:
         return self.path == other.path and self.chunk == other.chunk

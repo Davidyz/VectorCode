@@ -27,12 +27,14 @@ class Chunk:
     text: str
     start: Point | None = None
     end: Point | None = None
+    path: str | None = None
+    id: str | None = None
 
     def __str__(self):
         return self.text
 
     def __hash__(self) -> int:
-        return hash(f"VectorCodeChunk({self.start}:{self.end}@{self.text})")
+        return hash(f"VectorCodeChunk_{self.path}({self.start}:{self.end}@{self.text})")
 
     def export_dict(self):
         d: dict[str, str | dict[str, int]] = {"text": self.text}
@@ -48,6 +50,10 @@ class Chunk:
                     "end": {"row": self.end.row, "column": self.end.column},
                 }
             )
+        if self.path is not None:
+            d["path"] = self.path
+        if self.id:
+            d["chunk_id"] = self.id
         return d
 
 

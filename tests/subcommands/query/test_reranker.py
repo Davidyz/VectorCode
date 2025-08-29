@@ -134,7 +134,7 @@ async def test_naive_reranker_rerank_chunks(naive_reranker_conf, query_result):
     """Test basic reranking functionality of NaiveReranker"""
     naive_reranker_conf.include = [QueryInclude.chunk]
     reranker = NaiveReranker(naive_reranker_conf)
-    chunk_text = {str(i.chunk) for i in query_result}
+    chunks = {i.chunk for i in query_result}
     result = await reranker.rerank(query_result)
 
     # Check the result is a list of paths with correct length
@@ -142,7 +142,7 @@ async def test_naive_reranker_rerank_chunks(naive_reranker_conf, query_result):
     assert len(result) <= naive_reranker_conf.n_result
 
     for res in result:
-        assert res in chunk_text
+        assert res in chunks
 
 
 @pytest.mark.asyncio
