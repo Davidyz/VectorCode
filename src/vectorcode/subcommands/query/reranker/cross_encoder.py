@@ -1,8 +1,8 @@
-import asyncio
 import logging
 from typing import Any
 
 from vectorcode.cli_utils import Config
+from vectorcode.subcommands.query.types import QueryResult
 
 from .base import RerankerBase
 
@@ -34,8 +34,8 @@ class CrossEncoderReranker(RerankerBase):
         model_name = configs.reranker_params.pop("model_name_or_path")
         self.model = CrossEncoder(model_name, **configs.reranker_params)
 
-    async def compute_similarity(self, results: list[str], query_message: str):
-        scores = await asyncio.to_thread(
-            self.model.predict, [(chunk, query_message) for chunk in results]
-        )
-        return list(float(i) for i in scores)
+    async def compute_similarity(self, results: list[QueryResult]):
+        scores = self.model.predict([(str(res.chunk), res.query[0]) for res in results])
+
+        for res, score in zip(results, scores):
+            res.scores = (score,)

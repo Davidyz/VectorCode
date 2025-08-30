@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Sequence
+from typing import Any
 
 from vectorcode.cli_utils import Config
+from vectorcode.subcommands.query.types import QueryResult
 
 from .base import RerankerBase
 
@@ -17,15 +18,8 @@ class NaiveReranker(RerankerBase):
     def __init__(self, configs: Config, **kwargs: Any):
         super().__init__(configs)
 
-    async def compute_similarity(
-        self, results: list[str], query_message: str
-    ) -> Sequence[float]:
-        assert self._raw_results is not None, "Expecting raw results from the database."
-        assert self._raw_results.get("distances") is not None
-        assert self.configs.query, "Expecting query messages in self.configs"
-        idx = self.configs.query.index(query_message)
-        dist = self._raw_results.get("distances")
-        if dist is None:  # pragma: nocover
-            raise ValueError("QueryResult should contain distances!")
-        else:
-            return list(-i for i in dist[idx])
+    async def compute_similarity(self, results: list[QueryResult]):
+        """
+        Do nothing, because the QueryResult objects already contain distances.
+        """
+        pass

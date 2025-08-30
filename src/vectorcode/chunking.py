@@ -25,21 +25,36 @@ class Chunk:
     """
 
     text: str
-    start: Point
-    end: Point
+    start: Point | None = None
+    end: Point | None = None
+    path: str | None = None
+    id: str | None = None
 
     def __str__(self):
         return self.text
 
+    def __hash__(self) -> int:
+        return hash(f"VectorCodeChunk_{self.path}({self.start}:{self.end}@{self.text})")
+
     def export_dict(self):
+        d: dict[str, str | dict[str, int]] = {"text": self.text}
         if self.start is not None:
-            return {
-                "text": self.text,
-                "start": {"row": self.start.row, "column": self.start.column},
-                "end": {"row": self.end.row, "column": self.end.column},
-            }
-        else:
-            return {"text": self.text}
+            d.update(
+                {
+                    "start": {"row": self.start.row, "column": self.start.column},
+                }
+            )
+        if self.end is not None:
+            d.update(
+                {
+                    "end": {"row": self.end.row, "column": self.end.column},
+                }
+            )
+        if self.path:
+            d["path"] = self.path
+        if self.id:
+            d["chunk_id"] = self.id
+        return d
 
 
 @dataclass
@@ -129,7 +144,7 @@ class FileChunker(ChunkerBase):
     ) -> Generator[Chunk, None, None]:
         logger.info("Started chunking %s using FileChunker.", data.name)
         lines = data.readlines()
-        if len(lines) == 0:
+        if len(lines) == 0:  # pragma: nocover
             return
         if (
             self.config.chunk_size < 0

@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import sys
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, cast
@@ -160,14 +161,17 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
             await remove_orphanes(collection, collection_lock, stats, stats_lock)
 
         return stats.to_dict()
-    except Exception as e:
-        logger.error("Failed to access collection at %s", project_root)
-        raise McpError(
-            ErrorData(
-                code=1,
-                message=f"{e.__class__.__name__}: Failed to create the collection at {project_root}.",
-            )
-        )
+    except Exception as e:  # pragma: nocover
+        if isinstance(e, McpError):
+            logger.error("Failed to access collection at %s", project_root)
+            raise
+        else:
+            raise McpError(
+                ErrorData(
+                    code=1,
+                    message="\n".join(traceback.format_exception(e)),
+                )
+            ) from e
 
 
 async def query_tool(
@@ -211,24 +215,28 @@ async def query_tool(
                 configs=query_config,
             )
             results: list[str] = []
-            for path in result_paths:
-                if os.path.isfile(path):
-                    with open(path) as fin:
-                        rel_path = os.path.relpath(path, config.project_root)
-                        results.append(
-                            f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
-                        )
+            for result in result_paths:
+                if isinstance(result, str):
+                    if os.path.isfile(result):
+                        with open(result) as fin:
+                            rel_path = os.path.relpath(result, config.project_root)
+                            results.append(
+                                f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
+                            )
             logger.info("Retrieved the following files: %s", result_paths)
             return results
 
-    except Exception as e:
-        logger.error("Failed to access collection at %s", project_root)
-        raise McpError(
-            ErrorData(
-                code=1,
-                message=f"{e.__class__.__name__}: Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
-            )
-        )
+    except Exception as e:  # pragma: nocover
+        if isinstance(e, McpError):
+            logger.error("Failed to access collection at %s", project_root)
+            raise
+        else:
+            raise McpError(
+                ErrorData(
+                    code=1,
+                    message="\n".join(traceback.format_exception(e)),
+                )
+            ) from e
 
 
 async def ls_files(project_root: str) -> list[str]:

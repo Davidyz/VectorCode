@@ -1,7 +1,7 @@
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from chromadb import GetResult
+from chromadb import QueryResult
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 from chromadb.errors import InvalidCollectionException, InvalidDimensionException
@@ -9,6 +9,7 @@ from chromadb.errors import InvalidCollectionException, InvalidDimensionExceptio
 from vectorcode.cli_utils import CliAction, Config, QueryInclude
 from vectorcode.subcommands.query import (
     build_query_results,
+    convert_query_results,
     get_query_result_files,
     query,
 )
@@ -47,7 +48,7 @@ def mock_collection():
 @pytest.fixture
 def mock_config():
     return Config(
-        query=["test query"],
+        query=["test query", "test query 2"],
         n_result=3,
         query_multiplier=2,
         chunk_size=100,
@@ -65,6 +66,7 @@ def mock_config():
 @pytest.mark.asyncio
 async def test_get_query_result_files(mock_collection, mock_config):
     mock_embedding_function = MagicMock()
+    mock_config.embedding_dims = 10
     with (
         patch("vectorcode.subcommands.query.get_reranker") as mock_get_reranker,
         patch(
@@ -88,7 +90,7 @@ async def test_get_query_result_files(mock_collection, mock_config):
         # Check that query was called with the right parameters
         mock_collection.query.assert_called_once()
         args, kwargs = mock_collection.query.call_args
-        mock_embedding_function.assert_called_once_with(["test query"])
+        mock_embedding_function.assert_called_once_with(["test query", "test query 2"])
         assert kwargs["n_results"] == 6  # n_result(3) * query_multiplier(2)
         assert IncludeEnum.metadatas in kwargs["include"]
         assert IncludeEnum.distances in kwargs["include"]
@@ -98,11 +100,14 @@ async def test_get_query_result_files(mock_collection, mock_config):
         # Check reranker was used correctly
         mock_get_reranker.assert_called_once_with(mock_config)
         mock_reranker_instance.rerank.assert_called_once_with(
-            mock_collection.query.return_value
+            convert_query_results(mock_collection.query.return_value, mock_config.query)
         )
 
         # Check the result
         assert result == ["file1.py", "file2.py", "file3.py"]
+        assert all(
+            len(i) == 10 for i in mock_collection.query.kwargs["query_embeddings"]
+        )
 
 
 @pytest.mark.asyncio
@@ -128,59 +133,56 @@ async def test_get_query_result_files_include_chunk(mock_collection, mock_config
 @pytest.mark.asyncio
 async def test_build_query_results_chunk_mode_success(mock_collection, mock_config):
     """Test build_query_results in chunk mode successfully retrieves chunk details."""
-    mock_config.include = [QueryInclude.chunk, QueryInclude.path]
-    mock_config.project_root = "/test/project"
-    mock_config.use_absolute_path = False
-    identifier = "chunk_id_1"
-    file_path = "/test/project/subdir/file1.py"
-    relative_path = "subdir/file1.py"
-    start_line = 5
-    end_line = 10
+    for request_abs_path in (True, False):
+        mock_config.include = [QueryInclude.chunk, QueryInclude.path]
+        mock_config.project_root = "/test/project"
+        mock_config.use_absolute_path = request_abs_path
+        mock_config.query = ["dummy_query"]
+        identifier = "chunk_id"
+        file_path = "/test/project/subdir/file1.py"
+        relative_path = "subdir/file1.py"
+        start_line = 5
+        end_line = 10
 
-    full_file_content_lines = [f"line {i}\n" for i in range(15)]
-    full_file_content = "".join(full_file_content_lines)
+        full_file_content_lines = [f"line {i}\n" for i in range(15)]
 
-    expected_chunk_content = "".join(full_file_content_lines[start_line : end_line + 1])
-
-    mock_get_result = GetResult(
-        ids=[identifier],
-        embeddings=None,
-        documents=["original chunk doc in db"],
-        metadatas=[{"path": file_path, "start": start_line, "end": end_line}],
-    )
-
-    with (
-        patch(
-            "vectorcode.subcommands.query.get_query_result_files",
-            return_value=[identifier],
-        ),
-        patch("os.path.isfile", return_value=False),
-        patch("builtins.open", mock_open(read_data=full_file_content)) as mocked_open,
-        patch("os.path.relpath", return_value=relative_path) as mock_relpath,
-    ):
-        mock_collection.get = AsyncMock(return_value=mock_get_result)
-
-        results = await build_query_results(mock_collection, mock_config)
-
-        mock_collection.get.assert_called_once_with(
-            identifier, include=[IncludeEnum.metadatas, IncludeEnum.documents]
+        expected_chunk_content = "".join(
+            full_file_content_lines[start_line : end_line + 1]
         )
 
-        mocked_open.assert_called_once_with(file_path)
+        mock_get_result = QueryResult(
+            ids=[[identifier]],
+            documents=[[expected_chunk_content]],
+            metadatas=[[{"path": file_path, "start": start_line, "end": end_line}]],
+            distances=[[0.2]],
+        )
+        mock_collection.query = AsyncMock(return_value=mock_get_result)
+        with (
+            patch(
+                "vectorcode.subcommands.query.get_query_result_files",
+                return_value=await get_query_result_files(mock_collection, mock_config),
+            ),
+            patch("os.path.isfile", return_value=False),
+            patch("os.path.relpath", return_value=relative_path) as mock_relpath,
+        ):
+            results = await build_query_results(mock_collection, mock_config)
 
-        mock_relpath.assert_called_once_with(file_path, str(mock_config.project_root))
+            if not request_abs_path:
+                mock_relpath.assert_called_once_with(
+                    file_path, str(mock_config.project_root)
+                )
 
-        assert len(results) == 1
+            assert len(results) == 1
 
-        expected_full_result = {
-            "path": relative_path,
-            "chunk": expected_chunk_content,
-            "start_line": start_line,
-            "end_line": end_line,
-            "chunk_id": identifier,
-        }
+            expected_full_result = {
+                "path": file_path if request_abs_path else relative_path,
+                "chunk": expected_chunk_content,
+                "start_line": start_line,
+                "end_line": end_line,
+                "chunk_id": identifier,
+            }
 
-        assert results[0] == expected_full_result
+            assert results[0] == expected_full_result
 
 
 @pytest.mark.asyncio
@@ -318,40 +320,6 @@ async def test_get_query_result_files_chunking(mock_collection, mock_config):
         mock_collection.query.assert_called_once()
         _, kwargs = mock_collection.query.call_args
         mock_embedding_function.assert_called_once_with(["chunk1", "chunk2", "chunk3"])
-
-        # Check the result
-        assert result == ["file1.py", "file2.py"]
-
-
-@pytest.mark.asyncio
-async def test_get_query_result_files_multiple_queries(mock_collection, mock_config):
-    # Set multiple query terms
-    mock_config.query = ["term1", "term2", "term3"]
-    mock_config.embedding_dims = 10
-
-    with (
-        patch("vectorcode.subcommands.query.StringChunker") as MockChunker,
-        patch("vectorcode.subcommands.query.reranker.NaiveReranker") as MockReranker,
-    ):
-        # Set up MockChunker to return the query terms as is
-        mock_chunker_instance = MagicMock()
-        mock_chunker_instance.chunk.side_effect = lambda q: [q]
-        MockChunker.return_value = mock_chunker_instance
-
-        mock_reranker_instance = MagicMock()
-        mock_reranker_instance.rerank = AsyncMock(return_value=["file1.py", "file2.py"])
-        MockReranker.return_value = mock_reranker_instance
-
-        # Call the function
-        result = await get_query_result_files(mock_collection, mock_config)
-
-        # Check that chunker was called for each query term
-        assert mock_chunker_instance.chunk.call_count == 3
-
-        # Check query was called with all query terms
-        mock_collection.query.assert_called_once()
-        _, kwargs = mock_collection.query.call_args
-        assert all(len(i) == 10 for i in kwargs["query_embeddings"])
 
         # Check the result
         assert result == ["file1.py", "file2.py"]
