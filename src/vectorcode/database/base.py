@@ -2,6 +2,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence
 
+from numpy.typing import NDArray
+
 from vectorcode.chunking import Chunk
 from vectorcode.cli_utils import Config
 from vectorcode.database.types import (
@@ -48,13 +50,20 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     @abstractmethod
     async def query(
-        self, collection_id: CollectionID, keywords: list[str], opts: QueryOpts
+        self,
+        collection_id: CollectionID,
+        keywords_embeddings: list[NDArray],
+        opts: QueryOpts,
     ) -> Sequence[QueryResult]:
         pass
 
     @abstractmethod
     async def vectorise(
-        self, collection_id: CollectionID, chunks: Sequence[Chunk]
+        self,
+        collection_id: CollectionID,
+        chunks: Sequence[Chunk],
+        chunk_embeddings: Sequence[NDArray],
+        file_hashes: Sequence[str],
     ) -> VectoriseStats:
         pass
 
