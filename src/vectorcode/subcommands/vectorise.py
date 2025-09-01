@@ -1,17 +1,14 @@
 import asyncio
 import glob
 import hashlib
-import json
 import logging
 import os
 import sys
 import uuid
 from asyncio import Lock
-from dataclasses import dataclass, fields
 from typing import Iterable, Optional
 
 import pathspec
-import tabulate
 import tqdm
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
@@ -32,33 +29,9 @@ from vectorcode.common import (
     list_collection_files,
     verify_ef,
 )
+from vectorcode.database.types import VectoriseStats
 
 logger = logging.getLogger(name=__name__)
-
-
-@dataclass
-class VectoriseStats:
-    add: int = 0
-    update: int = 0
-    removed: int = 0
-    skipped: int = 0
-    failed: int = 0
-
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict())
-
-    def to_dict(self) -> dict[str, int]:
-        return {i.name: getattr(self, i.name) for i in fields(self)}
-
-    def to_table(self) -> str:
-        _fields = fields(self)
-        return tabulate.tabulate(
-            [
-                [i.name.capitalize() for i in _fields],
-                [getattr(self, i.name) for i in _fields],
-            ],
-            headers="firstrow",
-        )
 
 
 def hash_str(string: str) -> str:

@@ -87,15 +87,13 @@ class Config:
     files: list[Union[str, os.PathLike]] = field(default_factory=list)
     project_root: Optional[Union[str, Path]] = None
     query: Optional[list[str]] = None
-    db_url: str = "http://127.0.0.1:8000"
+    db_type: str = "ChromaDB0"
+    db_params: dict[str, Any] = field(default_factory=dict)
     embedding_function: str = "SentenceTransformerEmbeddingFunction"  # This should fallback to whatever the default is.
     embedding_params: dict[str, Any] = field(default_factory=(lambda: {}))
     embedding_dims: Optional[int] = None
     n_result: int = 1
     force: bool = False
-    db_path: Optional[str] = "~/.local/share/vectorcode/chromadb/"
-    db_log_path: str = "~/.local/share/vectorcode/"
-    db_settings: Optional[dict] = None
     chunk_size: int = 2500
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
@@ -144,7 +142,8 @@ class Config:
                 "embedding_dims": config_dict.get(
                     "embedding_dims", default_config.embedding_dims
                 ),
-                "db_url": config_dict.get("db_url", default_config.db_url),
+                "db_type": config_dict.get("db_type", default_config.db_type),
+                "db_params": config_dict.get("db_url", default_config.db_params),
                 "db_path": db_path,
                 "db_log_path": os.path.expanduser(
                     config_dict.get("db_log_path", default_config.db_log_path)
