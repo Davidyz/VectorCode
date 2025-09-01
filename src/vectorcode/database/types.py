@@ -59,6 +59,15 @@ class CollectionInfo:
 
 
 @dataclass
+class FileInCollection:
+    path: str
+    sha256: str
+
+    def __hash__(self):
+        return hash(self.sha256)
+
+
+@dataclass
 class CollectionContent:
-    files: list[str] = field(default_factory=list)
+    files: list[FileInCollection] = field(default_factory=list)
     chunks: list[Chunk] = field(default_factory=list)
