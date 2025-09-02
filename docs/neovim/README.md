@@ -179,7 +179,7 @@ option explained below.
 
 ```lua
 ---@module "vectorcode"
-opts = {
+require('codecompanion').setup({
   extensions = {
     vectorcode = {
       ---@type VectorCode.CodeCompanion.ExtensionOpts
@@ -222,7 +222,7 @@ opts = {
       },
     },
   }
-}
+})
 ```
 
 The following are the common options that all tools supports:
@@ -292,6 +292,7 @@ require('codecompanion').setup{
     vectorcode = {
       ---@type VectorCode.CodeCompanion.ExtensionOpts
       opts = {
+        ---@type table<string, VectorCode.CodeCompanion.PromptFactory.Opts>
         prompt_library = {
           {
             ["Neovim Tutor"] = {

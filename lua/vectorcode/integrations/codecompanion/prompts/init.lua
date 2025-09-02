@@ -119,7 +119,7 @@ Here's my question:
             if result ~= nil and not vim.tbl_isempty(result) then
               vim.schedule_wrap(vim.notify)(
                 string.format(
-                  "Vectorised %d files at `%s`.",
+                  "Vectorised %d new files.",
                   result.add or 0,
                   opts.project_root
                 )
