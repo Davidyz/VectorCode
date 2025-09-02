@@ -18,6 +18,8 @@
 * [Integrations](#integrations)
   * [milanglacier/minuet-ai.nvim](#milanglacierminuet-ainvim)
   * [olimorris/codecompanion.nvim](#olimorriscodecompanionnvim)
+    * [Tools](#tools)
+    * [Prompt Library](#prompt-library)
   * [CopilotC-Nvim/CopilotChat.nvim](#copilotc-nvimcopilotchatnvim)
     * [Setup](#setup)
     * [Configuration Options](#configuration-options)
@@ -155,6 +157,7 @@ or change the value of `async_opts.n_query` in the `setup` function
 
 [![asciicast](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD.svg)](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD?t=3)
 
+#### Tools
 The following requires VectorCode 0.7+ and a recent version of CodeCompanion.nvim.
 
 The CodeCompanion extension will register the following tools:
@@ -276,6 +279,32 @@ The `query` tool contains the following extra config options:
   - `query_augmented`: boolean, whether the system prompt should contain the
     query so that when the LLM decide what information to include, it _may_ be
     able to avoid omitting stuff related to query.
+
+#### Prompt Library
+
+On VectorCode 0.7.16+ and CodeCompanion.nvim 17.20.0+, VectorCode also provides a 
+customisable prompt library that helps you RAG local directories. The following is the 
+a preset that vectorises the lua source code and help files in the neovim runtime 
+directory.
+```lua 
+require('codecompanion').setup{
+  extensions = {
+    vectorcode = {
+      ---@type VectorCode.CodeCompanion.ExtensionOpts
+      opts = {
+        prompt_library = {
+          {
+            ["Neovim Tutor"] = {
+              project_root = vim.env.VIMRUNTIME,
+              file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
+            },
+          },
+        }
+      }
+    }
+  }
+}
+```
 
 ### [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim)
 

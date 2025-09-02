@@ -8,9 +8,17 @@
 ---@field tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
 --- Whether to add a tool group that contains all vectorcode tools.
 ---@field tool_group VectorCode.CodeCompanion.ToolGroupOpts
+---Prompt library that automatically creates VectorCode collections on local files
+---and set up prompts to let LLM search from certain directories.
+---
+---The keys should be the human-readable name of the prompt (as they'd appear in
+---the action menu), and values would be `VectorCode.CodeCompanion.PromptFactory.Opts`
+---objects.
+---@field prompt_library table<string, VectorCode.CodeCompanion.PromptFactory.Opts>
 
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
+local vim_runtime = vim.fs.normalize(vim.env.VIMRUNTIME)
 
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
@@ -25,6 +33,13 @@ local default_extension_opts = {
     files_rm = {},
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
+
+  prompt_library = {
+    ["Neovim Tutor"] = {
+      project_root = vim_runtime,
+      file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
+    },
+  },
 }
 
 ---@type sub_cmd[]
@@ -107,12 +122,22 @@ local M = {
       }
     end
 
-    for _, prompt in pairs(cc_integration.prompts) do
-      if type(prompt) == "function" then
-        ---@diagnostic disable-next-line: cast-local-type
-        prompt = prompt()
+    for name, prompt_opts in pairs(opts.prompt_library) do
+      if prompt_opts.name ~= nil and prompt_opts.name ~= name then
+        vim.notify(
+          string.format(
+            "The name of `%s` is inconsistent in the opts (`%s`).\nRenaming to `%s`.",
+            name,
+            prompt_opts.name,
+            name
+          ),
+          vim.log.levels.WARN,
+          vc_config.notify_opts
+        )
       end
-      cc_config.prompt_library[prompt.name] = prompt.prompts
+      prompt_opts.name = name
+      cc_config.prompt_library[name] =
+        cc_chat_integration.prompts.register_prompt(prompt_opts)
     end
   end),
 }
