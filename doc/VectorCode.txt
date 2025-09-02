@@ -327,6 +327,9 @@ the neovim runtime directory.
     }
 <
 
+The first time will take some extra time for computing the embeddings, but the
+subsequent runs should be a lot faster.
+
 
 COPILOTC-NVIM/COPILOTCHAT.NVIM ~
 
