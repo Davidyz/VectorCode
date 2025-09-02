@@ -30,11 +30,11 @@ end
 
 ---@class VectorCode.CodeCompanion.PromptFactory.Opts
 ---@field name string? human-readable name of this prompt
----@field project_root string project_root of the files to be added to the database
+---@field project_root string|(fun():string) project_root of the files to be added to the database
 ---Paths to the files in the local directory to be added to the database.
 ---
 ---These should either be absolute paths, or relative to the project root.
----@field file_patterns string[]
+---@field file_patterns string[]|(fun():string[])
 ---See https://codecompanion.olimorris.dev/extending/prompts.html#recipe-2-using-context-in-your-prompts
 ---
 ---Note: If a system prompt is set here, your default chat system prompt will be ignored.
@@ -47,11 +47,23 @@ end
 
 ---@param opts VectorCode.CodeCompanion.PromptFactory.Opts
 function M.register_prompt(opts)
+  opts = vim.deepcopy(opts)
+
+  if type(opts.project_root) == "function" then
+    opts.project_root = opts.project_root()
+  end
+
+  if type(opts.file_patterns) == "function" then
+    opts.file_patterns = opts.file_patterns()
+  end
+
   assert(
-    utils.is_directory(opts.project_root),
+    ---@diagnostic disable-next-line: param-type-mismatch
+    type(opts.project_root) == "string" and utils.is_directory(opts.project_root),
     string.format("`%s` is not a valid directory.", opts.project_root)
   )
   assert(
+    ---@diagnostic disable-next-line: param-type-mismatch
     opts.file_patterns ~= nil and (not vim.tbl_isempty(opts.file_patterns)),
     "Recieved empty path specs."
   )
