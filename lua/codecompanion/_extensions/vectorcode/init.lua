@@ -18,7 +18,6 @@
 
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
-local vim_runtime = vim.fs.normalize(vim.env.VIMRUNTIME)
 
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
@@ -34,12 +33,7 @@ local default_extension_opts = {
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
 
-  prompt_library = {
-    ["Neovim Tutor"] = {
-      project_root = vim_runtime,
-      file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
-    },
-  },
+  prompt_library = require("vectorcode.integrations.codecompanion.prompts.presets"),
 }
 
 ---@type sub_cmd[]

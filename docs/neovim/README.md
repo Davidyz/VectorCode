@@ -284,9 +284,12 @@ The `query` tool contains the following extra config options:
 #### Prompt Library
 
 On VectorCode 0.7.16+ and CodeCompanion.nvim 17.20.0+, VectorCode also provides a 
-customisable prompt library that helps you RAG local directories. The following is the 
-a preset that vectorises the lua source code and help files in the neovim runtime 
-directory.
+customisable prompt library that helps you RAG local directories. The presets 
+provided by VectorCode are available 
+[here](../../lua/vectorcode/integrations/codecompanion/prompts/presets.lua), which 
+you can refer to if you wish to build local RAG APPs with CodeCompanion.nvim and 
+VectorCode.
+
 ```lua 
 require('codecompanion').setup{
   extensions = {
@@ -297,6 +300,10 @@ require('codecompanion').setup{
         prompt_library = {
           {
             ["Neovim Tutor"] = {
+              -- this is for demonstration only.
+              -- "Neovim Tutor" is shipped with this plugin
+              -- and you don't need to add it in the config 
+              -- unless you're not happy with the defaults.
               project_root = vim.env.VIMRUNTIME,
               file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
               -- system_prompt = ...,
