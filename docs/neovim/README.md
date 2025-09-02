@@ -1,4 +1,5 @@
 # NeoVim Plugin
+
 > [!NOTE]
 > This plugin depends on the CLI tool. Please go through 
 > [the CLI documentation](../cli/README.md) and make sure the VectorCode CLI is working
@@ -298,6 +299,8 @@ require('codecompanion').setup{
             ["Neovim Tutor"] = {
               project_root = vim.env.VIMRUNTIME,
               file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
+              -- system_prompt = ...,
+              -- user_prompt = ...,
             },
           },
         }
@@ -306,6 +309,19 @@ require('codecompanion').setup{
   }
 }
 ```
+
+The `prompt_library` option is a mapping of prompt name (`string`) to a lua table 
+(type annotation available) that contains some information used to generate the 
+embeddings:
+
+- `project_root`: `string`, the path to the directory (for example, 
+  `/usr/share/nvim/runtime/`);
+- `file_patterns`: `string[]`, file name patterns that defines files to be vectorised. 
+  You should either use absolute paths or relative paths from the project root;
+- `system_prompt` and `user_prompt`: `string|fun(context:table):string|nil`: 
+  These options allow you to customise the prompts. See 
+  [codecompanion.nvim documentation](https://codecompanion.olimorris.dev/extending/prompts#recipe-2-using-context-in-your-prompts)
+  if you want to use a function here that build the prompts from the context.
 
 The first time will take some extra time for computing the embeddings, but the 
 subsequent runs should be a lot faster.
