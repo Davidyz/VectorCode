@@ -201,7 +201,7 @@ the `include_in_toolbox` option explained below.
 
 >lua
     ---@module "vectorcode"
-    opts = {
+    require('codecompanion').setup({
       extensions = {
         vectorcode = {
           ---@type VectorCode.CodeCompanion.ExtensionOpts
@@ -244,7 +244,7 @@ the `include_in_toolbox` option explained below.
           },
         },
       }
-    }
+    })
 <
 
 The following are the common options that all tools supports:
@@ -313,6 +313,7 @@ the neovim runtime directory.
         vectorcode = {
           ---@type VectorCode.CodeCompanion.ExtensionOpts
           opts = {
+            ---@type table<string, VectorCode.CodeCompanion.PromptFactory.Opts>
             prompt_library = {
               {
                 ["Neovim Tutor"] = {
