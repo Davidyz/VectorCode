@@ -1,9 +1,8 @@
 local M = {}
 
 local vc_config = require("vectorcode.config")
-local cc_common = require("vectorcode.integrations.codecompanion.common")
+
 local utils = require("vectorcode.utils")
-local constants = require("codecompanion.config").config.constants
 
 ---@param path string[]|string path to files or wildcards.
 ---@param project_root? string
@@ -59,7 +58,10 @@ function M.register_prompt(opts)
 
   assert(type(opts.name) == "string", "`name` cannot be `nil`.")
 
+  local cc_common = require("vectorcode.integrations.codecompanion.common")
+  local constants = require("codecompanion.config").config.constants
   local prompts = {}
+
   if opts.system_prompt then
     table.insert(
       prompts,
