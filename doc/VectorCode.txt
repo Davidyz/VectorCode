@@ -29,6 +29,8 @@ Table of Contents                               *VectorCode-table-of-contents*
 - |VectorCode-integrations|
     - |VectorCode-milanglacier/minuet-ai.nvim|
     - |VectorCode-olimorris/codecompanion.nvim|
+        - |VectorCode-tools|
+        - |VectorCode-prompt-library|
     - |VectorCode-copilotc-nvim/copilotchat.nvim|
         - |VectorCode-setup|
         - |VectorCode-configuration-options|
@@ -176,6 +178,9 @@ OLIMORRIS/CODECOMPANION.NVIM ~
 
 <https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD?t=3>
 
+
+TOOLS
+
 The following requires VectorCode 0.7+ and a recent version of
 CodeCompanion.nvim.
 
@@ -293,6 +298,34 @@ prompt. This allows you to append/prepend things to the default system prompt;
 - `query_augmented`boolean, whether the system prompt should contain the query
 so that when the LLM decide what information to include, it _may_ be able to
 avoid omitting stuff related to query.
+
+
+PROMPT LIBRARY
+
+On VectorCode 0.7.16+ and CodeCompanion.nvim 17.20.0+, VectorCode also provides
+a customisable prompt library that helps you RAG local directories. The
+following is the a preset that vectorises the lua source code and help files in
+the neovim runtime directory.
+
+>lua
+    require('codecompanion').setup{
+      extensions = {
+        vectorcode = {
+          ---@type VectorCode.CodeCompanion.ExtensionOpts
+          opts = {
+            prompt_library = {
+              {
+                ["Neovim Tutor"] = {
+                  project_root = vim.env.VIMRUNTIME,
+                  file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
+                },
+              },
+            }
+          }
+        }
+      }
+    }
+<
 
 
 COPILOTC-NVIM/COPILOTCHAT.NVIM ~
