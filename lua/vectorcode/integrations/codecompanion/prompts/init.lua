@@ -1,6 +1,7 @@
 local M = {}
 
 local vc_config = require("vectorcode.config")
+local cc_common = require("vectorcode.integrations.codecompanion.common")
 local utils = require("vectorcode.utils")
 local constants = require("codecompanion.config").config.constants
 
@@ -88,6 +89,9 @@ Here's my question:
     opts = {
       ignore_system_prompt = opts.system_prompt ~= nil,
       pre_hook = function()
+        vim.notify(
+          string.format("Add files under `%s` to the database.", opts.project_root)
+        )
         M.vectorise_files(
           vim.iter(opts.file_patterns):map(function(p)
             if vim.fn.isabsolutepath(p) == 1 then
@@ -97,12 +101,8 @@ Here's my question:
             end
           end),
           opts.project_root,
-          function(result, _, _, _)
-            if
-              result ~= nil
-              and not vim.tbl_isempty(result)
-              and vc_config.get_user_config().notify
-            then
+          function(result, err, _, _)
+            if result ~= nil and not vim.tbl_isempty(result) then
               vim.schedule_wrap(vim.notify)(
                 string.format(
                   "Vectorised %d files at `%s`.",
@@ -110,6 +110,15 @@ Here's my question:
                   opts.project_root
                 )
               )
+            elseif err ~= nil then
+              err = cc_common.flatten_table_to_string(err)
+              if err ~= "" then
+                vim.schedule_wrap(vim.notify)(
+                  err,
+                  vim.log.levels.WARN,
+                  vc_config.notify_opts
+                )
+              end
             end
           end
         )

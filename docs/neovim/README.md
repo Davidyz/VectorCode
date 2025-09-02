@@ -306,6 +306,9 @@ require('codecompanion').setup{
 }
 ```
 
+The first time will take some extra time for computing the embeddings, but the 
+subsequent runs should be a lot faster.
+
 ### [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim)
 
 [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim) 
