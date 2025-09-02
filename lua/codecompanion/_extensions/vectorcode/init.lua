@@ -18,6 +18,7 @@
 
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
+local utils = require("vectorcode.utils")
 
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
@@ -129,9 +130,24 @@ local M = {
           vc_config.notify_opts
         )
       end
-      prompt_opts.name = name
-      cc_config.prompt_library[name] =
-        cc_chat_integration.prompts.register_prompt(prompt_opts)
+      if type(prompt_opts.project_root) == "function" then
+        prompt_opts.project_root = prompt_opts.project_root()
+      end
+      if not utils.is_directory(prompt_opts.project_root) then
+        vim.notify(
+          string.format(
+            "`%s` is not a valid directory for CodeCompanion prompt library.\nSkipping `%s`.",
+            prompt_opts.project_root,
+            name
+          ),
+          vim.log.levels.WARN,
+          vc_config.notify_opts
+        )
+      else
+        prompt_opts.name = name
+        cc_config.prompt_library[name] =
+          cc_chat_integration.prompts.register_prompt(prompt_opts)
+      end
     end
   end),
 }

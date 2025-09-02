@@ -11,6 +11,8 @@ function M.vectorise_files(path, project_root, callback)
   if type(path) == "string" then
     path = { path }
   end
+  assert(not vim.tbl_isempty(path), "`path` cannot be empty")
+
   local jobrunner =
     require("vectorcode.integrations.codecompanion.common").initialise_runner(
       vc_config.get_user_config().async_backend == "lsp"
@@ -48,10 +50,6 @@ end
 ---@param opts VectorCode.CodeCompanion.PromptFactory.Opts
 function M.register_prompt(opts)
   opts = vim.deepcopy(opts)
-
-  if type(opts.project_root) == "function" then
-    opts.project_root = opts.project_root()
-  end
 
   if type(opts.file_patterns) == "function" then
     opts.file_patterns = opts.file_patterns()
@@ -103,17 +101,24 @@ Here's my question:
     opts = {
       ignore_system_prompt = opts.system_prompt ~= nil,
       pre_hook = function()
-        vim.notify(
-          string.format("Add files under `%s` to the database.", opts.project_root)
-        )
+        if vc_config.get_user_config().notify then
+          vim.notify(
+            string.format("Adding files under `%s` to the database.", opts.project_root),
+            vim.log.levels.INFO,
+            vc_config.notify_opts
+          )
+        end
         M.vectorise_files(
-          vim.iter(opts.file_patterns):map(function(p)
-            if vim.fn.isabsolutepath(p) == 1 then
-              return p
-            else
-              return vim.fs.joinpath(opts.project_root, p)
-            end
-          end),
+          vim
+            .iter(opts.file_patterns)
+            :map(function(p)
+              if vim.fn.isabsolutepath(p) == 1 then
+                return p
+              else
+                return vim.fs.joinpath(opts.project_root, p)
+              end
+            end)
+            :totable(),
           opts.project_root,
           function(result, err, _, _)
             if result ~= nil and not vim.tbl_isempty(result) then
@@ -122,7 +127,9 @@ Here's my question:
                   "Vectorised %d new files.",
                   result.add or 0,
                   opts.project_root
-                )
+                ),
+                vim.log.levels.INFO,
+                vc_config.notify_opts
               )
             elseif err ~= nil then
               err = cc_common.flatten_table_to_string(err)
