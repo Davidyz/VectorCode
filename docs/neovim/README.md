@@ -180,7 +180,7 @@ option explained below.
 
 ```lua
 ---@module "vectorcode"
-require('codecompanion').setup({
+require("codecompanion").setup({
   extensions = {
     vectorcode = {
       ---@type VectorCode.CodeCompanion.ExtensionOpts
@@ -215,14 +215,14 @@ require('codecompanion').setup({
               enabled = false,
               adapter = nil,
               query_augmented = true,
-            }
+            },
           },
           files_ls = {},
-          files_rm = {}
-        }
+          files_rm = {},
+        },
       },
     },
-  }
+  },
 })
 ```
 
@@ -291,7 +291,7 @@ you can refer to if you wish to build local RAG APPs with CodeCompanion.nvim and
 VectorCode.
 
 ```lua 
-require('codecompanion').setup{
+require("codecompanion").setup({
   extensions = {
     vectorcode = {
       ---@type VectorCode.CodeCompanion.ExtensionOpts
@@ -301,8 +301,8 @@ require('codecompanion').setup{
           {
             ["Neovim Tutor"] = {
               -- this is for demonstration only.
-              -- "Neovim Tutor" is shipped with this plugin
-              -- and you don't need to add it in the config 
+              -- "Neovim Tutor" is shipped with this plugin already,
+              -- and you don't need to add it in the config
               -- unless you're not happy with the defaults.
               project_root = vim.env.VIMRUNTIME,
               file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
@@ -310,11 +310,11 @@ require('codecompanion').setup{
               -- user_prompt = ...,
             },
           },
-        }
-      }
-    }
-  }
-}
+        },
+      },
+    },
+  },
+})
 ```
 
 The `prompt_library` option is a mapping of prompt name (`string`) to a lua table 
@@ -346,13 +346,14 @@ contextual information about your codebase to enhance Copilot's responses. Add t
 to your CopilotChat configuration:
 
 ```lua
-local vectorcode_ctx = require('vectorcode.integrations.copilotchat').make_context_provider({
-  prompt_header = "Here are relevant files from the repository:", -- Customize header text
-  prompt_footer = "\nConsider this context when answering:", -- Customize footer text
-  skip_empty = true, -- Skip adding context when no files are retrieved
-})
+local vectorcode_ctx =
+  require("vectorcode.integrations.copilotchat").make_context_provider({
+    prompt_header = "Here are relevant files from the repository:", -- Customize header text
+    prompt_footer = "\nConsider this context when answering:", -- Customize footer text
+    skip_empty = true, -- Skip adding context when no files are retrieved
+  })
 
-require('CopilotChat').setup({
+require("CopilotChat").setup({
   -- Your other CopilotChat options...
 
   contexts = {
@@ -364,10 +365,10 @@ require('CopilotChat').setup({
   prompts = {
     Explain = {
       prompt = "Explain the following code in detail:\n$input",
-      context = {"selection", "vectorcode"}, -- Add vectorcode to the context
+      context = { "selection", "vectorcode" }, -- Add vectorcode to the context
     },
     -- Other prompts...
-  }
+  },
 })
 ```
 
@@ -395,7 +396,7 @@ The integration includes caching to avoid sending duplicate context to the LLM, 
 You can configure VectorCode to be part of your sticky prompts, ensuring every conversation includes relevant codebase context automatically:
 
 ```lua
-require('CopilotChat').setup({
+require("CopilotChat").setup({
   -- Your other CopilotChat options...
 
   sticky = {
@@ -416,8 +417,8 @@ cached retrieval results.
 ```lua
 tabline = {
   lualine_y = {
-    require("vectorcode.integrations").lualine(opts)
-  }
+    require("vectorcode.integrations").lualine(opts),
+  },
 }
 ```
 `opts` is a table with the following configuration option:
@@ -442,7 +443,7 @@ tabline = {
         end
       end,
     },
-  }
+  },
 }
 ```
 This will further delay the loading of VectorCode to the moment you (or one of
@@ -589,12 +590,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
   callback = function()
     local bufnr = vim.api.nvim_get_current_buf()
     cacher.async_check("config", function()
-      cacher.register_buffer(
-        bufnr,
-        { 
-          n_query = 10,
-        }
-      )
+      cacher.register_buffer(bufnr, {
+        n_query = 10,
+      })
     end, nil)
   end,
   desc = "Register buffer for VectorCode",
