@@ -580,7 +580,7 @@ following options in the JSON config file:
   "embedding_params": {
     "backend": "torch",
     "device": "cuda"
-  },
+  }
 }
 ```
 
@@ -593,8 +593,8 @@ need to configure `SentenceTransformer` to use `openvino` backend. In your
 ```json 
 {
   "embedding_params": {
-    "backend": "openvino",
-  },
+    "backend": "openvino"
+  }
 }
 ```
 This will run the embedding model on your GPU. This is supported even for
@@ -618,14 +618,14 @@ fact, this is exactly what I did when I wrote the neovim plugin.
 For the query command, here's the format printed in the `pipe` mode:
 ```json 
 [
-    {
-        "path": "path_to_your_code.py", 
-        "document":"import something"
-    },
-    {
-        "path": "path_to_another_file.py",
-        "document": "print('hello world')"
-    }
+  {
+    "path": "path_to_your_code.py",
+    "document": "import something"
+  },
+  {
+    "path": "path_to_another_file.py",
+    "document": "print('hello world')"
+  }
 ]
 ```
 Basically an array of dictionaries with 2 keys: `"path"` for the path to the
@@ -634,20 +634,20 @@ document, and `"document"` for the content of the document.
 If you used `--include chunk path` parameters, the array will look like this:
 ```json
 [
-    {
-        "path": "path_to_your_code.py",
-        "chunk": "foo",
-        "start_line": 1,
-        "end_line": 1,
-        "chunk_id": "chunk_id_1"
-    },
-    {
-        "path": "path_to_another_file.py",
-        "chunk": "bar",
-        "start_line": 1,
-        "end_line": 1,
-        "chunk_id": "chunk_id_2"
-    }
+  {
+    "path": "path_to_your_code.py",
+    "chunk": "foo",
+    "start_line": 1,
+    "end_line": 1,
+    "chunk_id": "chunk_id_1"
+  },
+  {
+    "path": "path_to_another_file.py",
+    "chunk": "bar",
+    "start_line": 1,
+    "end_line": 1,
+    "chunk_id": "chunk_id_2"
+  }
 ]
 ```
 Keep in mind that both `start_line` and `end_line` are inclusive. The `chunk_id`
@@ -668,13 +668,13 @@ The output is in JSON format. It contains a dictionary with the following fields
 A JSON array of collection information of the following format will be printed:
 ```json 
 {
-    "project_root": str,
-    "user": str,
-    "hostname": str,
-    "collection_name": str,
-    "size": int,
-    "num_files": int,
-    "embedding_function": str
+  "project_root": str,
+  "user": str,
+  "hostname": str,
+  "collection_name": str,
+  "size": int,
+  "num_files": int,
+  "embedding_function": str
 }
 ```
 - `"project_root"`: the path to the `project-root`;
@@ -711,8 +711,8 @@ pipx inject vectorcode 'vectorcode[lsp]' --force
 The LSP request for the `workspace/executeCommand` is defined as follows: 
 ```
 {
-    command: str
-    arguments: list[Any]
+  command: str
+  arguments: list[Any]
 }
 ```
 For the `vectorcode-server`, the only valid value for the `command` key is 
@@ -721,8 +721,8 @@ command. For example, to execute `vectorcode query -n 10 reranker`, the request
 would be: 
 ```
 {
-    command: "vectorcode",
-    arguments: ["query", "-n", "10", "reranker"]
+  command: "vectorcode",
+  arguments: ["query", "-n", "10", "reranker"]
 }
 ```
 
