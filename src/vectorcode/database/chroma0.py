@@ -8,20 +8,21 @@ import subprocess
 import sys
 from asyncio.subprocess import Process
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from urllib.parse import urlparse
 
 import chromadb
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum, QueryResult
+from chromadb.api.types import EmbeddingFunction, IncludeEnum, QueryResult
 from chromadb.config import APIVersion, Settings
 from tree_sitter import Point
 
 import vectorcode.subcommands.query.types as vectorcode_query_types
-from vectorcode.chunking import Chunk
+from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import Config, LockManager, expand_path
+from vectorcode.common import get_embedding_function
 from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.database.types import (
     CollectionContent,
@@ -30,6 +31,7 @@ from vectorcode.database.types import (
     ResultType,
     VectoriseStats,
 )
+from vectorcode.database.utils import get_collection_id, hash_file
 from vectorcode.subcommands.vectorise import get_uuid
 
 logger = logging.getLogger(name=__name__)
@@ -248,33 +250,36 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         params.update(self._configs.db_params)
         self._configs.db_params = params
 
-    async def query(self, collection_id, keywords_embeddings, opts):
+    async def query(self, collection_path, keywords_embeddings, opts):
         assert len(opts.keywords), "Keywords cannot be empty"
         assert len(keywords_embeddings) == len(opts.keywords), (
             "Number of embeddings must match number of keywords."
         )
-        async with Chroma0ClientManager().get_client(self._configs, False) as client:
-            collection = await client.get_collection(collection_id)
-            query_count = opts.count or (
-                await self.count(collection_id, ResultType.chunk)
-            )
-            query_result = await collection.query(
-                query_embeddings=keywords_embeddings,
-                include=[
-                    IncludeEnum.metadatas,
-                    IncludeEnum.documents,
-                    IncludeEnum.distances,
-                ],
-                n_results=query_count,
-            )
-            return __convert_chroma_query_results(query_result, opts.keywords)
+        collection: AsyncCollection = await self._create_or_get_collection(
+            collection_path=collection_path, allow_create=False
+        )
+        query_count = opts.count or (
+            await self.count(collection_path, ResultType.chunk)
+        )
+        query_result = await collection.query(
+            query_embeddings=keywords_embeddings,
+            include=[
+                IncludeEnum.metadatas,
+                IncludeEnum.documents,
+                IncludeEnum.distances,
+            ],
+            n_results=query_count,
+        )
+        return __convert_chroma_query_results(query_result, opts.keywords)
 
-    async def _create_or_get_collection(self, collection_id) -> AsyncCollection:
+    async def _create_or_get_collection(
+        self, collection_path: str, allow_create: bool = False
+    ) -> AsyncCollection:
         """
         This method should be used by ChromaDB methods that are expected to **create a collection when not found**.
         For other methods, just use `client.get_collection` and let it fail if the collection doesn't exist.
         """
-        assert self._configs.project_root is not None
+
         collection_meta: dict[str, str | int] = {
             "path": os.path.abspath(str(self._configs.project_root)),
             "hostname": socket.gethostname(),
@@ -292,6 +297,9 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             collection_meta[meta_field_name] = db_params[key]
 
         async with Chroma0ClientManager().get_client(self._configs, True) as client:
+            collection_id = get_collection_id(collection_path)
+            if not allow_create:
+                return await client.get_collection(collection_id)
             col = await client.get_or_create_collection(
                 collection_id, metadata=collection_meta
             )
@@ -303,39 +311,60 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
             return col
 
-    async def vectorise(self, collection_id, chunks, chunk_embeddings, file_hashes):
-        # WIP: finish the stats.
-        # should this method handle chunking and hash checking?
-        stats = VectoriseStats()
+    async def vectorise(
+        self,
+        collection_path: str,
+        file_path: str,
+        chunker: TreeSitterChunker | None = None,
+        embedding_function: EmbeddingFunction | None = None,
+    ) -> VectoriseStats:
+        collection = await self._create_or_get_collection(
+            collection_path, allow_create=True
+        )
+        chunker = chunker or TreeSitterChunker(self._configs)
+        embedding_function = cast(
+            EmbeddingFunction,
+            embedding_function or get_embedding_function(self._configs),
+        )
+        chunks = tuple(chunker.chunk(file_path))
+        embeddings = embedding_function(list(i.text for i in chunks))
 
-        async with Chroma0ClientManager().get_client(self._configs, True) as client:
-            collection = await self._create_or_get_collection(collection_id)
-            max_batch_size = await client.get_max_batch_size()
-            for idx_batch in range(0, len(chunks), max_batch_size):
-                this_batch: list[Chunk] = chunks[idx_batch : idx_batch + max_batch_size]
-                metadatas = []
-                for idx in range(len(this_batch)):
-                    this_chunk = this_batch[idx]
-                    meta: dict[str, str | int] = {
-                        "path": str(this_chunk.path),
-                    }
-                    if file_hashes:
-                        for idx in range(idx_batch, idx_batch + max_batch_size):
-                            meta["sha256"] = file_hashes[idx]
-                    if this_chunk.start and isinstance(this_chunk.start.row, int):
-                        meta["start"] = this_chunk.start.row
-                    if this_chunk.end and isinstance(this_chunk.end.row, int):
-                        meta["end"] = this_chunk.end.row
+        file_hash = hash_file(file_path)
 
-                    metadatas.append(meta)
+        def chunk_to_meta(chunk: Chunk) -> chromadb.Metadata:
+            meta: dict[str, int | str] = {"path": file_path, "sha256": file_hash}
+            if chunk.start:
+                meta["start"] = chunk.start.row
 
+            if chunk.end:
+                meta["end"] = chunk.end.row
+            return meta
+
+        async with Chroma0ClientManager().get_client(self._configs) as client:
+            max_bs = await client.get_max_batch_size()
+            for batch_start_idx in range(0, len(chunks), max_bs):
+                batch_chunks = [
+                    chunks[i].text
+                    for i in range(
+                        batch_start_idx, min(batch_start_idx + max_bs, len(chunks))
+                    )
+                ]
+                batch_embeddings = embeddings[
+                    batch_start_idx : batch_start_idx + max_bs
+                ]
+                batch_meta = [
+                    chunk_to_meta(chunks[i])
+                    for i in range(
+                        batch_start_idx, min(batch_start_idx + max_bs, len(chunks))
+                    )
+                ]
                 await collection.add(
-                    documents=[chunk.text for chunk in this_batch],
-                    ids=[get_uuid() for _ in range(max_batch_size)],
-                    embeddings=chunk_embeddings[idx_batch : idx_batch + max_batch_size],
-                    metadatas=metadatas,
+                    documents=batch_chunks,
+                    embeddings=batch_embeddings,
+                    metadatas=batch_meta,
+                    ids=[get_uuid() for _ in batch_chunks],
                 )
-        return stats
+            return VectoriseStats(add=1)
 
     async def list_collections(self):
         async with Chroma0ClientManager().get_client(
@@ -360,52 +389,51 @@ class ChromaDB0Connector(DatabaseConnectorBase):
                 )
         return result
 
-    async def list(self, collection_id, what=None) -> CollectionContent:
+    async def list(self, collection_path, what=None) -> CollectionContent:
         """
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
         Otherwise, this method may populate only one of them to save waiting time.
         """
         content = CollectionContent()
-        async with Chroma0ClientManager().get_client(
-            configs=self._configs, need_lock=False
-        ) as client:
-            collection = await client.get_collection(collection_id)
-            raw_content = await collection.get(
-                include=[
-                    IncludeEnum.metadatas,
-                    IncludeEnum.documents,
-                ]
+        collection = await self._create_or_get_collection(
+            get_collection_id(collection_path)
+        )
+        raw_content = await collection.get(
+            include=[
+                IncludeEnum.metadatas,
+                IncludeEnum.documents,
+            ]
+        )
+        metadatas = raw_content.get("metadatas", [])
+        documents = raw_content.get("documents", [])
+        ids = raw_content.get("ids", [])
+        assert metadatas
+        assert documents
+        assert ids
+        if what is None or what == ResultType.document:
+            content.files.extend(
+                set(
+                    FileInCollection(
+                        path=str(i.get("path")), sha256=str(i.get("sha256"))
+                    )
+                    for i in metadatas
+                )
             )
-            metadatas = raw_content.get("metadatas", [])
-            documents = raw_content.get("documents", [])
-            ids = raw_content.get("ids", [])
-            assert metadatas
-            assert documents
-            assert ids
-            if what is None or what == ResultType.document:
-                content.files.extend(
-                    set(
-                        FileInCollection(
-                            path=str(i.get("path")), sha256=str(i.get("sha256"))
-                        )
-                        for i in metadatas
+        if what is None or what == ResultType.chunk:
+            for i in range(len(ids)):
+                start, end = None, None
+                if metadatas[i].get("start") is not None:
+                    start = Point(row=int(metadatas[i]["start"]), column=0)
+                if metadatas[i].get("end") is not None:
+                    end = Point(row=int(metadatas[i]["end"]), column=0)
+                content.chunks.append(
+                    Chunk(
+                        text=documents[i],
+                        path=str(metadatas[i].get("path", "")) or None,
+                        id=ids[i],
+                        start=start,
+                        end=end,
                     )
                 )
-            if what is None or what == ResultType.chunk:
-                for i in range(len(ids)):
-                    start, end = None, None
-                    if metadatas[i].get("start") is not None:
-                        start = Point(row=int(metadatas[i]["start"]), column=0)
-                    if metadatas[i].get("end") is not None:
-                        end = Point(row=int(metadatas[i]["end"]), column=0)
-                    content.chunks.append(
-                        Chunk(
-                            text=documents[i],
-                            path=str(metadatas[i].get("path", "")) or None,
-                            id=ids[i],
-                            start=start,
-                            end=end,
-                        )
-                    )
 
         return content
