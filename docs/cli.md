@@ -55,7 +55,7 @@ your system Python or project-local virtual environments.
 
 After installing `uv`, run:
 ```bash
-uv tool install vectorcode
+uv tool install "vectorcode<1.0.0"
 ```
 in your shell. To specify a particular version of Python, use the `--python` 
 flag. For example, `uv tool install vectorcode --python python3.11`. For hardware
@@ -63,14 +63,15 @@ accelerated embedding, refer to [the relevant section](#hardware-acceleration).
 If you want a CPU-only installation without CUDA dependencies required by 
 default by PyTorch, run:
 ```bash
-uv tool install vectorcode --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
+uv tool install "vectorcode<1.0.0" --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
 ```
 
 If you need to install multiple dependency group (for [LSP](#lsp-mode) or
 [MCP](#mcp-server)), you can use the following syntax:
 ```bash
-uv tool install 'vectorcode[lsp,mcp]'
+uv tool install "vectorcode[lsp,mcp]<1.0.0"
 ```
+
 > [!NOTE] 
 > The command only install VectorCode and `SentenceTransformer`, the default
 > embedding engine. If you need to install an extra dependency, you can use 
