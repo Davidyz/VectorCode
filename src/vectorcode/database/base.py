@@ -2,13 +2,13 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence
 
+from chromadb import EmbeddingFunction
 from numpy.typing import NDArray
 
-from vectorcode.chunking import Chunk
+from vectorcode.chunking import TreeSitterChunker
 from vectorcode.cli_utils import Config
 from vectorcode.database.types import (
     CollectionContent,
-    CollectionID,
     CollectionInfo,
     QueryOpts,
     ResultType,
@@ -38,10 +38,10 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         self._configs = configs
 
     async def count(
-        self, collection_id: CollectionID, what: ResultType = ResultType.chunk
+        self, collection_path: str, what: ResultType = ResultType.chunk
     ) -> int:
-        """Returns the chunk count or"""
-        collection_content = await self.list(collection_id, what)
+        """Returns the chunk count or file count of the given collection, depending on the value passed for `what`."""
+        collection_content = await self.list(collection_path, what)
         match what:
             case ResultType.chunk:
                 return len(collection_content.chunks)
@@ -51,7 +51,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def query(
         self,
-        collection_id: CollectionID,
+        collection_path: str,
         keywords_embeddings: list[NDArray],
         opts: QueryOpts,
     ) -> Sequence[QueryResult]:
@@ -60,11 +60,15 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def vectorise(
         self,
-        collection_id: CollectionID,
-        chunks: Sequence[Chunk],
-        chunk_embeddings: Sequence[NDArray],
-        file_hashes: Sequence[str],
+        collection_path: str,
+        file_path: str,
+        chunker: TreeSitterChunker | None = None,
+        embedding_function: EmbeddingFunction | None = None,
     ) -> VectoriseStats:
+        """
+        Vectorise the given file and add it to the database.
+        The duplicate checking (using file hash) should be done outside of this function.
+        """
         pass
 
     @abstractmethod
@@ -73,7 +77,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     @abstractmethod
     async def list(
-        self, collection_id: CollectionID, what: Optional[ResultType] = None
+        self, collection_path: str, what: Optional[ResultType] = None
     ) -> CollectionContent:
         """
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.

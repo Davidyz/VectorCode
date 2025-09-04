@@ -46,6 +46,16 @@ class VectoriseStats:
             headers="firstrow",
         )
 
+    def __add__(self, other) -> "VectoriseStats":
+        assert isinstance(other, VectoriseStats), (
+            "`VectoriseStats` can only perform arithmatics with objects of the same type."
+        )
+        new = VectoriseStats()
+        for f in fields(self):
+            f_name = f.name
+            setattr(new, f_name, sum(getattr(i, f_name) for i in (self, other)))
+        return new
+
 
 @dataclass
 class CollectionInfo:
