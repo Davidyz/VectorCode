@@ -153,4 +153,24 @@ function M.make_changes_cb(max_num)
   end
 end
 
+---@param f string
+---@return boolean
+function M.is_file(f)
+  if type(f) ~= "string" then
+    return false
+  end
+  local stats = vim.uv.fs_stat(f)
+  return stats and (stats.type == "file") or false
+end
+
+---@param f string
+---@return boolean
+function M.is_directory(f)
+  if type(f) ~= "string" then
+    return false
+  end
+  local stats = vim.uv.fs_stat(f)
+  return stats and (stats.type == "directory") or false
+end
+
 return M

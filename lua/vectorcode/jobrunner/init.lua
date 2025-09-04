@@ -1,5 +1,7 @@
 local utils = require("vectorcode.utils")
 
+---@alias VectorCode.JobRunner.Callback fun(result: table, error: table, code:integer, signal: integer?)
+
 --- A class for calling vectorcode commands that aims at providing a unified API for both LSP and command-line backend.
 --- Implementations exist for both direct command-line execution (`cmd.lua`) and LSP (`lsp.lua`).
 --- For the format of the `result`, see https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#for-developers
@@ -13,7 +15,7 @@ local utils = require("vectorcode.utils")
 --- - `signal`: _for cmd runner only_, the shell signal sent to the process.
 --- The `bufnr` is used for context, potentially to find the project root or attach LSP clients.
 --- Returns a job handle (e.g., PID or LSP request ID) or nil if the job couldn't be started.
----@field run_async fun(args: string[], callback:fun(result: table, error: table, code:integer, signal: integer?)?, bufnr: integer):(job_handle:integer?)
+---@field run_async fun(args: string[], callback:VectorCode.JobRunner.Callback?, bufnr: integer):(job_handle:integer?)
 --- Runs a vectorcode command synchronously, blocking until completion or timeout.
 --- Executes the command specified by `args`. Waits for up to `timeout_ms` milliseconds.
 --- The `bufnr` is used for context, potentially to find the project root or attach LSP clients.

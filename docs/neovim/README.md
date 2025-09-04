@@ -1,4 +1,5 @@
 # NeoVim Plugin
+
 > [!NOTE]
 > This plugin depends on the CLI tool. Please go through 
 > [the CLI documentation](../cli/README.md) and make sure the VectorCode CLI is working
@@ -18,6 +19,8 @@
 * [Integrations](#integrations)
   * [milanglacier/minuet-ai.nvim](#milanglacierminuet-ainvim)
   * [olimorris/codecompanion.nvim](#olimorriscodecompanionnvim)
+    * [Tools](#tools)
+    * [Prompt Library](#prompt-library)
   * [CopilotC-Nvim/CopilotChat.nvim](#copilotc-nvimcopilotchatnvim)
     * [Setup](#setup)
     * [Configuration Options](#configuration-options)
@@ -155,6 +158,7 @@ or change the value of `async_opts.n_query` in the `setup` function
 
 [![asciicast](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD.svg)](https://asciinema.org/a/8WP8QJHNAR9lEllZSSx3poLPD?t=3)
 
+#### Tools
 The following requires VectorCode 0.7+ and a recent version of CodeCompanion.nvim.
 
 The CodeCompanion extension will register the following tools:
@@ -176,7 +180,7 @@ option explained below.
 
 ```lua
 ---@module "vectorcode"
-opts = {
+require("codecompanion").setup({
   extensions = {
     vectorcode = {
       ---@type VectorCode.CodeCompanion.ExtensionOpts
@@ -211,15 +215,15 @@ opts = {
               enabled = false,
               adapter = nil,
               query_augmented = true,
-            }
+            },
           },
           files_ls = {},
-          files_rm = {}
-        }
+          files_rm = {},
+        },
       },
     },
-  }
-}
+  },
+})
 ```
 
 The following are the common options that all tools supports:
@@ -277,6 +281,58 @@ The `query` tool contains the following extra config options:
     query so that when the LLM decide what information to include, it _may_ be
     able to avoid omitting stuff related to query.
 
+#### Prompt Library
+
+On VectorCode 0.7.16+ and CodeCompanion.nvim 17.20.0+, VectorCode also provides a 
+customisable prompt library that helps you RAG local directories. The presets 
+provided by VectorCode are available 
+[here](../../lua/vectorcode/integrations/codecompanion/prompts/presets.lua), which 
+you can refer to if you wish to build local RAG APPs with CodeCompanion.nvim and 
+VectorCode.
+
+```lua 
+require("codecompanion").setup({
+  extensions = {
+    vectorcode = {
+      ---@type VectorCode.CodeCompanion.ExtensionOpts
+      opts = {
+        ---@type table<string, VectorCode.CodeCompanion.PromptFactory.Opts>
+        prompt_library = {
+          {
+            ["Neovim Tutor"] = {
+              -- this is for demonstration only.
+              -- "Neovim Tutor" is shipped with this plugin already,
+              -- and you don't need to add it in the config
+              -- unless you're not happy with the defaults.
+              project_root = vim.env.VIMRUNTIME,
+              file_patterns = { "lua/**/*.lua", "doc/**/*.txt" },
+              -- system_prompt = ...,
+              -- user_prompt = ...,
+            },
+          },
+        },
+      },
+    },
+  },
+})
+```
+
+The `prompt_library` option is a mapping of prompt name (`string`) to a lua table 
+(type annotation available) that contains some information used to generate the 
+embeddings:
+
+- `project_root`: `string`, the path to the directory (for example, 
+  `/usr/share/nvim/runtime/`);
+- `file_patterns`: `string[]`, file name patterns that defines files to be vectorised. 
+  You should either use absolute paths or relative paths from the project root;
+- `system_prompt` and `user_prompt`: `string|fun(context:table):string|nil`: 
+  These options allow you to customise the prompts. See 
+  [codecompanion.nvim documentation](https://codecompanion.olimorris.dev/extending/prompts#recipe-2-using-context-in-your-prompts)
+  if you want to use a function here that build the prompts from the context.
+
+The first time will take some extra time for computing the embeddings, but the 
+subsequent runs should be a lot faster.
+
 ### [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim)
 
 [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim) 
@@ -290,13 +346,14 @@ contextual information about your codebase to enhance Copilot's responses. Add t
 to your CopilotChat configuration:
 
 ```lua
-local vectorcode_ctx = require('vectorcode.integrations.copilotchat').make_context_provider({
-  prompt_header = "Here are relevant files from the repository:", -- Customize header text
-  prompt_footer = "\nConsider this context when answering:", -- Customize footer text
-  skip_empty = true, -- Skip adding context when no files are retrieved
-})
+local vectorcode_ctx =
+  require("vectorcode.integrations.copilotchat").make_context_provider({
+    prompt_header = "Here are relevant files from the repository:", -- Customize header text
+    prompt_footer = "\nConsider this context when answering:", -- Customize footer text
+    skip_empty = true, -- Skip adding context when no files are retrieved
+  })
 
-require('CopilotChat').setup({
+require("CopilotChat").setup({
   -- Your other CopilotChat options...
 
   contexts = {
@@ -308,10 +365,10 @@ require('CopilotChat').setup({
   prompts = {
     Explain = {
       prompt = "Explain the following code in detail:\n$input",
-      context = {"selection", "vectorcode"}, -- Add vectorcode to the context
+      context = { "selection", "vectorcode" }, -- Add vectorcode to the context
     },
     -- Other prompts...
-  }
+  },
 })
 ```
 
@@ -339,7 +396,7 @@ The integration includes caching to avoid sending duplicate context to the LLM, 
 You can configure VectorCode to be part of your sticky prompts, ensuring every conversation includes relevant codebase context automatically:
 
 ```lua
-require('CopilotChat').setup({
+require("CopilotChat").setup({
   -- Your other CopilotChat options...
 
   sticky = {
@@ -360,8 +417,8 @@ cached retrieval results.
 ```lua
 tabline = {
   lualine_y = {
-    require("vectorcode.integrations").lualine(opts)
-  }
+    require("vectorcode.integrations").lualine(opts),
+  },
 }
 ```
 `opts` is a table with the following configuration option:
@@ -386,7 +443,7 @@ tabline = {
         end
       end,
     },
-  }
+  },
 }
 ```
 This will further delay the loading of VectorCode to the moment you (or one of
@@ -533,12 +590,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
   callback = function()
     local bufnr = vim.api.nvim_get_current_buf()
     cacher.async_check("config", function()
-      cacher.register_buffer(
-        bufnr,
-        { 
-          n_query = 10,
-        }
-      )
+      cacher.register_buffer(bufnr, {
+        n_query = 10,
+      })
     end, nil)
   end,
   desc = "Register buffer for VectorCode",

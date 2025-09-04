@@ -15,5 +15,6 @@ return {
         error("Unsupported version of codecompanion!")
       end
     end,
+    prompts = require("vectorcode.integrations.codecompanion.prompts"),
   },
 }
