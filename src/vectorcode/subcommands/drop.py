@@ -1,14 +1,14 @@
 import logging
 
 from vectorcode.cli_utils import Config
-from vectorcode.database.chroma0 import ChromaDB0Connector
+from vectorcode.database import get_database_connector
 from vectorcode.database.errors import CollectionNotFoundError
 
 logger = logging.getLogger(name=__name__)
 
 
 async def drop(config: Config) -> int:
-    database = ChromaDB0Connector(config)
+    database = get_database_connector(config)
     try:
         await database.drop(str(config.project_root))
         if not config.pipe:
