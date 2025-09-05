@@ -67,6 +67,15 @@ class CollectionInfo:
     chunk_count: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> dict[str, int | str]:
+        return {
+            "project-root": self.path,
+            "size": self.chunk_count,
+            "num_files": self.file_count,
+            "collection_name": self.id,
+            "embedding_function": self.embedding_function,
+        }
+
 
 @dataclass
 class FileInCollection:

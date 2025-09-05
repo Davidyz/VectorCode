@@ -20,7 +20,6 @@ from chromadb.config import APIVersion, Settings
 from chromadb.errors import InvalidCollectionException
 from tree_sitter import Point
 
-import vectorcode.subcommands.query.types as vectorcode_query_types
 from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import Config, LockManager, expand_path
 from vectorcode.common import get_embedding_function
@@ -34,6 +33,7 @@ from vectorcode.database.types import (
     VectoriseStats,
 )
 from vectorcode.database.utils import get_collection_id, hash_file
+from vectorcode.subcommands.query import types
 from vectorcode.subcommands.vectorise import get_uuid
 
 _logger = logging.getLogger(name=__name__)
@@ -41,14 +41,14 @@ _logger = logging.getLogger(name=__name__)
 
 def __convert_chroma_query_results(
     chroma_result: QueryResult, queries: list[str]
-) -> list[vectorcode_query_types.QueryResult]:
+) -> list[types.QueryResult]:
     """Convert chromadb query result to in-house query results"""
     assert chroma_result["documents"] is not None
     assert chroma_result["distances"] is not None
     assert chroma_result["metadatas"] is not None
     assert chroma_result["ids"] is not None
 
-    chroma_results_list: list[vectorcode_query_types.QueryResult] = []
+    chroma_results_list: list[types.QueryResult] = []
     for q_i in range(len(queries)):
         q = queries[q_i]
         documents = chroma_result["documents"][q_i]
@@ -64,7 +64,7 @@ def __convert_chroma_query_results(
             if meta.get("path"):
                 chunk.path = str(meta["path"])
             chroma_results_list.append(
-                vectorcode_query_types.QueryResult(
+                types.QueryResult(
                     chunk=chunk,
                     path=str(meta.get("path", "")),
                     query=(q,),
@@ -391,11 +391,12 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             result: list[CollectionInfo] = []
             for col_name in await client.list_collections():
                 col = await client.get_collection(col_name)
-                col_counts = await self.list(col_name)
+                project_root = str(col.metadata.get("path"))
+                col_counts = await self.list(project_root)
                 result.append(
                     CollectionInfo(
                         id=col_name,
-                        path=str(col.metadata.get("path")),
+                        path=project_root,
                         embedding_function=col.metadata.get(
                             "embedding_function",
                             Config().embedding_function,  # fallback to default
@@ -413,9 +414,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         Otherwise, this method may populate only one of them to save waiting time.
         """
         content = CollectionContent()
-        collection = await self._create_or_get_collection(
-            get_collection_id(collection_path)
-        )
+        collection = await self._create_or_get_collection((collection_path))
         raw_content = await collection.get(
             include=[
                 IncludeEnum.metadatas,

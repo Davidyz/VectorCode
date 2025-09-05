@@ -16,6 +16,9 @@ def get_database_connector(config: Config) -> DatabaseConnectorBase:
     """
     cls: Optional[Type[DatabaseConnectorBase]] = None
 
+    if not config.db_type.endswith("Connector"):
+        config.db_type = f"{config.db_type}Connector"
+
     match config.db_type:
         case "ChromaDB0Connector":
             from vectorcode.database.chroma0 import ChromaDB0Connector
