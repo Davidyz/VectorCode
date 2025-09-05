@@ -36,7 +36,7 @@ from vectorcode.database.types import (
 from vectorcode.database.utils import get_collection_id, hash_file
 from vectorcode.subcommands.vectorise import get_uuid
 
-logger = logging.getLogger(name=__name__)
+_logger = logging.getLogger(name=__name__)
 
 
 def __convert_chroma_query_results(
@@ -80,7 +80,7 @@ async def _try_server(base_url: str):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url=heartbeat_url)
-                logger.debug(f"Heartbeat {heartbeat_url} returned {response=}")
+                _logger.debug(f"Heartbeat {heartbeat_url} returned {response=}")
                 if response.status_code == 200:
                     return True
         except (httpx.ConnectError, httpx.ConnectTimeout):
@@ -109,7 +109,7 @@ async def _start_server(configs: Config):
     if not os.path.isdir(db_log_path):
         os.makedirs(db_log_path)
     if not os.path.isdir(db_path):
-        logger.warning(
+        _logger.warning(
             f"Using local database at {os.path.expanduser('~/.local/share/vectorcode/chromadb/')}.",
         )
         db_path = os.path.expanduser("~/.local/share/vectorcode/chromadb/")
@@ -119,7 +119,7 @@ async def _start_server(configs: Config):
         port = int(s.getsockname()[1])
 
     server_url = f"http://127.0.0.1:{port}"
-    logger.warning(f"Starting bundled ChromaDB server at {server_url}.")
+    _logger.warning(f"Starting bundled ChromaDB server at {server_url}.")
     env.update({"ANONYMIZED_TELEMETRY": "False"})
     process = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -151,11 +151,11 @@ class _Chroma0ClientModel:
     process: Optional[Process] = None
 
 
-class Chroma0ClientManager:
-    singleton: Optional["Chroma0ClientManager"] = None
+class _Chroma0ClientManager:
+    singleton: Optional["_Chroma0ClientManager"] = None
     __clients: dict[str, _Chroma0ClientModel]
 
-    def __new__(cls) -> "Chroma0ClientManager":
+    def __new__(cls) -> "_Chroma0ClientManager":
         if cls.singleton is None:
             cls.singleton = super().__new__(cls)
             cls.singleton.__clients = {}
@@ -171,7 +171,7 @@ class Chroma0ClientManager:
         if self.__clients.get(project_root) is None:
             process = None
             if not await _try_server(url):
-                logger.info(f"Starting a new server at {url}")
+                _logger.info(f"Starting a new server at {url}")
                 process = await _start_server(configs)
                 is_bundled = True
 
@@ -183,11 +183,11 @@ class Chroma0ClientManager:
         lock = None
         if self.__clients[project_root].is_bundled and need_lock:
             lock = LockManager().get_lock(str(db_path))
-            logger.debug(f"Locking {db_path}")
+            _logger.debug(f"Locking {db_path}")
             await lock.acquire()
         yield self.__clients[project_root].client
         if lock is not None:
-            logger.debug(f"Unlocking {db_log_path}")
+            _logger.debug(f"Unlocking {db_log_path}")
             await lock.release()
 
     def get_processes(self) -> list[Process]:
@@ -196,7 +196,7 @@ class Chroma0ClientManager:
     async def kill_servers(self):
         termination_tasks: list[asyncio.Task] = []
         for p in self.get_processes():
-            logger.info(f"Killing bundled chroma server with PID: {p.pid}")
+            _logger.info(f"Killing bundled chroma server with PID: {p.pid}")
             p.terminate()
             termination_tasks.append(asyncio.create_task(p.wait()))
         await asyncio.gather(*termination_tasks)
@@ -210,11 +210,19 @@ class Chroma0ClientManager:
             }
             settings.update(valid_settings)
         parsed_url = urlparse(configs.db_params["db_url"])
-        logger.debug(f"Creating chromadb0 client from {db_settings}")
-        settings["chroma_server_host"] = parsed_url.hostname or "127.0.0.1"
-        settings["chroma_server_http_port"] = parsed_url.port or 8000
-        settings["chroma_server_ssl_enabled"] = parsed_url.scheme == "https"
-        settings["chroma_server_api_default_path"] = parsed_url.path or APIVersion.V2
+        _logger.debug(f"Creating chromadb0 client from {db_settings}")
+        settings["chroma_server_host"] = settings.get(
+            "chroma_server_host", parsed_url.hostname or "127.0.0.1"
+        )
+        settings["chroma_server_http_port"] = settings.get(
+            "chroma_server_http_port", parsed_url.port or 8000
+        )
+        settings["chroma_server_ssl_enabled"] = settings.get(
+            "chroma_server_ssl_enabled", parsed_url.scheme == "https"
+        )
+        settings["chroma_server_api_default_path"] = settings.get(
+            "chroma_server_api_default_path", parsed_url.path or APIVersion.V2
+        )
         settings_obj = Settings(**settings)
         return await chromadb.AsyncHttpClient(
             settings=settings_obj,
@@ -293,14 +301,15 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             "embedding_function": self._configs.embedding_function,
         }
         db_params = self._configs.db_params
-        for key in db_params.get("hnsw", {}).keys():
+        user_hnsw = db_params.get("hnsw", {})
+        for key in user_hnsw.keys():
             meta_field_name: str = key
             if not meta_field_name.startswith("hnsw:"):
                 meta_field_name = f"hnsw:{meta_field_name}"
-            if db_params.get(key) is not None:
-                collection_meta[meta_field_name] = db_params[key]
+            if user_hnsw.get(key) is not None:
+                collection_meta[meta_field_name] = user_hnsw[key]
 
-        async with Chroma0ClientManager().get_client(self._configs, True) as client:
+        async with _Chroma0ClientManager().get_client(self._configs, True) as client:
             collection_id = get_collection_id(collection_path)
             if not allow_create:
                 try:
@@ -349,7 +358,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
                 meta["end"] = chunk.end.row
             return meta
 
-        async with Chroma0ClientManager().get_client(self._configs) as client:
+        async with _Chroma0ClientManager().get_client(self._configs) as client:
             max_bs = await client.get_max_batch_size()
             for batch_start_idx in range(0, len(chunks), max_bs):
                 batch_chunks = [
@@ -376,7 +385,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             return VectoriseStats(add=1)
 
     async def list_collections(self):
-        async with Chroma0ClientManager().get_client(
+        async with _Chroma0ClientManager().get_client(
             self._configs, need_lock=False
         ) as client:
             result: list[CollectionInfo] = []
@@ -456,6 +465,6 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         )
 
     async def drop(self, collection_path: str):
-        async with Chroma0ClientManager().get_client(self._configs) as client:
+        async with _Chroma0ClientManager().get_client(self._configs) as client:
             await self._create_or_get_collection(collection_path, False)
             await client.delete_collection(get_collection_id(collection_path))
