@@ -105,7 +105,6 @@ class Config:
     include: list[QueryInclude] = field(
         default_factory=lambda: [QueryInclude.path, QueryInclude.document]
     )
-    hnsw: dict[str, str | int] = field(default_factory=dict)
     chunk_filters: dict[str, list[str]] = field(default_factory=dict)
     filetype_map: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
@@ -144,10 +143,6 @@ class Config:
                 ),
                 "db_type": config_dict.get("db_type", default_config.db_type),
                 "db_params": config_dict.get("db_url", default_config.db_params),
-                "db_path": db_path,
-                "db_log_path": os.path.expanduser(
-                    config_dict.get("db_log_path", default_config.db_log_path)
-                ),
                 "chunk_size": config_dict.get("chunk_size", default_config.chunk_size),
                 "overlap_ratio": config_dict.get(
                     "overlap_ratio", default_config.overlap_ratio
@@ -159,10 +154,6 @@ class Config:
                 "reranker_params": config_dict.get(
                     "reranker_params", default_config.reranker_params
                 ),
-                "db_settings": config_dict.get(
-                    "db_settings", default_config.db_settings
-                ),
-                "hnsw": config_dict.get("hnsw", default_config.hnsw),
                 "chunk_filters": config_dict.get(
                     "chunk_filters", default_config.chunk_filters
                 ),
