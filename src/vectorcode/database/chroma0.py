@@ -17,6 +17,7 @@ from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import EmbeddingFunction, IncludeEnum, QueryResult
 from chromadb.config import APIVersion, Settings
+from chromadb.errors import InvalidCollectionException
 from tree_sitter import Point
 
 import vectorcode.subcommands.query.types as vectorcode_query_types
@@ -24,6 +25,7 @@ from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import Config, LockManager, expand_path
 from vectorcode.common import get_embedding_function
 from vectorcode.database.base import DatabaseConnectorBase
+from vectorcode.database.errors import CollectionNotFoundError
 from vectorcode.database.types import (
     CollectionContent,
     CollectionInfo,
@@ -170,7 +172,7 @@ class Chroma0ClientManager:
             process = None
             if not await _try_server(url):
                 logger.info(f"Starting a new server at {url}")
-                process = await _start_server(url)
+                process = await _start_server(configs)
                 is_bundled = True
 
             self.__clients[project_root] = _Chroma0ClientModel(
@@ -223,7 +225,7 @@ class Chroma0ClientManager:
         self.__clients.clear()
 
 
-__default_settings: dict[str, Any] = {
+_default_settings: dict[str, Any] = {
     "db_url": "http://127.0.0.1",
     "db_path": os.path.expanduser("~/.local/share/vectorcode/chromadb/"),
     "db_log_path": os.path.expanduser("~/.local/share/vectorcode/"),
@@ -246,7 +248,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
     def __init__(self, configs: Config):
         super().__init__(configs)
-        params = copy.deepcopy(__default_settings)
+        params = copy.deepcopy(_default_settings)
         params.update(self._configs.db_params)
         self._configs.db_params = params
 
@@ -294,12 +296,18 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             meta_field_name: str = key
             if not meta_field_name.startswith("hnsw:"):
                 meta_field_name = f"hnsw:{meta_field_name}"
-            collection_meta[meta_field_name] = db_params[key]
+            if db_params.get(key) is not None:
+                collection_meta[meta_field_name] = db_params[key]
 
         async with Chroma0ClientManager().get_client(self._configs, True) as client:
             collection_id = get_collection_id(collection_path)
             if not allow_create:
-                return await client.get_collection(collection_id)
+                try:
+                    return await client.get_collection(collection_id)
+                except (InvalidCollectionException, ValueError) as e:
+                    raise CollectionNotFoundError(
+                        f"There's no existing collection for {collection_path} in ChromaDB0 {self._configs.db_params.get('db_url')}"
+                    ) from e
             col = await client.get_or_create_collection(
                 collection_id, metadata=collection_meta
             )
@@ -448,4 +456,5 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
     async def drop(self, collection_path: str):
         async with Chroma0ClientManager().get_client(self._configs) as client:
+            await self._create_or_get_collection(collection_path, False)
             await client.delete_collection(get_collection_id(collection_path))
