@@ -8,7 +8,7 @@ import subprocess
 import sys
 from asyncio.subprocess import Process
 from dataclasses import dataclass
-from typing import Any, Optional, cast
+from typing import Any, Optional, Sequence, cast
 from urllib.parse import urlparse
 
 import chromadb
@@ -437,3 +437,15 @@ class ChromaDB0Connector(DatabaseConnectorBase):
                 )
 
         return content
+
+    async def delete(self, collection_path: str, file_path: str | Sequence[str]):
+        collection = await self._create_or_get_collection(collection_path, False)
+        if isinstance(file_path, str):
+            file_path = [file_path]
+        await collection.delete(
+            where={"path": {"$in": [str(expand_path(i, True)) for i in file_path]}}
+        )
+
+    async def drop(self, collection_path: str):
+        async with Chroma0ClientManager().get_client(self._configs) as client:
+            await client.delete_collection(get_collection_id(collection_path))

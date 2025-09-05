@@ -84,3 +84,14 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         Otherwise, this method may populate only one of them to save waiting time.
         """
         pass
+
+    @abstractmethod
+    async def delete(self, collection_path: str, file_path: str | Sequence[str]):
+        pass
+
+    @abstractmethod
+    async def drop(self, collection_path: str):
+        """
+        Delete a collection from the database.
+        """
+        pass
