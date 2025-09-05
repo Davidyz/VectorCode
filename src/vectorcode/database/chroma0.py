@@ -210,6 +210,7 @@ class Chroma0ClientManager:
             }
             settings.update(valid_settings)
         parsed_url = urlparse(configs.db_params["db_url"])
+        logger.debug(f"Creating chromadb0 client from {db_settings}")
         settings["chroma_server_host"] = parsed_url.hostname or "127.0.0.1"
         settings["chroma_server_http_port"] = parsed_url.port or 8000
         settings["chroma_server_ssl_enabled"] = parsed_url.scheme == "https"
@@ -226,7 +227,7 @@ class Chroma0ClientManager:
 
 
 _default_settings: dict[str, Any] = {
-    "db_url": "http://127.0.0.1",
+    "db_url": "http://127.0.0.1:8000",
     "db_path": os.path.expanduser("~/.local/share/vectorcode/chromadb/"),
     "db_log_path": os.path.expanduser("~/.local/share/vectorcode/"),
     "db_settings": {},
