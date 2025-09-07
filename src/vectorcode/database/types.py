@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass, field, fields
 from enum import StrEnum
-from typing import Any
+from typing import Any, Sequence
 
 import tabulate
 
@@ -17,9 +17,10 @@ class ResultType(StrEnum):
 
 @dataclass
 class QueryOpts:
-    keywords: list[str]
+    keywords: Sequence[str]
     count: int | None = None
     return_type: ResultType = ResultType.chunk
+    excluded_files: Sequence[str] = []
 
 
 @dataclass

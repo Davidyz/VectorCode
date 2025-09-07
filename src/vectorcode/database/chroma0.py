@@ -40,7 +40,7 @@ _logger = logging.getLogger(name=__name__)
 
 
 def __convert_chroma_query_results(
-    chroma_result: QueryResult, queries: list[str]
+    chroma_result: QueryResult, queries: Sequence[str]
 ) -> list[types.QueryResult]:
     """Convert chromadb query result to in-house query results"""
     assert chroma_result["documents"] is not None
@@ -272,6 +272,11 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         query_count = opts.count or (
             await self.count(collection_path, ResultType.chunk)
         )
+        query_filter = None
+        if len(opts.excluded_files):
+            query_filter = cast(
+                chromadb.Where, {"path": {"$nin": list(opts.excluded_files)}}
+            )
         query_result = await collection.query(
             query_embeddings=keywords_embeddings,
             include=[
@@ -280,6 +285,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
                 IncludeEnum.distances,
             ],
             n_results=query_count,
+            where=query_filter,
         )
         return __convert_chroma_query_results(query_result, opts.keywords)
 
