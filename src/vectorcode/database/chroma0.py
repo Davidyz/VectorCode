@@ -21,7 +21,7 @@ from chromadb.errors import InvalidCollectionException
 from tree_sitter import Point
 
 from vectorcode.chunking import Chunk, TreeSitterChunker
-from vectorcode.cli_utils import Config, LockManager, expand_path
+from vectorcode.cli_utils import Config, LockManager, QueryInclude, expand_path
 from vectorcode.common import get_embedding_function
 from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.database.errors import CollectionNotFoundError
@@ -277,6 +277,14 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             query_filter = cast(
                 chromadb.Where, {"path": {"$nin": list(opts.excluded_files)}}
             )
+        if QueryInclude.chunk in self._configs.include:
+            if query_filter is None:
+                query_filter = cast(chromadb.Where, {"start": {"$gte": 0}})
+            else:
+                query_filter = cast(
+                    chromadb.Where,
+                    {"$and": [query_filter.copy(), {"start": {"$gte": 0}}]},
+                )
         query_result = await collection.query(
             query_embeddings=keywords_embeddings,
             include=[
