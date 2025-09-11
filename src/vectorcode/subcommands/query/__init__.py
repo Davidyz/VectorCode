@@ -93,7 +93,7 @@ async def get_query_result_files(
         num_query = configs.n_result
         if QueryInclude.chunk in configs.include:
             if filter:
-                filter = {"$and": [filter.copy(), {"$gte": 0}]}
+                filter = {"$and": [filter.copy(), {"start": {"$gte": 0}}]}
             else:
                 filter["start"] = {"$gte": 0}
         else:
@@ -122,9 +122,8 @@ async def get_query_result_files(
         return []
 
     reranker = get_reranker(configs)
-    return await reranker.rerank(
-        convert_query_results(chroma_query_results, configs.query)
-    )
+    converted_results = convert_query_results(chroma_query_results, configs.query)
+    return await reranker.rerank(converted_results)
 
 
 async def build_query_results(

@@ -238,7 +238,7 @@ async def test_get_query_result_chunks_with_query_exclude(mock_collection, mock_
         mock_collection.query.assert_called_once()
         _, kwargs = mock_collection.query.call_args
         assert kwargs["where"] == {
-            "$and": [{"path": {"$nin": ["/excluded/path.py"]}}, {"$gte": 0}]
+            "$and": [{"path": {"$nin": ["/excluded/path.py"]}}, {"start": {"$gte": 0}}]
         }
 
 
