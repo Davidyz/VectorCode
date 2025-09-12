@@ -20,7 +20,7 @@ class QueryOpts:
     keywords: Sequence[str]
     count: int | None = None
     return_type: ResultType = ResultType.chunk
-    excluded_files: Sequence[str] = []
+    excluded_files: Sequence[str] = field(default_factory=list)
 
 
 @dataclass
