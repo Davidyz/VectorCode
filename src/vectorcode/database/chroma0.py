@@ -261,21 +261,21 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         params.update(self._configs.db_params)
         self._configs.db_params = params
 
-    async def query(self, collection_path, keywords_embeddings, opts):
-        assert len(opts.keywords), "Keywords cannot be empty"
-        assert len(keywords_embeddings) == len(opts.keywords), (
+    async def query(self, keywords_embeddings):
+        assert self._configs.query is not None
+        assert len(self._configs.query), "Keywords cannot be empty"
+        assert len(keywords_embeddings) == len(self._configs.query), (
             "Number of embeddings must match number of keywords."
         )
+        collection_path = str(self._configs.project_root)
         collection: AsyncCollection = await self._create_or_get_collection(
             collection_path=collection_path, allow_create=False
         )
-        query_count = opts.count or (
-            await self.count(collection_path, ResultType.chunk)
-        )
+        query_count = self._configs.n_result or (await self.count(ResultType.chunk))
         query_filter = None
-        if len(opts.excluded_files):
+        if len(self._configs.query_exclude):
             query_filter = cast(
-                chromadb.Where, {"path": {"$nin": list(opts.excluded_files)}}
+                chromadb.Where, {"path": {"$nin": list(self._configs.query_exclude)}}
             )
         if QueryInclude.chunk in self._configs.include:
             if query_filter is None:
@@ -295,7 +295,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             n_results=query_count,
             where=query_filter,
         )
-        return __convert_chroma_query_results(query_result, opts.keywords)
+        return __convert_chroma_query_results(query_result, self._configs.query)
 
     async def _create_or_get_collection(
         self, collection_path: str, allow_create: bool = False
@@ -345,11 +345,11 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
     async def vectorise(
         self,
-        collection_path: str,
         file_path: str,
         chunker: TreeSitterChunker | None = None,
         embedding_function: EmbeddingFunction | None = None,
     ) -> VectoriseStats:
+        collection_path = str(self._configs.project_root)
         collection = await self._create_or_get_collection(
             collection_path, allow_create=True
         )
@@ -406,7 +406,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             for col_name in await client.list_collections():
                 col = await client.get_collection(col_name)
                 project_root = str(col.metadata.get("path"))
-                col_counts = await self.list(project_root)
+                col_counts = await self.list()
                 result.append(
                     CollectionInfo(
                         id=col_name,
@@ -422,11 +422,12 @@ class ChromaDB0Connector(DatabaseConnectorBase):
                 )
         return result
 
-    async def list(self, collection_path, what=None) -> CollectionContent:
+    async def list(self, what=None) -> CollectionContent:
         """
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
         Otherwise, this method may populate only one of them to save waiting time.
         """
+        collection_path = str(self._configs.project_root)
         content = CollectionContent()
         collection = await self._create_or_get_collection((collection_path))
         raw_content = await collection.get(
@@ -469,15 +470,20 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
         return content
 
-    async def delete(self, collection_path: str, file_path: str | Sequence[str]):
+    async def delete(self):
+        collection_path = str(self._configs.project_root)
         collection = await self._create_or_get_collection(collection_path, False)
-        if isinstance(file_path, str):
-            file_path = [file_path]
+        rm_paths = self._configs.rm_paths
+        if isinstance(rm_paths, str):
+            rm_paths = [rm_paths]
         await collection.delete(
-            where={"path": {"$in": [str(expand_path(i, True)) for i in file_path]}}
+            where={"path": {"$in": [str(expand_path(i, True)) for i in rm_paths]}}
         )
 
-    async def drop(self, collection_path: str):
+    async def drop(
+        self,
+    ):
+        collection_path = str(self._configs.project_root)
         async with _Chroma0ClientManager().get_client(self._configs) as client:
             await self._create_or_get_collection(collection_path, False)
             await client.delete_collection(get_collection_id(collection_path))

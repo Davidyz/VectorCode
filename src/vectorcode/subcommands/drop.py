@@ -10,7 +10,7 @@ logger = logging.getLogger(name=__name__)
 async def drop(config: Config) -> int:
     database = get_database_connector(config)
     try:
-        await database.drop(str(config.project_root))
+        await database.drop()
         if not config.pipe:
             print(f"Collection for {config.project_root} has been deleted.")
         return 0
