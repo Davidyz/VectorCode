@@ -439,9 +439,9 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         metadatas = raw_content.get("metadatas", [])
         documents = raw_content.get("documents", [])
         ids = raw_content.get("ids", [])
-        assert metadatas
-        assert documents
-        assert ids
+        assert metadatas is not None
+        assert documents is not None
+        assert ids is not None
         if what is None or what == ResultType.document:
             content.files.extend(
                 set(
