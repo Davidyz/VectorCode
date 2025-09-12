@@ -11,7 +11,6 @@ from vectorcode.cli_utils import Config
 from vectorcode.database.types import (
     CollectionContent,
     CollectionInfo,
-    QueryOpts,
     ResultType,
     VectoriseStats,
 )
@@ -60,11 +59,9 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
         self._configs = configs
 
-    async def count(
-        self, collection_path: str, what: ResultType = ResultType.chunk
-    ) -> int:
+    async def count(self, what: ResultType = ResultType.chunk) -> int:
         """Returns the chunk count or file count of the given collection, depending on the value passed for `what`."""
-        collection_content = await self.list(collection_path, what)
+        collection_content = await self.list(what)
         match what:
             case ResultType.chunk:
                 return len(collection_content.chunks)
@@ -74,17 +71,13 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def query(
         self,
-        collection_path: str,
         keywords_embeddings: list[NDArray],
-        opts: QueryOpts,
     ) -> Sequence[QueryResult]:
         pass
 
     @abstractmethod
     async def vectorise(
         self,
-        collection_path: str,
-        file_path: str,
         chunker: TreeSitterChunker | None = None,
         embedding_function: EmbeddingFunction | None = None,
     ) -> VectoriseStats:
@@ -99,9 +92,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         pass
 
     @abstractmethod
-    async def list(
-        self, collection_path: str, what: Optional[ResultType] = None
-    ) -> CollectionContent:
+    async def list(self, what: Optional[ResultType] = None) -> CollectionContent:
         """
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
         Otherwise, this method may populate only one of them to save waiting time.
@@ -109,11 +100,13 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         pass
 
     @abstractmethod
-    async def delete(self, collection_path: str, file_path: str | Sequence[str]):
+    async def delete(
+        self,
+    ):
         pass
 
     @abstractmethod
-    async def drop(self, collection_path: str):
+    async def drop(self):
         """
         Delete a collection from the database.
         """
