@@ -21,7 +21,13 @@ from chromadb.errors import InvalidCollectionException
 from tree_sitter import Point
 
 from vectorcode.chunking import Chunk, TreeSitterChunker
-from vectorcode.cli_utils import Config, LockManager, QueryInclude, expand_path
+from vectorcode.cli_utils import (
+    Config,
+    LockManager,
+    QueryInclude,
+    expand_globs,
+    expand_path,
+)
 from vectorcode.common import get_embedding_function
 from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.database.errors import CollectionNotFoundError
@@ -470,15 +476,36 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
         return content
 
-    async def delete(self):
+    async def delete(self) -> int:
         collection_path = str(self._configs.project_root)
         collection = await self._create_or_get_collection(collection_path, False)
         rm_paths = self._configs.rm_paths
         if isinstance(rm_paths, str):
             rm_paths = [rm_paths]
-        await collection.delete(
-            where={"path": {"$in": [str(expand_path(i, True)) for i in rm_paths]}}
+        rm_paths = [
+            str(expand_path(path=i, absolute=True))
+            for i in await expand_globs(
+                paths=self._configs.rm_paths,
+                recursive=self._configs.recursive,
+                include_hidden=self._configs.include_hidden,
+            )
+        ]
+        files_in_collection = set(
+            str(expand_path(i.path, True))
+            for i in (await self.list(ResultType.document)).files
         )
+
+        rm_paths = {
+            str(expand_path(i, True))
+            for i in rm_paths
+            if os.path.isfile(i) and (i in files_in_collection)
+        }
+        if rm_paths:
+            await collection.delete(
+                where=cast(chromadb.Where, {"path": {"$in": list(rm_paths)}})
+            )
+
+        return len(rm_paths)
 
     async def drop(
         self,
