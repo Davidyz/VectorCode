@@ -103,7 +103,11 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def delete(
         self,
-    ):
+    ) -> int:
+        """
+        Delete files from the database (doesn't remove files on disk).
+        Returns the actual number of files deleted.
+        """
         pass
 
     @abstractmethod
