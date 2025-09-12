@@ -78,6 +78,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def vectorise(
         self,
+        file_path: str,
         chunker: TreeSitterChunker | None = None,
         embedding_function: EmbeddingFunction | None = None,
     ) -> VectoriseStats:
