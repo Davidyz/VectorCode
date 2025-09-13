@@ -4,10 +4,9 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional, Self, Sequence
 
-from chromadb import EmbeddingFunction
 from numpy.typing import NDArray
 
-from vectorcode.chunking import TreeSitterChunker
+from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import Config
 from vectorcode.common import get_embedding_function
 from vectorcode.database.types import (
@@ -83,7 +82,6 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         self,
         file_path: str,
         chunker: TreeSitterChunker | None = None,
-        embedding_function: EmbeddingFunction | None = None,
     ) -> VectoriseStats:
         """
         Vectorise the given file and add it to the database.
@@ -187,3 +185,11 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         if self._configs.embedding_dims:
             embeddings = [e[: self._configs.embedding_dims] for e in embeddings]
         return embeddings
+
+    @abstractmethod
+    async def get_chunks(self, file_path) -> list[Chunk]:
+        """
+        Return chunks for the provided file, if any.
+        If not found, return an empty list.
+        """
+        pass
