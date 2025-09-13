@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import Optional, Self, Sequence
 
@@ -155,3 +156,21 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         )
         self._configs = new_config
         return self
+
+    async def check_orphanes(self) -> int:
+        """
+        Check for files that are in the database, but no longer on the disk, and remove them.
+        """
+
+        orphanes: list[str] = []
+        database_files = (await self.list(ResultType.document)).files
+        for file in database_files:
+            path = file.path
+            if not os.path.isfile(path):
+                orphanes.append(path)
+                logger.debug(f"Discovered orphaned file: {path}")
+
+        self.update_config(Config(rm_paths=orphanes))
+        await self.delete()
+
+        return len(orphanes)
