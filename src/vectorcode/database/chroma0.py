@@ -267,12 +267,14 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         params.update(self._configs.db_params)
         self._configs.db_params = params
 
-    async def query(self, keywords_embeddings):
+    async def query(self):
         assert self._configs.query is not None
         assert len(self._configs.query), "Keywords cannot be empty"
+        keywords_embeddings = self.get_embedding(self._configs.query)
         assert len(keywords_embeddings) == len(self._configs.query), (
             "Number of embeddings must match number of keywords."
         )
+
         collection_path = str(self._configs.project_root)
         collection: AsyncCollection = await self._create_or_get_collection(
             collection_path=collection_path, allow_create=False
