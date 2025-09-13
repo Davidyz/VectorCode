@@ -15,7 +15,7 @@ import chromadb
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import EmbeddingFunction, IncludeEnum, QueryResult
+from chromadb.api.types import IncludeEnum, QueryResult
 from chromadb.config import APIVersion, Settings
 from chromadb.errors import InvalidCollectionException
 from tree_sitter import Point
@@ -28,7 +28,6 @@ from vectorcode.cli_utils import (
     expand_globs,
     expand_path,
 )
-from vectorcode.common import get_embedding_function
 from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.database.errors import CollectionNotFoundError
 from vectorcode.database.types import (
@@ -355,19 +354,15 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         self,
         file_path: str,
         chunker: TreeSitterChunker | None = None,
-        embedding_function: EmbeddingFunction | None = None,
     ) -> VectoriseStats:
         collection_path = str(self._configs.project_root)
         collection = await self._create_or_get_collection(
             collection_path, allow_create=True
         )
         chunker = chunker or TreeSitterChunker(self._configs)
-        embedding_function = cast(
-            EmbeddingFunction,
-            embedding_function or get_embedding_function(self._configs),
-        )
+
         chunks = tuple(chunker.chunk(file_path))
-        embeddings = embedding_function(list(i.text for i in chunks))
+        embeddings = self.get_embedding(list(i.text for i in chunks))
 
         file_hash = hash_file(file_path)
 
@@ -414,7 +409,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             for col_name in await client.list_collections():
                 col = await client.get_collection(col_name)
                 project_root = str(col.metadata.get("path"))
-                col_counts = await self.list()
+                col_counts = await self.list_collection_content()
                 result.append(
                     CollectionInfo(
                         id=col_name,
@@ -430,7 +425,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
                 )
         return result
 
-    async def list(self, what=None) -> CollectionContent:
+    async def list_collection_content(self, what=None) -> CollectionContent:
         """
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
         Otherwise, this method may populate only one of them to save waiting time.
@@ -494,7 +489,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         ]
         files_in_collection = set(
             str(expand_path(i.path, True))
-            for i in (await self.list(ResultType.document)).files
+            for i in (await self.list_collection_content(ResultType.document)).files
         )
 
         rm_paths = {
@@ -516,3 +511,38 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         async with _Chroma0ClientManager().get_client(self._configs) as client:
             await self._create_or_get_collection(collection_path, False)
             await client.delete_collection(get_collection_id(collection_path))
+
+    async def get_chunks(self, file_path) -> list[Chunk]:
+        file_path = os.path.abspath(file_path)
+        try:
+            collection = await self._create_or_get_collection(
+                collection_path=str(self._configs.project_root), allow_create=False
+            )
+        except CollectionNotFoundError:
+            _logger.warning(
+                f"There's no existing collection at {self._configs.project_root}."
+            )
+            return []
+        except Exception:
+            raise
+
+        raw_results = await collection.get(
+            where={"path": file_path},
+            include=[IncludeEnum.metadatas, IncludeEnum.documents],
+        )
+        assert raw_results["metadatas"] is not None
+        assert raw_results["documents"] is not None
+
+        result: list[Chunk] = []
+        for i in range(len(raw_results["ids"])):
+            meta = raw_results["metadatas"][i]
+            text = raw_results["documents"][i]
+            _id = raw_results["ids"][i]
+            chunk = Chunk(text=text, id=_id)
+            if meta.get("start") is not None:
+                chunk.start = Point(row=int(meta["start"]), column=0)
+            if meta.get("end") is not None:
+                chunk.end = Point(row=int(meta["end"]), column=0)
+
+            result.append(chunk)
+        return result
