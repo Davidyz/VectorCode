@@ -3,13 +3,19 @@ import logging
 
 from vectorcode.cli_utils import Config
 from vectorcode.database import get_database_connector
+from vectorcode.database.types import ResultType
 
 logger = logging.getLogger(name=__name__)
 
 
 async def ls(configs: Config) -> int:
     database = get_database_connector(configs)
-    files = list(i.path for i in (await database.list_collection_content()).files)
+    files = list(
+        i.path
+        for i in (
+            await database.list_collection_content(what=ResultType.document)
+        ).files
+    )
     if configs.pipe:
         print(json.dumps(files))
     else:
