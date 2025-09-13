@@ -63,7 +63,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
         Returns the chunk count or file count of the given collection, depending on the value passed for `what`.
         """
-        collection_content = await self.list_collection_content(what)
+        collection_content = await self.list_collection_content(what=what)
         match what:
             case ResultType.chunk:
                 return len(collection_content.chunks)
@@ -97,10 +97,15 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     @abstractmethod
     async def list_collection_content(
-        self, what: Optional[ResultType] = None
+        self,
+        *,
+        what: Optional[ResultType] = None,
+        collection_id: str | None = None,
+        collection_path: str | None = None,
     ) -> CollectionContent:
         """
         List the content of a collection (from `self._configs.project_root`).
+        You may use the keyword arguments to temporarily override the collection of interests.
 
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
         Otherwise, this method may populate only one of them to save waiting time.
@@ -155,7 +160,9 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
 
         orphanes: list[str] = []
-        database_files = (await self.list_collection_content(ResultType.document)).files
+        database_files = (
+            await self.list_collection_content(what=ResultType.document)
+        ).files
         for file in database_files:
             path = file.path
             if not os.path.isfile(path):

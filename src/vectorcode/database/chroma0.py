@@ -409,7 +409,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             for col_name in await client.list_collections():
                 col = await client.get_collection(col_name)
                 project_root = str(col.metadata.get("path"))
-                col_counts = await self.list_collection_content()
+                col_counts = await self.list_collection_content(collection_id=col_name)
                 result.append(
                     CollectionInfo(
                         id=col_name,
@@ -425,14 +425,26 @@ class ChromaDB0Connector(DatabaseConnectorBase):
                 )
         return result
 
-    async def list_collection_content(self, what=None) -> CollectionContent:
+    async def list_collection_content(
+        self,
+        *,
+        what=None,
+        collection_id: str | None = None,
+        collection_path: str | None = None,
+    ) -> CollectionContent:
         """
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
         Otherwise, this method may populate only one of them to save waiting time.
         """
-        collection_path = str(self._configs.project_root)
+        if collection_id is None:
+            collection_path = str(collection_path or self._configs.project_root)
+            collection = await self._create_or_get_collection((collection_path))
+        else:
+            async with _Chroma0ClientManager().get_client(
+                self._configs, False
+            ) as client:
+                collection = await client.get_collection(collection_id)
         content = CollectionContent()
-        collection = await self._create_or_get_collection((collection_path))
         raw_content = await collection.get(
             include=[
                 IncludeEnum.metadatas,
