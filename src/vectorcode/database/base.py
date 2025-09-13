@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 
 from vectorcode.chunking import TreeSitterChunker
 from vectorcode.cli_utils import Config
+from vectorcode.common import get_embedding_function
 from vectorcode.database.types import (
     CollectionContent,
     CollectionInfo,
@@ -64,7 +65,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
         Returns the chunk count or file count of the given collection, depending on the value passed for `what`.
         """
-        collection_content = await self.list(what)
+        collection_content = await self.list_collection_content(what)
         match what:
             case ResultType.chunk:
                 return len(collection_content.chunks)
@@ -74,7 +75,6 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def query(
         self,
-        keywords_embeddings: list[NDArray],
     ) -> Sequence[QueryResult]:
         pass
 
@@ -99,7 +99,9 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         pass
 
     @abstractmethod
-    async def list(self, what: Optional[ResultType] = None) -> CollectionContent:
+    async def list_collection_content(
+        self, what: Optional[ResultType] = None
+    ) -> CollectionContent:
         """
         List the content of a collection (from `self._configs.project_root`).
 
@@ -163,7 +165,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
 
         orphanes: list[str] = []
-        database_files = (await self.list(ResultType.document)).files
+        database_files = (await self.list_collection_content(ResultType.document)).files
         for file in database_files:
             path = file.path
             if not os.path.isfile(path):
@@ -174,3 +176,14 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         await self.delete()
 
         return len(orphanes)
+
+    def get_embedding(self, texts: str | list[str]) -> list[NDArray]:
+        """
+        Generate embeddings and truncate them to `self._configs.embedding_dims` if needed.
+        """
+        if isinstance(texts, str):
+            texts = [texts]
+        embeddings = get_embedding_function(self._configs)(texts)
+        if self._configs.embedding_dims:
+            embeddings = [e[: self._configs.embedding_dims] for e in embeddings]
+        return embeddings
