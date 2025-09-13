@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import uuid
-from asyncio import Lock
+from asyncio import Lock, Semaphore
 from typing import Iterable, Optional
 
 import pathspec
@@ -23,12 +23,11 @@ from vectorcode.cli_utils import (
     expand_path,
 )
 from vectorcode.common import (
-    ClientManager,
-    get_collection,
     get_embedding_function,
     list_collection_files,
-    verify_ef,
 )
+from vectorcode.database import get_database_connector
+from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.database.types import VectoriseStats
 
 logger = logging.getLogger(name=__name__)
@@ -239,69 +238,64 @@ def find_exclude_specs(configs: Config) -> list[str]:
     return specs
 
 
-async def vectorise(configs: Config) -> int:
-    assert configs.project_root is not None
-    async with ClientManager().get_client(configs) as client:
-        try:
-            collection = await get_collection(client, configs, True)
-        except IndexError as e:
-            print(
-                f"{e.__class__.__name__}: Failed to get/create the collection. Please check your config."
-            )
-            return 1
-        if not verify_ef(collection, configs):
-            return 1
-
-        files = await expand_globs(
-            configs.files or load_files_from_include(str(configs.project_root)),
-            recursive=configs.recursive,
-            include_hidden=configs.include_hidden,
+async def vectorise_worker(
+    database: DatabaseConnectorBase,
+    file_path: str,
+    semaphore: Semaphore,
+    stats: VectoriseStats,
+    stats_lock: Lock,
+):
+    async with semaphore, stats_lock:
+        stats += await database.vectorise(
+            file_path=file_path,
         )
 
-        if not configs.force:
-            for spec_path in find_exclude_specs(configs):
-                if os.path.isfile(spec_path):
-                    logger.info(f"Loading ignore specs from {spec_path}.")
-                    files = exclude_paths_by_spec(
-                        (str(i) for i in files), spec_path, str(configs.project_root)
-                    )
-                    logger.debug(f"Files after excluding: {files}")
-        else:  # pragma: nocover
-            logger.info("Ignoring exclude specs.")
 
-        stats = VectoriseStats()
-        collection_lock = Lock()
-        stats_lock = Lock()
-        max_batch_size = await client.get_max_batch_size()
-        semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+async def vectorise(configs: Config) -> int:
+    assert configs.project_root is not None
+    database = get_database_connector(configs)
 
-        with tqdm.tqdm(
-            total=len(files), desc="Vectorising files...", disable=configs.pipe
-        ) as bar:
-            try:
-                tasks = [
-                    asyncio.create_task(
-                        chunked_add(
-                            str(file),
-                            collection,
-                            collection_lock,
-                            stats,
-                            stats_lock,
-                            configs,
-                            max_batch_size,
-                            semaphore,
-                        )
-                    )
-                    for file in files
-                ]
-                for task in asyncio.as_completed(tasks):
-                    await task
-                    bar.update(1)
-            except asyncio.CancelledError:
-                print("Abort.", file=sys.stderr)
-                return 1
+    files = await expand_globs(
+        configs.files or load_files_from_include(str(configs.project_root)),
+        recursive=configs.recursive,
+        include_hidden=configs.include_hidden,
+    )
 
-        await remove_orphanes(collection, collection_lock, stats, stats_lock)
+    # TODO: check file hashes
 
-        show_stats(configs=configs, stats=stats)
-        return 0
+    if not configs.force:
+        for spec_path in find_exclude_specs(configs):
+            if os.path.isfile(spec_path):
+                logger.info(f"Loading ignore specs from {spec_path}.")
+                files = exclude_paths_by_spec(
+                    (str(i) for i in files), spec_path, str(configs.project_root)
+                )
+                logger.debug(f"Files after excluding: {files}")
+    else:  # pragma: nocover
+        logger.info("Ignoring exclude specs.")
+
+    stats = VectoriseStats()
+    stats_lock = Lock()
+    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+
+    with tqdm.tqdm(
+        total=len(files), desc="Vectorising files...", disable=configs.pipe
+    ) as bar:
+        try:
+            tasks = [
+                asyncio.create_task(
+                    vectorise_worker(database, file, semaphore, stats, stats_lock)
+                )
+                for file in files
+            ]
+            for task in asyncio.as_completed(tasks):
+                await task
+                bar.update(1)
+        except asyncio.CancelledError:
+            print("Abort.", file=sys.stderr)
+            return 1
+
+    await database.check_orphanes()
+
+    show_stats(configs=configs, stats=stats)
+    return 0
