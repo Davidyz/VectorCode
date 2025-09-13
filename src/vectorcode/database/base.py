@@ -49,8 +49,8 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         except Exception as e:  # pragma: nocover
             doc_string = cls.__doc__
             if doc_string:
-                logger.warning(doc_string)
-            raise e
+                e.add_note(doc_string)
+            raise
 
     def __init__(self, configs: Config):
         """
@@ -60,7 +60,9 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         self._configs = configs
 
     async def count(self, what: ResultType = ResultType.chunk) -> int:
-        """Returns the chunk count or file count of the given collection, depending on the value passed for `what`."""
+        """
+        Returns the chunk count or file count of the given collection, depending on the value passed for `what`.
+        """
         collection_content = await self.list(what)
         match what:
             case ResultType.chunk:
@@ -90,11 +92,16 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     @abstractmethod
     async def list_collections(self) -> Sequence[CollectionInfo]:
+        """
+        List collections in the database.
+        """
         pass
 
     @abstractmethod
     async def list(self, what: Optional[ResultType] = None) -> CollectionContent:
         """
+        List the content of a collection (from `self._configs.project_root`).
+
         When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
         Otherwise, this method may populate only one of them to save waiting time.
         """
@@ -113,7 +120,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def drop(self):
         """
-        Delete a collection from the database.
+        Delete a collection (`self._configs.project_root`) from the database.
         """
         pass
 
