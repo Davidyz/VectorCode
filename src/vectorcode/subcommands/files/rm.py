@@ -1,31 +1,21 @@
 import logging
-import os
-from typing import cast
 
-from chromadb.types import Where
-
-from vectorcode.cli_utils import Config, expand_path
-from vectorcode.common import ClientManager, get_collection
+from vectorcode.cli_utils import Config
+from vectorcode.database import get_database_connector
+from vectorcode.database.types import ResultType
 
 logger = logging.getLogger(name=__name__)
 
 
 async def rm(configs: Config) -> int:
-    async with ClientManager().get_client(configs=configs) as client:
-        try:
-            collection = await get_collection(client, configs, False)
-        except ValueError:
-            logger.error(f"There's no existing collection at {configs.project_root}.")
-            return 1
-        paths = list(
-            str(expand_path(p, True)) for p in configs.rm_paths if os.path.isfile(p)
+    database = get_database_connector(configs)
+    remove_count = await database.delete()
+
+    if not configs.pipe:
+        print(f"Removed {remove_count} file(s).")
+    if await database.count(ResultType.chunk) == 0:
+        logger.warning(
+            f"The collection at {configs.project_root} is now empty, and will be removed."
         )
-        await collection.delete(where=cast(Where, {"path": {"$in": paths}}))
-        if not configs.pipe:
-            print(f"Removed {len(paths)} file(s).")
-        if await collection.count() == 0:
-            logger.warning(
-                f"The collection at {configs.project_root} is now empty and will be removed."
-            )
-            await client.delete_collection(collection.name)
+        await database.drop()
     return 0

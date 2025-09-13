@@ -23,7 +23,8 @@ from vectorcode.common import (
     get_embedding_function,
     verify_ef,
 )
-from vectorcode.subcommands.query import types as vectorcode_types
+from vectorcode.database import types
+from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.subcommands.query.reranker import (
     RerankerError,
     get_reranker,
@@ -34,14 +35,14 @@ logger = logging.getLogger(name=__name__)
 
 def convert_query_results(
     chroma_result: QueryResult, queries: list[str]
-) -> list[vectorcode_types.QueryResult]:
+) -> list[types.QueryResult]:
     """Convert chromadb query result to in-house query results"""
     assert chroma_result["documents"] is not None
     assert chroma_result["distances"] is not None
     assert chroma_result["metadatas"] is not None
     assert chroma_result["ids"] is not None
 
-    chroma_results_list: list[vectorcode_types.QueryResult] = []
+    chroma_results_list: list[types.QueryResult] = []
     for q_i in range(len(queries)):
         q = queries[q_i]
         documents = chroma_result["documents"][q_i]
@@ -57,7 +58,7 @@ def convert_query_results(
             if meta.get("path"):
                 chunk.path = str(meta["path"])
             chroma_results_list.append(
-                vectorcode_types.QueryResult(
+                types.QueryResult(
                     chunk=chunk,
                     path=str(meta.get("path", "")),
                     query=(q,),
@@ -171,6 +172,12 @@ async def build_query_results(
         if result.get("path") is not None:
             result["path"] = cleanup_path(result["path"])
     return structured_result
+
+
+async def get_reranked_results(
+    database: DatabaseConnectorBase,
+) -> list[types.QueryResult]:
+    await database.query()
 
 
 async def query(configs: Config) -> int:
