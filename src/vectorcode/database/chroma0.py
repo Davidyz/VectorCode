@@ -28,6 +28,7 @@ from vectorcode.cli_utils import (
     expand_globs,
     expand_path,
 )
+from vectorcode.database import types
 from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.database.errors import CollectionNotFoundError
 from vectorcode.database.types import (
@@ -38,7 +39,6 @@ from vectorcode.database.types import (
     VectoriseStats,
 )
 from vectorcode.database.utils import get_collection_id, hash_file
-from vectorcode.subcommands.query import types
 from vectorcode.subcommands.vectorise import get_uuid
 
 _logger = logging.getLogger(name=__name__)

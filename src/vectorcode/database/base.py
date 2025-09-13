@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -12,10 +11,10 @@ from vectorcode.common import get_embedding_function
 from vectorcode.database.types import (
     CollectionContent,
     CollectionInfo,
+    QueryResult,
     ResultType,
     VectoriseStats,
 )
-from vectorcode.subcommands.query.types import QueryResult
 
 logger = logging.getLogger(name=__name__)
 
@@ -127,30 +126,23 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     def _check_new_config(self, new_config: Config) -> bool:
         """
-        Verify that the `new_config` is a valid one for updating.
+        Cleanup the `new_config` so that the database config matches the existing one.
         """
         assert isinstance(new_config, Config), "`new_config` is not a `Config` object."
-        return (
-            new_config.db_type == self._configs.db_type
-            and new_config.db_params == self._configs.db_params
-        )
+        new_config.db_type = self._configs.db_type
+        new_config.db_params = self._configs.db_params
+        return True
 
-    def update_config(self, new_config: Config) -> Self:
+    async def update_config(self, new_config: Config) -> Self:
         assert self._check_new_config(new_config), (
             "The new config has different database configs."
         )
 
-        # no need to make this one async
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        self._configs = await self._configs.merge_from(new_config)
 
-        self._configs = loop.run_until_complete(self._configs.merge_from(new_config))
         return self
 
-    def replace_config(self, new_config: Config) -> Self:
+    async def replace_config(self, new_config: Config) -> Self:
         assert self._check_new_config(new_config), (
             "The new config has different database configs."
         )
@@ -170,7 +162,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
                 orphanes.append(path)
                 logger.debug(f"Discovered orphaned file: {path}")
 
-        self.update_config(Config(rm_paths=orphanes))
+        await self.update_config(Config(rm_paths=orphanes))
         await self.delete()
 
         return len(orphanes)

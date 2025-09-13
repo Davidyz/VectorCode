@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from vectorcode.cli_utils import Config
-from vectorcode.subcommands.query.types import QueryResult
+from vectorcode.database.types import QueryResult
 
 from .base import RerankerBase
 
