@@ -190,7 +190,11 @@ class _Chroma0ClientManager:
             lock = LockManager().get_lock(str(db_path))
             _logger.debug(f"Locking {db_path}")
             await lock.acquire()
-        yield self.__clients[project_root].client
+
+        new_client = self.__clients[project_root].client
+        assert (await new_client.get_version()).split(".")[0] == "0"
+        yield new_client
+
         if lock is not None:
             _logger.debug(f"Unlocking {db_log_path}")
             await lock.release()
