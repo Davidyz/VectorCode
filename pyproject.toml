@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "A tool to vectorise repositories for RAG."
 authors = [{ name = "Davidyz", email = "hzjlyz@gmail.com" }]
 dependencies = [
-    "chromadb<=0.6.3",
+    "chromadb",
     "sentence-transformers",
     "pathspec",
     "tabulate",
@@ -74,6 +74,7 @@ dev = [
 ]
 
 [project.optional-dependencies]
+chroma0 = ["chromadb==0.6.3"]
 legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
 intel = ['optimum[openvino]', 'openvino']
 lsp = ['pygls<2.0.0', 'lsprotocol']
