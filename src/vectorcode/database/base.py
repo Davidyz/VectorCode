@@ -73,7 +73,7 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def query(
         self,
-    ) -> Sequence[QueryResult]:
+    ) -> list[QueryResult]:
         pass
 
     @abstractmethod

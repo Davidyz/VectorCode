@@ -6,7 +6,6 @@ from typing import Any, cast
 from chromadb import Where
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum, QueryResult
-from chromadb.errors import InvalidCollectionException, InvalidDimensionException
 from tree_sitter import Point
 
 from vectorcode.chunking import Chunk, StringChunker
@@ -18,15 +17,11 @@ from vectorcode.cli_utils import (
     expand_path,
 )
 from vectorcode.common import (
-    ClientManager,
-    get_collection,
     get_embedding_function,
-    verify_ef,
 )
-from vectorcode.database import types
+from vectorcode.database import get_database_connector, types
 from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.subcommands.query.reranker import (
-    RerankerError,
     get_reranker,
 )
 
@@ -174,67 +169,125 @@ async def build_query_results(
     return structured_result
 
 
+def _prepare_formatted_result(
+    reranked_results: list[str | Chunk],
+) -> list[dict[str, str | int]]:
+    results: list[dict[str, str | int]] = []
+    for res in reranked_results:
+        if isinstance(res, str):
+            if os.path.isfile(res):
+                # path to a file
+                with open(res) as fin:
+                    results.append({"path": res, "document": fin.read()})
+            else:  # pragma: nocover
+                logger.warning(f"Skipping non-existent file: {res}")
+        else:
+            assert isinstance(res, Chunk)
+            if res.start is None or res.end is None:
+                logger.warning(
+                    "This chunk doesn't have line range metadata. Please try re-vectorising the project."
+                )
+            output_dict = {
+                "path": res.path,
+                "chunk": res.text,
+                "end_line": res.end.row if res.end is not None else None,
+                "chunk_id": res.id,
+            }
+            if res.start:
+                output_dict["start_line"] = res.start.row
+            if res.end:
+                output_dict["end_line"] = res.end.row
+            results.append(output_dict)
+    return results
+
+
 async def get_reranked_results(
+    config: Config,
     database: DatabaseConnectorBase,
-) -> list[types.QueryResult]:
-    await database.query()
+) -> list[str | Chunk]:
+    """
+    Return a list of paths or `Chunk`s ranked by similarity.
+    """
+    reranker = get_reranker(config)
+    reranked_results = await reranker.rerank(results=await database.query())
+    return reranked_results
 
 
 async def query(configs: Config) -> int:
-    if (
+    if QueryInclude.path not in configs.include:
+        configs.include.append(QueryInclude.path)
+    assert not (
         QueryInclude.chunk in configs.include
         and QueryInclude.document in configs.include
-    ):
-        logger.error(
-            "Having both chunk and document in the output is not supported!",
-        )
-        return 1
-    async with ClientManager().get_client(configs) as client:
-        try:
-            collection = await get_collection(client, configs, False)
-            if not verify_ef(collection, configs):
-                return 1
-        except (ValueError, InvalidCollectionException) as e:
-            logger.error(
-                f"{e.__class__.__name__}: There's no existing collection for {configs.project_root}",
-            )
-            return 1
-        except InvalidDimensionException as e:
-            logger.error(
-                f"{e.__class__.__name__}: The collection was embedded with a different embedding model.",
-            )
-            return 1
-        except IndexError as e:  # pragma: nocover
-            logger.error(
-                f"{e.__class__.__name__}: Failed to get the collection. Please check your config."
-            )
-            return 1
+    ), "`chunk` and `document` cannot be used at the same time for `--include`."
 
-        if not configs.pipe:
-            print("Starting querying...")
+    database = get_database_connector(configs)
+    reranked_results = await get_reranked_results(configs, database)
+    formatted_results = _prepare_formatted_result(reranked_results)
+    if configs.pipe:
+        print(json.dumps(formatted_results))
+    else:
+        for idx, result in enumerate(formatted_results):
+            for include_item in configs.include:
+                print(f"{include_item.to_header()}{result.get(include_item.value)}")
+            if idx != len(formatted_results) - 1:
+                print()
+    return 0
 
-        if QueryInclude.chunk in configs.include:
-            if len((await collection.get(where={"start": {"$gte": 0}}))["ids"]) == 0:
-                logger.warning(
-                    """
-    This collection doesn't contain line range metadata. Falling back to `--include path document`. 
-    Please re-vectorise it to use `--include chunk`.""",
-                )
-                configs.include = [QueryInclude.path, QueryInclude.document]
-
-        try:
-            structured_result = await build_query_results(collection, configs)
-        except RerankerError as e:  # pragma: nocover
-            # error logs should be handled where they're raised
-            logger.error(f"{e.__class__.__name__}")
-            return 1
-
-        if configs.pipe:
-            print(json.dumps(structured_result))
-        else:
-            for idx, result in enumerate(structured_result):
-                for include_item in configs.include:
-                    print(f"{include_item.to_header()}{result.get(include_item.value)}")
-                if idx != len(structured_result) - 1:
-                    print()
-        return 0
+    # if (
+    #     QueryInclude.chunk in configs.include
+    #     and QueryInclude.document in configs.include
+    # ):
+    #     logger.error(
+    #         "Having both chunk and document in the output is not supported!",
+    #     )
+    #     return 1
+    # async with ClientManager().get_client(configs) as client:
+    #     try:
+    #         collection = await get_collection(client, configs, False)
+    #         if not verify_ef(collection, configs):
+    #             return 1
+    #     except (ValueError, InvalidCollectionException) as e:
+    #         logger.error(
+    #             f"{e.__class__.__name__}: There's no existing collection for {configs.project_root}",
+    #         )
+    #         return 1
+    #     except InvalidDimensionException as e:
+    #         logger.error(
+    #             f"{e.__class__.__name__}: The collection was embedded with a different embedding model.",
+    #         )
+    #         return 1
+    #     except IndexError as e:  # pragma: nocover
+    #         logger.error(
+    #             f"{e.__class__.__name__}: Failed to get the collection. Please check your config."
+    #         )
+    #         return 1
+    #
+    #     if not configs.pipe:
+    #         print("Starting querying...")
+    #
+    #     if QueryInclude.chunk in configs.include:
+    #         if len((await collection.get(where={"start": {"$gte": 0}}))["ids"]) == 0:
+    #             logger.warning(
+    #                 """
+    # This collection doesn't contain line range metadata. Falling back to `--include path document`.
+    # Please re-vectorise it to use `--include chunk`.""",
+    #             )
+    #             configs.include = [QueryInclude.path, QueryInclude.document]
+    #
+    #     try:
+    #         structured_result = await build_query_results(collection, configs)
+    #     except RerankerError as e:  # pragma: nocover
+    #         # error logs should be handled where they're raised
+    #         logger.error(f"{e.__class__.__name__}")
+    #         return 1
+    #
+    #     if configs.pipe:
+    #         print(json.dumps(structured_result))
+    #     else:
+    #         for idx, result in enumerate(structured_result):
+    #             for include_item in configs.include:
+    #                 print(f"{include_item.to_header()}{result.get(include_item.value)}")
+    #             if idx != len(structured_result) - 1:
+    #                 print()
+    #     return 0

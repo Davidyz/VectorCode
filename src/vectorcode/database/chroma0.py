@@ -44,7 +44,7 @@ from vectorcode.subcommands.vectorise import get_uuid
 _logger = logging.getLogger(name=__name__)
 
 
-def __convert_chroma_query_results(
+def _convert_chroma_query_results(
     chroma_result: QueryResult, queries: Sequence[str]
 ) -> list[types.QueryResult]:
     """Convert chromadb query result to in-house query results"""
@@ -302,7 +302,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
             n_results=query_count,
             where=query_filter,
         )
-        return __convert_chroma_query_results(query_result, self._configs.query)
+        return _convert_chroma_query_results(query_result, self._configs.query)
 
     async def _create_or_get_collection(
         self, collection_path: str, allow_create: bool = False
