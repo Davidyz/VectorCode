@@ -363,6 +363,8 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
         chunks = tuple(chunker.chunk(file_path))
         embeddings = self.get_embedding(list(i.text for i in chunks))
+        if len(embeddings) == 0:
+            return VectoriseStats(skipped=1)
 
         file_hash = hash_file(file_path)
 
@@ -501,7 +503,9 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         ]
         files_in_collection = set(
             str(expand_path(i.path, True))
-            for i in (await self.list_collection_content(ResultType.document)).files
+            for i in (
+                await self.list_collection_content(what=ResultType.document)
+            ).files
         )
 
         rm_paths = {

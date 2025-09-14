@@ -180,6 +180,10 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
         if isinstance(texts, str):
             texts = [texts]
+        if len(texts) == 0:
+            return []
+        texts = [i for i in texts]
+        logger.debug(f"Getting embeddings for {texts}")
         embeddings = get_embedding_function(self._configs)(texts)
         if self._configs.embedding_dims:
             embeddings = [e[: self._configs.embedding_dims] for e in embeddings]

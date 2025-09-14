@@ -28,7 +28,9 @@ from vectorcode.common import (
 )
 from vectorcode.database import get_database_connector
 from vectorcode.database.base import DatabaseConnectorBase
-from vectorcode.database.types import VectoriseStats
+from vectorcode.database.errors import CollectionNotFoundError
+from vectorcode.database.types import ResultType, VectoriseStats
+from vectorcode.subcommands.vectorise.filter import FilterManager
 
 logger = logging.getLogger(name=__name__)
 
@@ -261,19 +263,31 @@ async def vectorise(configs: Config) -> int:
         include_hidden=configs.include_hidden,
     )
 
-    # TODO: check file hashes
+    filters = FilterManager()
+
+    try:
+        collection_files = (
+            await database.list_collection_content(what=ResultType.document)
+        ).files
+
+        existing_hashes = set(i.sha256 for i in collection_files)
+    except CollectionNotFoundError:
+        existing_hashes = set()
 
     if not configs.force:
         for spec_path in find_exclude_specs(configs):
+            # filter by gitignore/vectorcode.exclude
             if os.path.isfile(spec_path):
                 logger.info(f"Loading ignore specs from {spec_path}.")
-                files = exclude_paths_by_spec(
-                    (str(i) for i in files), spec_path, str(configs.project_root)
-                )
-                logger.debug(f"Files after excluding: {files}")
+                spec = SpecResolver.from_path(spec_path)
+                filters.add_filter(lambda x: spec.match_file(x, True))
+
+        # filter by sha256
+        filters.add_filter(lambda x: hash_file(x) not in existing_hashes)
     else:  # pragma: nocover
         logger.info("Ignoring exclude specs.")
 
+    files = list(filters(files))
     stats = VectoriseStats()
     stats_lock = Lock()
     semaphore = asyncio.Semaphore(os.cpu_count() or 1)

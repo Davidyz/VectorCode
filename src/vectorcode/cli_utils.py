@@ -708,6 +708,7 @@ class SpecResolver:
         return cls(spec_path, base_dir)
 
     def __init__(self, spec: str | GitIgnoreSpec, base_dir: str = "."):
+        self.spec: GitIgnoreSpec
         if isinstance(spec, str):
             with open(spec) as fin:
                 self.spec = GitIgnoreSpec.from_lines(
@@ -715,20 +716,21 @@ class SpecResolver:
                 )
         else:
             self.spec = spec
-        self.base_dir = base_dir
+        self.base_dir = Path(base_dir).resolve()
+
+    def match_file(self, path: str, negated: bool = False) -> bool:
+        if self.base_dir in Path(path).resolve().parents:
+            matched = self.spec.match_file(os.path.relpath(path, self.base_dir))
+            if negated:
+                matched = not matched
+            return matched
+        return True
 
     def match(
         self, paths: Iterable[str], negated: bool = False
     ) -> Generator[str, None, None]:
         # get paths relative to `base_dir`
 
-        base = Path(self.base_dir).resolve()
         for p in paths:
-            if base in Path(p).resolve().parents:
-                should_yield = self.spec.match_file(os.path.relpath(p, self.base_dir))
-                if negated:
-                    should_yield = not should_yield
-                if should_yield:
-                    yield p
-            else:
+            if self.match_file(p, negated):
                 yield p
