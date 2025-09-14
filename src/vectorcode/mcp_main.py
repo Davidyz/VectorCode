@@ -6,17 +6,18 @@ import sys
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, cast
+from typing import Optional
 
 import shtab
-from chromadb.types import Where
 
+from vectorcode.chunking import StringChunker
+from vectorcode.database import get_database_connector
+from vectorcode.database.types import ResultType
 from vectorcode.subcommands.vectorise import (
+    FilterManager,
     VectoriseStats,
-    chunked_add,
-    exclude_paths_by_spec,
     find_exclude_specs,
-    remove_orphanes,
+    vectorise_worker,
 )
 
 try:  # pragma: nocover
@@ -32,7 +33,7 @@ except ModuleNotFoundError as e:  # pragma: nocover
 from vectorcode.cli_utils import (
     Config,
     LockManager,
-    cleanup_path,
+    SpecResolver,
     config_logging,
     expand_globs,
     expand_path,
@@ -42,12 +43,12 @@ from vectorcode.cli_utils import (
 )
 from vectorcode.common import (
     ClientManager,
-    get_collection,
-    get_collections,
-    list_collection_files,
 )
 from vectorcode.subcommands.prompt import prompt_by_categories
-from vectorcode.subcommands.query import get_query_result_files
+from vectorcode.subcommands.query import (
+    _prepare_formatted_result,
+    get_reranked_results,
+)
 
 logger = logging.getLogger(name=__name__)
 locks = LockManager()
@@ -91,15 +92,12 @@ default_config: Optional[Config] = None
 
 
 async def list_collections() -> list[str]:
-    names: list[str] = []
-    async with ClientManager().get_client(
-        await load_config_file(default_project_root)
-    ) as client:
-        async for col in get_collections(client):
-            if col.metadata is not None:
-                names.append(cleanup_path(str(col.metadata.get("path"))))
-        logger.info("Retrieved the following collections: %s", names)
-        return names
+    """
+    Returns a list of paths to the projects that have been indexed in the database.
+    """
+
+    config = await load_config_file(default_project_root)
+    return [i.path for i in await get_database_connector(config).list_collections()]
 
 
 async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]:
@@ -113,52 +111,38 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
             ErrorData(code=1, message=f"{project_root} is not a valid path.")
         )
     config = await get_project_config(project_root)
+
+    paths = [os.path.expanduser(i) for i in await expand_globs(paths)]
+    final_config = await config.merge_from(
+        Config(
+            files=[i for i in paths if os.path.isfile(i)],
+            project_root=project_root,
+        )
+    )
+    filters = FilterManager()
+    for ignore_spec_file in find_exclude_specs(final_config):
+        if os.path.isfile(ignore_spec_file):
+            logger.info(f"Loading ignore specs from {ignore_spec_file}.")
+            spec = SpecResolver.from_path(ignore_spec_file)
+            filters.add_filter(lambda x: spec.match_file(x, True))
+
+    final_config.files = list(filters(paths))
+
+    database = get_database_connector(final_config)
     try:
-        async with ClientManager().get_client(config) as client:
-            collection = await get_collection(client, config, True)
-            if collection is None:  # pragma: nocover
-                raise McpError(
-                    ErrorData(
-                        code=1,
-                        message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
-                    )
-                )
-            paths = [os.path.expanduser(i) for i in await expand_globs(paths)]
-            final_config = await config.merge_from(
-                Config(
-                    files=[i for i in paths if os.path.isfile(i)],
-                    project_root=project_root,
-                )
+        stats = VectoriseStats()
+        stats_lock = asyncio.Lock()
+        semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+        tasks = [
+            asyncio.create_task(
+                vectorise_worker(database, file, semaphore, stats, stats_lock)
             )
-            for ignore_spec in find_exclude_specs(final_config):
-                if os.path.isfile(ignore_spec):
-                    logger.info(f"Loading ignore specs from {ignore_spec}.")
-                    paths = exclude_paths_by_spec((str(i) for i in paths), ignore_spec)
+            for file in paths
+        ]
+        for i, task in enumerate(asyncio.as_completed(tasks), start=1):
+            await task
 
-            stats = VectoriseStats()
-            collection_lock = asyncio.Lock()
-            stats_lock = asyncio.Lock()
-            max_batch_size = await client.get_max_batch_size()
-            semaphore = asyncio.Semaphore(os.cpu_count() or 1)
-            tasks = [
-                asyncio.create_task(
-                    chunked_add(
-                        str(file),
-                        collection,
-                        collection_lock,
-                        stats,
-                        stats_lock,
-                        final_config,
-                        max_batch_size,
-                        semaphore,
-                    )
-                )
-                for file in paths
-            ]
-            for i, task in enumerate(asyncio.as_completed(tasks), start=1):
-                await task
-
-            await remove_orphanes(collection, collection_lock, stats, stats_lock)
+        await database.check_orphanes()
 
         return stats.to_dict()
     except Exception as e:  # pragma: nocover
@@ -195,36 +179,15 @@ async def query_tool(
             )
         )
     config = await get_project_config(project_root)
+    config.query = []
+    chunker = StringChunker(config)
+    for message in query_messages:
+        config.query.extend(str(i) for i in chunker.chunk(message))
+    config.n_result = n_query
     try:
-        async with ClientManager().get_client(config) as client:
-            collection = await get_collection(client, config, False)
-
-            if collection is None:  # pragma: nocover
-                raise McpError(
-                    ErrorData(
-                        code=1,
-                        message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
-                    )
-                )
-            query_config = await config.merge_from(
-                Config(n_result=n_query, query=query_messages)
-            )
-            logger.info("Built the final config: %s", query_config)
-            result_paths = await get_query_result_files(
-                collection=collection,
-                configs=query_config,
-            )
-            results: list[str] = []
-            for result in result_paths:
-                if isinstance(result, str):
-                    if os.path.isfile(result):
-                        with open(result) as fin:
-                            rel_path = os.path.relpath(result, config.project_root)
-                            results.append(
-                                f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",
-                            )
-            logger.info("Retrieved the following files: %s", result_paths)
-            return results
+        database = get_database_connector(config)
+        reranked_results = await get_reranked_results(config, database)
+        return list(str(i) for i in _prepare_formatted_result(reranked_results))
 
     except Exception as e:  # pragma: nocover
         if isinstance(e, McpError):
@@ -244,8 +207,13 @@ async def ls_files(project_root: str) -> list[str]:
     project_root: Directory to the repository. MUST be from the vectorcode `ls` tool or user input;
     """
     configs = await get_project_config(expand_path(project_root, True))
-    async with ClientManager().get_client(configs) as client:
-        return await list_collection_files(await get_collection(client, configs, False))
+    database = get_database_connector(configs)
+    return list(
+        i.path
+        for i in (
+            await database.list_collection_content(what=ResultType.document)
+        ).files
+    )
 
 
 async def rm_files(files: list[str], project_root: str):
@@ -254,17 +222,14 @@ async def rm_files(files: list[str], project_root: str):
     project_root: Directory to the repository. MUST be from the vectorcode `ls` tool or user input;
     """
     configs = await get_project_config(expand_path(project_root, True))
-    async with ClientManager().get_client(configs) as client:
-        try:
-            collection = await get_collection(client, configs, False)
-            files = [str(expand_path(i, True)) for i in files if os.path.isfile(i)]
-            if files:
-                await collection.delete(where=cast(Where, {"path": {"$in": files}}))
-            else:  # pragma: nocover
-                logger.warning(f"All paths were invalid: {files}")
-        except ValueError:  # pragma: nocover
-            logger.warning(f"Failed to find the collection at {configs.project_root}")
-            return
+    configs.rm_paths = [str(expand_path(i, True)) for i in files if os.path.isfile(i)]
+
+    if configs.rm_paths:
+        database = get_database_connector(configs)
+        num_deleted = await database.delete()
+        return f"Removed {num_deleted} files from the database of the project located at {project_root}"
+    else:
+        logger.warning(f"The provided paths were invalid: {configs.rm_paths}")
 
 
 async def mcp_server():
