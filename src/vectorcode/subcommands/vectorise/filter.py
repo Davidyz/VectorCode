@@ -36,11 +36,14 @@ class FilterManager:
                 f"Applying the following filters: {list(i.__name__ for i in self._filters)} to the following files ({len(files)}): {files}"
             )
 
-        for f in self._filters:
-            files = filter(f, files)
+        if self._filters:
+            for f in self._filters:
+                files = filter(f, files)
 
-            if self._has_debugging():  # pragma: nocover
-                files = tuple(files)
-                logger.debug(f"{f.__name__} remaining items ({len(files)}): {files}")
+                if self._has_debugging():  # pragma: nocover
+                    files = tuple(files)
+                    logger.debug(
+                        f"{f.__name__} remaining items ({len(files)}): {files}"
+                    )
 
         return files

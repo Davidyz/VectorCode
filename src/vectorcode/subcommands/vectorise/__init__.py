@@ -3,7 +3,6 @@ import glob
 import hashlib
 import logging
 import os
-import sys
 import uuid
 from asyncio import Lock, Semaphore
 from typing import Iterable, Optional
@@ -306,7 +305,7 @@ async def vectorise(configs: Config) -> int:
                 await task
                 bar.update(1)
         except asyncio.CancelledError:
-            print("Abort.", file=sys.stderr)
+            logger.warning("Abort.")
             return 1
 
     await database.check_orphanes()
