@@ -221,6 +221,14 @@ async def query(configs: Config) -> int:
         and QueryInclude.document in configs.include
     ), "`chunk` and `document` cannot be used at the same time for `--include`."
 
+    assert configs.query
+    chunker = StringChunker(configs)
+
+    query_chunks: list[str] = []
+    for q in configs.query:
+        query_chunks.extend(str(i) for i in chunker.chunk(q))
+    configs.query[:] = query_chunks
+
     database = get_database_connector(configs)
     reranked_results = await get_reranked_results(configs, database)
     formatted_results = _prepare_formatted_result(reranked_results)
@@ -233,61 +241,3 @@ async def query(configs: Config) -> int:
             if idx != len(formatted_results) - 1:
                 print()
     return 0
-
-    # if (
-    #     QueryInclude.chunk in configs.include
-    #     and QueryInclude.document in configs.include
-    # ):
-    #     logger.error(
-    #         "Having both chunk and document in the output is not supported!",
-    #     )
-    #     return 1
-    # async with ClientManager().get_client(configs) as client:
-    #     try:
-    #         collection = await get_collection(client, configs, False)
-    #         if not verify_ef(collection, configs):
-    #             return 1
-    #     except (ValueError, InvalidCollectionException) as e:
-    #         logger.error(
-    #             f"{e.__class__.__name__}: There's no existing collection for {configs.project_root}",
-    #         )
-    #         return 1
-    #     except InvalidDimensionException as e:
-    #         logger.error(
-    #             f"{e.__class__.__name__}: The collection was embedded with a different embedding model.",
-    #         )
-    #         return 1
-    #     except IndexError as e:  # pragma: nocover
-    #         logger.error(
-    #             f"{e.__class__.__name__}: Failed to get the collection. Please check your config."
-    #         )
-    #         return 1
-    #
-    #     if not configs.pipe:
-    #         print("Starting querying...")
-    #
-    #     if QueryInclude.chunk in configs.include:
-    #         if len((await collection.get(where={"start": {"$gte": 0}}))["ids"]) == 0:
-    #             logger.warning(
-    #                 """
-    # This collection doesn't contain line range metadata. Falling back to `--include path document`.
-    # Please re-vectorise it to use `--include chunk`.""",
-    #             )
-    #             configs.include = [QueryInclude.path, QueryInclude.document]
-    #
-    #     try:
-    #         structured_result = await build_query_results(collection, configs)
-    #     except RerankerError as e:  # pragma: nocover
-    #         # error logs should be handled where they're raised
-    #         logger.error(f"{e.__class__.__name__}")
-    #         return 1
-    #
-    #     if configs.pipe:
-    #         print(json.dumps(structured_result))
-    #     else:
-    #         for idx, result in enumerate(structured_result):
-    #             for include_item in configs.include:
-    #                 print(f"{include_item.to_header()}{result.get(include_item.value)}")
-    #             if idx != len(structured_result) - 1:
-    #                 print()
-    #     return 0
