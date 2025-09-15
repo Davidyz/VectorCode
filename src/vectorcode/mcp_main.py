@@ -31,7 +31,6 @@ except ModuleNotFoundError as e:  # pragma: nocover
 
 from vectorcode.cli_utils import (
     Config,
-    LockManager,
     SpecResolver,
     config_logging,
     expand_globs,
@@ -39,9 +38,6 @@ from vectorcode.cli_utils import (
     find_project_config_dir,
     get_project_config,
     load_config_file,
-)
-from vectorcode.common import (
-    ClientManager,
 )
 from vectorcode.subcommands.prompt import prompt_by_categories
 from vectorcode.subcommands.query import (
@@ -51,7 +47,6 @@ from vectorcode.subcommands.query import (
 )
 
 logger = logging.getLogger(name=__name__)
-locks = LockManager()
 
 
 @dataclass
@@ -246,24 +241,11 @@ async def mcp_server():
         default_project_root = project_root
         default_config = await get_project_config(project_root)
         default_config.project_root = project_root
-        async with ClientManager().get_client(default_config) as client:
-            logger.info("Collection initialised for %s.", project_root)
-
-            if client is None:
-                if mcp_config.ls_on_start:  # pragma: nocover
-                    logger.warning(
-                        "Failed to initialise a chromadb client. Ignoring --ls-on-start flag."
-                    )
-            else:
-                if mcp_config.ls_on_start:
-                    logger.info(
-                        "Adding available collections to the server instructions."
-                    )
-                    default_instructions += (
-                        "\nYou have access to the following collections:\n"
-                    )
-                    for name in await list_collections():
-                        default_instructions += f"<collection>{name}</collection>"
+        if mcp_config.ls_on_start:
+            logger.info("Adding available collections to the server instructions.")
+            default_instructions += "\nYou have access to the following collections:\n"
+            for name in await list_collections():
+                default_instructions += f"<collection>{name}</collection>"
 
     mcp = FastMCP("VectorCode", instructions=default_instructions)
     mcp.add_tool(
@@ -316,7 +298,6 @@ async def run_server():  # pragma: nocover
         mcp = await mcp_server()
         await mcp.run_stdio_async()
     finally:
-        await ClientManager().kill_servers()
         return 0
 
 
