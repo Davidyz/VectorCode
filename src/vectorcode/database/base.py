@@ -123,7 +123,9 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         pass
 
     @abstractmethod
-    async def drop(self):
+    async def drop(
+        self, *, collection_id: str | None = None, collection_path: str | None = None
+    ):
         """
         Delete a collection (`self._configs.project_root`) from the database.
         """
@@ -196,3 +198,15 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         If not found, return an empty list.
         """
         pass
+
+    async def cleanup(self) -> list[str]:
+        """
+        Remove empty collections from the database.
+        """
+        removed: list[str] = []
+        for collection in await self.list_collections():
+            if collection.chunk_count == 0:
+                removed.append(collection.path)
+                await self.drop(collection_path=collection.path)
+
+        return removed

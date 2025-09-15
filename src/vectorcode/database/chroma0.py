@@ -523,13 +523,12 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
         return len(rm_paths)
 
-    async def drop(
-        self,
-    ):
-        collection_path = str(self._configs.project_root)
+    async def drop(self, *, collection_id=None, collection_path=None):
+        collection_id = collection_id or get_collection_id(
+            str(collection_path or self._configs.project_root)
+        )
         async with _Chroma0ClientManager().get_client(self._configs) as client:
-            await self._create_or_get_collection(collection_path, False)
-            await client.delete_collection(get_collection_id(collection_path))
+            await client.delete_collection(collection_id)
 
     async def get_chunks(self, file_path) -> list[Chunk]:
         file_path = os.path.abspath(file_path)
