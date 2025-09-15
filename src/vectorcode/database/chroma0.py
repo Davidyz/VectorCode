@@ -38,8 +38,7 @@ from vectorcode.database.types import (
     ResultType,
     VectoriseStats,
 )
-from vectorcode.database.utils import get_collection_id, hash_file
-from vectorcode.subcommands.vectorise import get_uuid
+from vectorcode.database.utils import get_collection_id, get_uuid, hash_file
 
 _logger = logging.getLogger(name=__name__)
 
