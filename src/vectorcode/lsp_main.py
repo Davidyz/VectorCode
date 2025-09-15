@@ -6,20 +6,19 @@ import sys
 import time
 import traceback
 import uuid
-from typing import cast
 from urllib.parse import urlparse
 
 import shtab
-from chromadb.types import Where
 
+from vectorcode.database import get_database_connector
+from vectorcode.database.types import ResultType
 from vectorcode.subcommands.vectorise import (
     VectoriseStats,
-    chunked_add,
-    exclude_paths_by_spec,
     find_exclude_specs,
     load_files_from_include,
-    remove_orphanes,
+    vectorise_worker,
 )
+from vectorcode.subcommands.vectorise.filter import FilterManager
 
 try:  # pragma: nocover
     from lsprotocol import types
@@ -41,6 +40,7 @@ from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
     FilesAction,
+    SpecResolver,
     cleanup_path,
     config_logging,
     expand_globs,
@@ -49,9 +49,12 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
-from vectorcode.common import ClientManager, get_collection, list_collection_files
-from vectorcode.subcommands.ls import get_collection_list
-from vectorcode.subcommands.query import build_query_results
+from vectorcode.common import ClientManager
+from vectorcode.subcommands.query import (
+    _prepare_formatted_result,
+    get_reranked_results,
+    preprocess_query_keywords,
+)
 
 DEFAULT_PROJECT_ROOT: str | None = None
 logger = logging.getLogger(__name__)
@@ -118,171 +121,175 @@ async def execute_command(ls: LanguageServer, args: list[str]):
         else:
             final_configs = parsed_args
         logger.info("Merged final configs: %s", final_configs)
-        async with ClientManager().get_client(final_configs) as client:
-            progress_token = str(uuid.uuid4())
+        progress_token = str(uuid.uuid4())
 
-            if final_configs.action in {
-                CliAction.vectorise,
-                CliAction.query,
-                CliAction.files,
-            }:
-                collection = await get_collection(
-                    client=client,
-                    configs=final_configs,
-                    make_if_missing=final_configs.action in {CliAction.vectorise},
+        assert final_configs.action in {
+            CliAction.vectorise,
+            CliAction.query,
+            CliAction.files,
+            CliAction.ls,
+        }, f"Action {final_configs.action} is not supported by vectorcode LSP."
+        if final_configs.action in {
+            CliAction.vectorise,
+            CliAction.query,
+            CliAction.files,
+        }:
+            assert final_configs.project_root
+
+        await ls.progress.create_async(progress_token)
+        database = get_database_connector(final_configs)
+        match final_configs.action:
+            case CliAction.query:
+                ls.progress.begin(
+                    progress_token,
+                    types.WorkDoneProgressBegin(
+                        "VectorCode",
+                        message=f"Querying {cleanup_path(str(final_configs.project_root))}",
+                    ),
                 )
-            await ls.progress.create_async(progress_token)
-            match final_configs.action:
-                case CliAction.query:
-                    ls.progress.begin(
-                        progress_token,
-                        types.WorkDoneProgressBegin(
-                            "VectorCode",
-                            message=f"Querying {cleanup_path(str(final_configs.project_root))}",
-                        ),
-                    )
-                    final_results = []
-                    try:
-                        assert collection is not None, (
-                            "Failed to find the correct collection."
-                        )
-                        final_results.extend(
-                            await build_query_results(collection, final_configs)
-                        )
-                    finally:
-                        log_message = f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
-                        ls.progress.end(
-                            progress_token,
-                            types.WorkDoneProgressEnd(message=log_message),
-                        )
-                        logger.info(log_message)
-                    return final_results
-                case CliAction.ls:
-                    ls.progress.begin(
-                        progress_token,
-                        types.WorkDoneProgressBegin(
-                            "VectorCode",
-                            message="Looking for available projects indexed by VectorCode",
-                        ),
-                    )
-                    projects: list[dict] = []
-                    try:
-                        projects.extend(await get_collection_list(client))
-                    finally:
-                        ls.progress.end(
-                            progress_token,
-                            types.WorkDoneProgressEnd(message="List retrieved."),
-                        )
-                        logger.info(f"Retrieved {len(projects)} project(s).")
-                    return projects
-                case CliAction.vectorise:
-                    assert collection is not None, (
-                        "Failed to find the correct collection."
-                    )
-                    ls.progress.begin(
-                        progress_token,
-                        types.WorkDoneProgressBegin(
-                            title="VectorCode",
-                            message="Vectorising files...",
-                            percentage=0,
-                        ),
-                    )
-                    files = await expand_globs(
-                        final_configs.files
-                        or load_files_from_include(str(final_configs.project_root)),
-                        recursive=final_configs.recursive,
-                        include_hidden=final_configs.include_hidden,
-                    )
-                    if not final_configs.force:  # pragma: nocover
-                        # tested in 'vectorise.py'
-                        for spec in find_exclude_specs(final_configs):
-                            if os.path.isfile(spec):
-                                logger.info(f"Loading ignore specs from {spec}.")
-                                files = exclude_paths_by_spec(
-                                    (str(i) for i in files), spec
-                                )
-                    stats = VectoriseStats()
-                    collection_lock = asyncio.Lock()
-                    stats_lock = asyncio.Lock()
-                    max_batch_size = await client.get_max_batch_size()
-                    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
-                    tasks = [
-                        asyncio.create_task(
-                            chunked_add(
-                                str(file),
-                                collection,
-                                collection_lock,
-                                stats,
-                                stats_lock,
-                                final_configs,
-                                max_batch_size,
-                                semaphore,
+                final_results = []
+                try:
+                    preprocess_query_keywords(final_configs)
+                    final_results.extend(
+                        _prepare_formatted_result(
+                            await get_reranked_results(
+                                config=final_configs, database=database
                             )
                         )
-                        for file in files
-                    ]
-                    for i, task in enumerate(asyncio.as_completed(tasks), start=1):
-                        await task
-                        ls.progress.report(
-                            progress_token,
-                            types.WorkDoneProgressReport(
-                                message="Vectorising files...",
-                                percentage=int(100 * i / len(tasks)),
-                            ),
-                        )
-
-                    await remove_orphanes(
-                        collection, collection_lock, stats, stats_lock
                     )
-
+                finally:
+                    log_message = f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
                     ls.progress.end(
                         progress_token,
-                        types.WorkDoneProgressEnd(
-                            message=f"Vectorised {stats.add + stats.update} files."
+                        types.WorkDoneProgressEnd(message=log_message),
+                    )
+                    logger.info(log_message)
+                return final_results
+            case CliAction.ls:
+                ls.progress.begin(
+                    progress_token,
+                    types.WorkDoneProgressBegin(
+                        "VectorCode",
+                        message="Looking for available projects indexed by VectorCode",
+                    ),
+                )
+                projects: list[dict] = []
+                try:
+                    projects.extend(
+                        i.to_dict()
+                        for i in await get_database_connector(
+                            final_configs
+                        ).list_collections()
+                    )
+                finally:
+                    ls.progress.end(
+                        progress_token,
+                        types.WorkDoneProgressEnd(message="List retrieved."),
+                    )
+                    logger.info(f"Retrieved {len(projects)} project(s).")
+                return projects
+            case CliAction.vectorise:
+                assert collection is not None, "Failed to find the correct collection."
+                ls.progress.begin(
+                    progress_token,
+                    types.WorkDoneProgressBegin(
+                        title="VectorCode",
+                        message="Vectorising files...",
+                        percentage=0,
+                    ),
+                )
+                files = await expand_globs(
+                    final_configs.files
+                    or load_files_from_include(str(final_configs.project_root)),
+                    recursive=final_configs.recursive,
+                    include_hidden=final_configs.include_hidden,
+                )
+                if not final_configs.force:  # pragma: nocover
+                    filters = FilterManager()
+                    # tested in 'vectorise' subcommands
+                    for spec_path in find_exclude_specs(final_configs):
+                        if os.path.isfile(spec_path):
+                            logger.info(f"Loading ignore specs from {spec_path}.")
+                            spec = SpecResolver.from_path(
+                                spec_path=spec_path,
+                                project_root=str(final_configs.project_root)
+                                if final_configs.project_root
+                                else None,
+                            )
+                            filters.add_filter(lambda x: spec.match_file(x, True))
+                    final_configs.files = list(str(i) for i in filters(files))
+                stats = VectoriseStats()
+                stats_lock = asyncio.Lock()
+                semaphore = asyncio.Semaphore(os.cpu_count() or 1)
+                tasks = [
+                    asyncio.create_task(
+                        vectorise_worker(database, file, semaphore, stats, stats_lock)
+                    )
+                    for file in files
+                ]
+                for i, task in enumerate(asyncio.as_completed(tasks), start=1):
+                    await task
+                    ls.progress.report(
+                        progress_token,
+                        types.WorkDoneProgressReport(
+                            message="Vectorising files...",
+                            percentage=int(100 * i / len(tasks)),
                         ),
                     )
-                    return stats.to_dict()
-                case CliAction.files:
-                    if collection is None:  # pragma: nocover
-                        raise InvalidCollectionException(
-                            f"Failed to find the corresponding collection for {final_configs.project_root}"
-                        )
-                    match final_configs.files_action:
-                        case FilesAction.ls:
-                            return await list_collection_files(collection)
-                        case FilesAction.rm:
-                            to_be_removed = list(
-                                str(expand_path(p, True))
-                                for p in final_configs.rm_paths
-                                if os.path.isfile(p)
-                            )
-                            if len(to_be_removed) == 0:
-                                return
-                            ls.progress.begin(
-                                progress_token,
-                                types.WorkDoneProgressBegin(
-                                    title="VectorCode",
-                                    message=f"Removing {len(to_be_removed)} file(s).",
-                                ),
-                            )
-                            await collection.delete(
-                                where=cast(
-                                    Where,
-                                    {"path": {"$in": to_be_removed}},
-                                )
-                            )
-                            ls.progress.end(
-                                progress_token,
-                                types.WorkDoneProgressEnd(
-                                    message="Removal finished.",
-                                ),
-                            )
-                case _ as c:  # pragma: nocover
-                    error_message = f"Unsupported vectorcode subcommand: {str(c)}"
-                    logger.error(
-                        error_message,
+
+                await database.check_orphanes()
+
+                ls.progress.end(
+                    progress_token,
+                    types.WorkDoneProgressEnd(
+                        message=f"Vectorised {stats.add + stats.update} files."
+                    ),
+                )
+                return stats.to_dict()
+            case CliAction.files:
+                if collection is None:  # pragma: nocover
+                    raise InvalidCollectionException(
+                        f"Failed to find the corresponding collection for {final_configs.project_root}"
                     )
-                    raise JsonRpcInvalidRequest(error_message)
+                match final_configs.files_action:
+                    case FilesAction.ls:
+                        return list(
+                            i.path
+                            for i in (
+                                await database.list_collection_content(
+                                    what=ResultType.document
+                                )
+                            ).files
+                        )
+                    case FilesAction.rm:
+                        to_be_removed = list(
+                            str(expand_path(p, True))
+                            for p in final_configs.rm_paths
+                            if os.path.isfile(p)
+                        )
+                        if len(to_be_removed) == 0:
+                            return
+                        ls.progress.begin(
+                            progress_token,
+                            types.WorkDoneProgressBegin(
+                                title="VectorCode",
+                                message=f"Removing {len(to_be_removed)} file(s).",
+                            ),
+                        )
+                        final_configs.rm_paths = to_be_removed
+                        await database.delete()
+                        ls.progress.end(
+                            progress_token,
+                            types.WorkDoneProgressEnd(
+                                message="Removal finished.",
+                            ),
+                        )
+            case _ as c:  # pragma: nocover
+                error_message = f"Unsupported vectorcode subcommand: {str(c)}"
+                logger.error(
+                    error_message,
+                )
+                raise JsonRpcInvalidRequest(error_message)
     except Exception as e:  # pragma: nocover
         if isinstance(e, JsonRpcException):
             # pygls exception. raise it as is.

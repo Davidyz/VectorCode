@@ -278,7 +278,10 @@ async def vectorise(configs: Config) -> int:
             # filter by gitignore/vectorcode.exclude
             if os.path.isfile(spec_path):
                 logger.info(f"Loading ignore specs from {spec_path}.")
-                spec = SpecResolver.from_path(spec_path)
+                spec = SpecResolver.from_path(
+                    spec_path,
+                    str(configs.project_root) if configs.project_root else None,
+                )
                 filters.add_filter(lambda x: spec.match_file(x, True))
 
         # filter by sha256
