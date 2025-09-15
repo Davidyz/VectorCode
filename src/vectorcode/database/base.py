@@ -7,7 +7,6 @@ from numpy.typing import NDArray
 
 from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import Config
-from vectorcode.common import get_embedding_function
 from vectorcode.database.types import (
     CollectionContent,
     CollectionInfo,
@@ -15,6 +14,7 @@ from vectorcode.database.types import (
     ResultType,
     VectoriseStats,
 )
+from vectorcode.database.utils import get_embedding_function
 
 logger = logging.getLogger(name=__name__)
 

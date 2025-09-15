@@ -49,7 +49,6 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
-from vectorcode.common import ClientManager
 from vectorcode.subcommands.query import (
     _prepare_formatted_result,
     get_reranked_results,
@@ -322,7 +321,6 @@ async def lsp_start() -> int:
     try:
         await asyncio.to_thread(server.start_io)
     finally:
-        await ClientManager().kill_servers()
         return 0
 
 

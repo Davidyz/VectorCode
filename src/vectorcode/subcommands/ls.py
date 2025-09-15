@@ -1,39 +1,13 @@
 import json
 import logging
 import os
-import socket
 
 import tabulate
-from chromadb.api import AsyncClientAPI
-from chromadb.api.types import IncludeEnum
 
-from vectorcode.cli_utils import Config, cleanup_path
-from vectorcode.common import get_collections
+from vectorcode.cli_utils import Config
 from vectorcode.database import get_database_connector
 
 logger = logging.getLogger(name=__name__)
-
-
-async def get_collection_list(client: AsyncClientAPI) -> list[dict]:
-    result = []
-    async for collection in get_collections(client):
-        meta = collection.metadata
-        document_meta = await collection.get(include=[IncludeEnum.metadatas])
-        unique_files = set(
-            i.get("path") for i in (document_meta["metadatas"] or []) if i is not None
-        )
-        result.append(
-            {
-                "project-root": cleanup_path(meta["path"]),
-                "user": meta.get("username"),
-                "hostname": socket.gethostname(),
-                "collection_name": collection.name,
-                "size": await collection.count(),
-                "embedding_function": meta["embedding_function"],
-                "num_files": len(unique_files),
-            }
-        )
-    return result
 
 
 async def ls(configs: Config) -> int:

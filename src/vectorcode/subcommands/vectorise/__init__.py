@@ -1,173 +1,28 @@
 import asyncio
 import glob
-import hashlib
 import logging
 import os
-import uuid
 from asyncio import Lock, Semaphore
-from typing import Iterable, Optional
+from typing import Optional
 
 import pathspec
 import tqdm
-from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum
 
-from vectorcode.chunking import Chunk, TreeSitterChunker
 from vectorcode.cli_utils import (
     GLOBAL_EXCLUDE_SPEC,
     GLOBAL_INCLUDE_SPEC,
     Config,
     SpecResolver,
     expand_globs,
-    expand_path,
-)
-from vectorcode.common import (
-    get_embedding_function,
-    list_collection_files,
 )
 from vectorcode.database import get_database_connector
 from vectorcode.database.base import DatabaseConnectorBase
 from vectorcode.database.errors import CollectionNotFoundError
 from vectorcode.database.types import ResultType, VectoriseStats
+from vectorcode.database.utils import hash_file
 from vectorcode.subcommands.vectorise.filter import FilterManager
 
 logger = logging.getLogger(name=__name__)
-
-
-def hash_str(string: str) -> str:
-    """Return the sha-256 hash of a string."""
-    return hashlib.sha256(string.encode()).hexdigest()
-
-
-def hash_file(path: str) -> str:
-    """return the sha-256 hash of a file."""
-    hasher = hashlib.sha256()
-    with open(path, "rb") as file:
-        while True:
-            chunk = file.read(8192)
-            if chunk:
-                hasher.update(chunk)
-            else:
-                break
-    return hasher.hexdigest()
-
-
-def get_uuid() -> str:
-    return uuid.uuid4().hex
-
-
-async def chunked_add(
-    file_path: str,
-    collection: AsyncCollection,
-    collection_lock: Lock,
-    stats: VectoriseStats,
-    stats_lock: Lock,
-    configs: Config,
-    max_batch_size: int,
-    semaphore: asyncio.Semaphore,
-):
-    embedding_function = get_embedding_function(configs)
-    full_path_str = str(expand_path(str(file_path), True))
-    orig_sha256 = None
-    new_sha256 = hash_file(full_path_str)
-    async with collection_lock:
-        existing_chunks = await collection.get(
-            where={"path": full_path_str},
-            include=[IncludeEnum.metadatas],
-        )
-        num_existing_chunks = len((existing_chunks)["ids"])
-        if existing_chunks["metadatas"]:
-            orig_sha256 = existing_chunks["metadatas"][0].get("sha256")
-    if orig_sha256 and orig_sha256 == new_sha256:
-        logger.debug(
-            f"Skipping {full_path_str} because it's unchanged since last vectorisation."
-        )
-        stats.skipped += 1
-        return
-
-    if num_existing_chunks:
-        logger.debug(
-            "Deleting %s existing chunks for the current file.", num_existing_chunks
-        )
-        async with collection_lock:
-            await collection.delete(where={"path": full_path_str})
-
-    logger.debug(f"Vectorising {file_path}")
-    try:
-        async with semaphore:
-            chunks: list[Chunk | str] = list(
-                TreeSitterChunker(configs).chunk(full_path_str)
-            )
-            if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
-                # empty file
-                logger.debug(f"Skipping {full_path_str} because it's empty.")
-                stats.skipped += 1
-                return
-            chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
-            logger.debug(f"Chunked into {len(chunks)} pieces.")
-            metas = []
-            for chunk in chunks:
-                meta: dict[str, str | int] = {
-                    "path": full_path_str,
-                    "sha256": new_sha256,
-                }
-                if isinstance(chunk, Chunk):
-                    if chunk.start:
-                        meta["start"] = chunk.start.row
-                    if chunk.end:
-                        meta["end"] = chunk.end.row
-
-                metas.append(meta)
-            async with collection_lock:
-                for idx in range(0, len(chunks), max_batch_size):
-                    inserted_chunks = chunks[idx : idx + max_batch_size]
-                    embeddings = embedding_function(
-                        list(str(c) for c in inserted_chunks)
-                    )
-                    if (
-                        isinstance(configs.embedding_dims, int)
-                        and configs.embedding_dims > 0
-                    ):
-                        logger.debug(
-                            f"Truncating embeddings to {configs.embedding_dims} dimensions."
-                        )
-                        embeddings = [e[: configs.embedding_dims] for e in embeddings]
-                    await collection.add(
-                        ids=[get_uuid() for _ in inserted_chunks],
-                        documents=[str(i) for i in inserted_chunks],
-                        embeddings=embeddings,
-                        metadatas=metas,
-                    )
-    except (UnicodeDecodeError, UnicodeError):  # pragma: nocover
-        logger.warning(f"Failed to decode {full_path_str}.")
-        stats.failed += 1
-        return
-
-    if num_existing_chunks:
-        async with stats_lock:
-            stats.update += 1
-    else:
-        async with stats_lock:
-            stats.add += 1
-
-
-async def remove_orphanes(
-    collection: AsyncCollection,
-    collection_lock: Lock,
-    stats: VectoriseStats,
-    stats_lock: Lock,
-):
-    async with collection_lock:
-        paths = await list_collection_files(collection)
-        orphans = set()
-        for path in paths:
-            if isinstance(path, str) and not os.path.isfile(path):
-                orphans.add(path)
-        async with stats_lock:
-            stats.removed = len(orphans)
-        if len(orphans):
-            logger.info(f"Removing {len(orphans)} orphaned files from database.")
-            await collection.delete(where={"path": {"$in": list(orphans)}})
 
 
 def show_stats(configs: Config, stats: VectoriseStats):
@@ -175,16 +30,6 @@ def show_stats(configs: Config, stats: VectoriseStats):
         print(stats.to_json())
     else:
         print(stats.to_table())
-
-
-def exclude_paths_by_spec(
-    paths: Iterable[str], spec_path: str, project_root: Optional[str] = None
-) -> list[str]:
-    """
-    Files matched by the specs will be excluded.
-    """
-
-    return list(SpecResolver.from_path(spec_path, project_root).match(paths, True))
 
 
 def load_files_from_include(project_root: str) -> list[str]:

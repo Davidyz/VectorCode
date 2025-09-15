@@ -14,7 +14,6 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
-from vectorcode.common import ClientManager
 
 logger = logging.getLogger(name=__name__)
 
@@ -116,7 +115,6 @@ async def async_main():
             )
         logger.error(traceback.format_exc())
     finally:
-        await ClientManager().kill_servers()
         return return_val
 
 
