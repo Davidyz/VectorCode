@@ -10,7 +10,6 @@ from typing import Optional
 
 import shtab
 
-from vectorcode.chunking import StringChunker
 from vectorcode.database import get_database_connector
 from vectorcode.database.types import ResultType
 from vectorcode.subcommands.vectorise import (
@@ -48,6 +47,7 @@ from vectorcode.subcommands.prompt import prompt_by_categories
 from vectorcode.subcommands.query import (
     _prepare_formatted_result,
     get_reranked_results,
+    preprocess_query_keywords,
 )
 
 logger = logging.getLogger(name=__name__)
@@ -178,12 +178,11 @@ async def query_tool(
                 message="Use `list_collections` tool to get a list of valid paths for this field.",
             )
         )
+
     config = await get_project_config(project_root)
-    config.query = []
-    chunker = StringChunker(config)
-    for message in query_messages:
-        config.query.extend(str(i) for i in chunker.chunk(message))
+    preprocess_query_keywords(config)
     config.n_result = n_query
+
     try:
         database = get_database_connector(config)
         reranked_results = await get_reranked_results(config, database)

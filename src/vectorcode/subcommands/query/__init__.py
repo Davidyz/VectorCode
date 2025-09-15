@@ -213,7 +213,17 @@ async def get_reranked_results(
     return reranked_results
 
 
-async def query(configs: Config) -> int:
+def preprocess_query_keywords(configs: Config):
+    assert configs.query
+    query_chunks: list[str] = []
+    chunker = StringChunker(configs)
+    for q in configs.query:
+        query_chunks.extend(str(i) for i in chunker.chunk(q))
+    configs.query[:] = query_chunks
+    return configs
+
+
+def verify_include(configs: Config):
     if QueryInclude.path not in configs.include:
         configs.include.append(QueryInclude.path)
     assert not (
@@ -221,13 +231,12 @@ async def query(configs: Config) -> int:
         and QueryInclude.document in configs.include
     ), "`chunk` and `document` cannot be used at the same time for `--include`."
 
-    assert configs.query
-    chunker = StringChunker(configs)
 
-    query_chunks: list[str] = []
-    for q in configs.query:
-        query_chunks.extend(str(i) for i in chunker.chunk(q))
-    configs.query[:] = query_chunks
+async def query(configs: Config) -> int:
+    verify_include(configs)
+
+    assert configs.query
+    preprocess_query_keywords(configs)
 
     database = get_database_connector(configs)
     reranked_results = await get_reranked_results(configs, database)
