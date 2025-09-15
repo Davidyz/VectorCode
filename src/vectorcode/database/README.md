@@ -36,9 +36,9 @@ To add support for a new database backend, you'd need to:
 > and [the `ChromaDB0Connector`](./chroma0.py) implementations as reference designs of 
 > a new database connector.
 
-In the following sections, I'll use _database_ to refer to the actual database (chromadb, 
-pgvector, etc.) that holds the data and performs the CRUD operations, and _connector_ to 
-refer to our compatibility layer (child classes of 
+In the following sections, I'll use the term _database_ to refer to the actual database 
+backends (chromadb, pgvector, etc.) that holds the data and performs the CRUD operations, 
+and the term _connector_ to refer to our compatibility layer (child classes of 
 `vectorcode.database.base.DatabaseConnectorBase`).
 
 ## Connector Configuration
@@ -80,3 +80,10 @@ database operation (`query()`, `vectorise()`, `list()`, etc.) should read the ne
 parameters (`project_root`, file paths, query keywords, etc.) from the `self._configs` 
 attribute. Note that the `self._configs` attribute is mutable, so you should always read 
 the parameters from it directly for each of the operations.
+
+> Some methods support keyword arguments that allows temporarily overriding some 
+> parameters. For example, the `list_collection_content` method supports overriding 
+> `self._configs` by passing `_collection_id` and `collection_path`. The idea is that 
+> these methods can usually be used by the implementation of other methods or subcommands 
+> (for example, `list_collection_content` is used in `count` and `check_orphanes`),
+> and being able to pass such parameters are convenient when writing those implementations.
