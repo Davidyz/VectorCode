@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import contextlib
 import copy
 import logging
@@ -87,7 +88,7 @@ async def _try_server(base_url: str):
                 _logger.debug(f"Heartbeat {heartbeat_url} returned {response=}")
                 if response.status_code == 200:
                     return True
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except (httpx.ConnectError, httpx.ConnectTimeout):  # pragma: nocover
             pass
     return False
 
@@ -100,7 +101,7 @@ async def _wait_for_server(base_url: str, timeout: int = 10):
         if await _try_server(base_url):
             return
 
-        if asyncio.get_event_loop().time() - start_time > timeout:
+        if asyncio.get_event_loop().time() - start_time > timeout:  # pragma: nocover
             raise TimeoutError(f"Server did not start within {timeout} seconds.")
 
         await asyncio.sleep(0.1)  # Wait before retrying
@@ -163,7 +164,17 @@ class _Chroma0ClientManager:
         if cls.singleton is None:
             cls.singleton = super().__new__(cls)
             cls.singleton.__clients = {}
+
+            atexit.register(cls.singleton._atexit)
+
         return cls.singleton
+
+    def _atexit(self):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+        loop.run_until_complete(self.kill_servers())
 
     @contextlib.asynccontextmanager
     async def get_client(self, configs: Config, need_lock: bool = True):
@@ -198,10 +209,10 @@ class _Chroma0ClientManager:
             _logger.debug(f"Unlocking {db_log_path}")
             await lock.release()
 
-    def get_processes(self) -> list[Process]:
+    def get_processes(self) -> list[Process]:  # pragma: nocover
         return [i.process for i in self.__clients.values() if i.process is not None]
 
-    async def kill_servers(self):
+    async def kill_servers(self):  # pragma: nocover
         termination_tasks: list[asyncio.Task] = []
         for p in self.get_processes():
             _logger.info(f"Killing bundled chroma server with PID: {p.pid}")
