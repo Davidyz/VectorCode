@@ -93,7 +93,7 @@ async def _try_server(base_url: str):
     return False
 
 
-async def _wait_for_server(base_url: str, timeout: int = 10):
+async def _wait_for_server(base_url: str, timeout: int = 10):  # pragma: nocover
     # Poll the server until it's ready or timeout is reached
 
     start_time = asyncio.get_event_loop().time()
@@ -165,16 +165,9 @@ class _Chroma0ClientManager:
             cls.singleton = super().__new__(cls)
             cls.singleton.__clients = {}
 
-            atexit.register(cls.singleton._atexit)
+            atexit.register(cls.singleton.kill_servers)
 
         return cls.singleton
-
-    def _atexit(self):
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.kill_servers())
 
     @contextlib.asynccontextmanager
     async def get_client(self, configs: Config, need_lock: bool = True):
@@ -212,13 +205,11 @@ class _Chroma0ClientManager:
     def get_processes(self) -> list[Process]:  # pragma: nocover
         return [i.process for i in self.__clients.values() if i.process is not None]
 
-    async def kill_servers(self):  # pragma: nocover
-        termination_tasks: list[asyncio.Task] = []
+    def kill_servers(self):  # pragma: nocover
         for p in self.get_processes():
-            _logger.info(f"Killing bundled chroma server with PID: {p.pid}")
-            p.terminate()
-            termination_tasks.append(asyncio.create_task(p.wait()))
-        await asyncio.gather(*termination_tasks)
+            if p.returncode is None:
+                _logger.info(f"Killing bundled chroma server with PID: {p.pid}")
+                p.terminate()
 
     async def _create_client(self, configs: Config) -> AsyncClientAPI:
         settings: dict[str, Any] = {"anonymized_telemetry": False}
@@ -249,7 +240,7 @@ class _Chroma0ClientManager:
             port=int(settings_obj.chroma_server_http_port or 8000),
         )
 
-    def clear(self):
+    def clear(self):  # pragma: nocover
         self.__clients.clear()
 
 
