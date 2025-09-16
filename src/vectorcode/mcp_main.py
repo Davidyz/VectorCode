@@ -175,6 +175,8 @@ async def query_tool(
         )
 
     config = await get_project_config(project_root)
+    config.query = query_messages
+    config.n_result = n_query
     preprocess_query_keywords(config)
     config.n_result = n_query
 
