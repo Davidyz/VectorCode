@@ -130,9 +130,9 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
         semaphore = asyncio.Semaphore(os.cpu_count() or 1)
         tasks = [
             asyncio.create_task(
-                vectorise_worker(database, file, semaphore, stats, stats_lock)
+                vectorise_worker(database, str(file), semaphore, stats, stats_lock)
             )
-            for file in paths
+            for file in final_config.files
         ]
         for i, task in enumerate(asyncio.as_completed(tasks), start=1):
             await task
@@ -140,8 +140,8 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
         await database.check_orphanes()
 
         return stats.to_dict()
-    except Exception as e:  # pragma: nocover
-        if isinstance(e, McpError):
+    except Exception as e:
+        if isinstance(e, McpError):  # pragma: nocover
             logger.error("Failed to access collection at %s", project_root)
             raise
         else:
@@ -185,8 +185,8 @@ async def query_tool(
         reranked_results = await get_reranked_results(config, database)
         return list(str(i) for i in _prepare_formatted_result(reranked_results))
 
-    except Exception as e:  # pragma: nocover
-        if isinstance(e, McpError):
+    except Exception as e:
+        if isinstance(e, McpError):  # pragma: nocover
             logger.error("Failed to access collection at %s", project_root)
             raise
         else:
