@@ -260,10 +260,15 @@ async def test_vectorise_no_embeddings(mock_config):
     mock_chunker = MagicMock()
     mock_chunker.chunk.return_value = [MagicMock(text="chunk1")]
     connector.get_embedding = MagicMock(return_value=[])
-    stats = await connector.vectorise(
-        os.path.join(mock_config.project_root, "file1"), chunker=mock_chunker
-    )
-    assert stats.skipped == 1
+    with patch(
+        "vectorcode.database.chroma0.ChromaDB0Connector._create_or_get_collection",
+        new_callable=AsyncMock,
+    ) as mock_create_collection:
+        stats = await connector.vectorise(
+            os.path.join(mock_config.project_root, "file1"), chunker=mock_chunker
+        )
+        assert stats.skipped == 1
+        mock_create_collection.assert_called_once()
 
 
 @pytest.mark.asyncio
