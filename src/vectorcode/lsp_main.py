@@ -222,9 +222,11 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 semaphore = asyncio.Semaphore(os.cpu_count() or 1)
                 tasks = [
                     asyncio.create_task(
-                        vectorise_worker(database, file, semaphore, stats, stats_lock)
+                        vectorise_worker(
+                            database, str(file), semaphore, stats, stats_lock
+                        )
                     )
-                    for file in files
+                    for file in final_configs.files
                 ]
                 for i, task in enumerate(asyncio.as_completed(tasks), start=1):
                     await task
