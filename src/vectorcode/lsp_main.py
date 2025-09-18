@@ -34,7 +34,6 @@ except ModuleNotFoundError as e:  # pragma: nocover
         file=sys.stderr,
     )
     sys.exit(1)
-from chromadb.errors import InvalidCollectionException
 
 from vectorcode import __version__
 from vectorcode.cli_utils import (
@@ -109,7 +108,6 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             )
             DEFAULT_PROJECT_ROOT = str(parsed_args.project_root)
 
-        collection = None
         if parsed_args.project_root is not None:
             parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
 
@@ -188,7 +186,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     logger.info(f"Retrieved {len(projects)} project(s).")
                 return projects
             case CliAction.vectorise:
-                assert collection is not None, "Failed to find the correct collection."
+                assert final_configs.project_root is not None, (
+                    "Failed to find the correct collection."
+                )
                 ls.progress.begin(
                     progress_token,
                     types.WorkDoneProgressBegin(
@@ -248,10 +248,6 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 )
                 return stats.to_dict()
             case CliAction.files:
-                if collection is None:  # pragma: nocover
-                    raise InvalidCollectionException(
-                        f"Failed to find the corresponding collection for {final_configs.project_root}"
-                    )
                 match final_configs.files_action:
                     case FilesAction.ls:
                         return list(
