@@ -1,56 +1,69 @@
+[build-system]
+build-backend = "pdm.backend"
+
+requires = [ "pdm-backend" ]
+
 [project]
-name = "VectorCode"
-dynamic = ["version"]
+name = "vectorcode"
 description = "A tool to vectorise repositories for RAG."
-authors = [{ name = "Davidyz", email = "hzjlyz@gmail.com" }]
-dependencies = [
-    "chromadb",
-    "sentence-transformers",
-    "pathspec",
-    "tabulate",
-    "shtab",
-    "numpy",
-    "psutil",
-    "httpx",
-    "tree-sitter!=0.25.0",
-    "tree-sitter-language-pack",
-    "pygments",
-    "transformers>=4.36.0,!=4.51.0,!=4.51.1,!=4.51.2",
-    "wheel<0.46.0",
-    "colorlog",
-    "charset-normalizer>=3.4.1",
-    "json5",
-    "posthog<6.0.0",
-    "filelock>=3.15.0",
-]
-requires-python = ">=3.11,<3.14"
 readme = "README.md"
 license = { text = "MIT" }
 
-[project.urls]
-homepage = "https://github.com/Davidyz/VectorCode"
-github = "https://github.com/Davidyz/VectorCode"
-documentation = "https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md"
-
-[project.scripts]
-vectorcode = "vectorcode.main:main"
-vectorcode-server = "vectorcode.lsp_main:main"
-vectorcode-mcp-server = "vectorcode.mcp_main:main"
-
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-[tool.coverage.run]
-omit = [
-    "./tests/*",
-    "src/vectorcode/_version.py",
-    "src/vectorcode/__init__.py",
-    "src/vectorcode/debugging.py",
-    "/tmp/*",
+authors = [ { name = "Davidyz", email = "hzjlyz@gmail.com" } ]
+requires-python = ">=3.11,<3.14"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
-include = ['src/vectorcode/**/*.py']
+dynamic = [ "version" ]
+dependencies = [
+  "charset-normalizer>=3.4.1",
+  "chromadb==0.6.3",
+  "colorlog",
+  "filelock>=3.15",
+  "httpx",
+  "json5",
+  "numpy",
+  "pathspec",
+  "posthog<6",
+  "psutil",
+  "pygments",
+  "sentence-transformers",
+  "shtab",
+  "tabulate",
+  "transformers>=4.36,!=4.51,!=4.51.1,!=4.51.2",
+  "tree-sitter!=0.25",
+  "tree-sitter-language-pack",
+  "wheel<0.46",
+]
+optional-dependencies.debug = [ "coredumpy>=0.4.1" ]
+optional-dependencies.intel = [ "openvino", "optimum[openvino]" ]
+optional-dependencies.legacy = [ "numpy<2", "torch==2.2.2", "transformers<=4.49" ]
+optional-dependencies.lsp = [ "lsprotocol", "pygls<2" ]
+optional-dependencies.mcp = [ "mcp<2", "pydantic" ]
 
+urls.documentation = "https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md"
+urls.github = "https://github.com/Davidyz/VectorCode"
+urls.homepage = "https://github.com/Davidyz/VectorCode"
+
+scripts.vectorcode = "vectorcode.main:main"
+scripts.vectorcode-mcp-server = "vectorcode.mcp_main:main"
+scripts.vectorcode-server = "vectorcode.lsp_main:main"
+
+[dependency-groups]
+dev = [
+  "basedpyright>=1.29.2",
+  "coverage>=7.6.12",
+  "debugpy>=1.8.12",
+  "ipython>=8.31",
+  "pdm-backend>=2.4.3",
+  "pre-commit>=4.0.1",
+  "pytest>=8.3.4",
+  "pytest-asyncio>=0.25.3",
+  "ruff>=0.9.1",
+]
 
 [tool.pdm]
 distribution = true
@@ -60,27 +73,16 @@ source = "scm"
 write_to = "./vectorcode/_version.py"
 write_template = "__version__ = '{}' # pragma: no cover"
 
-[dependency-groups]
-dev = [
-    "ipython>=8.31.0",
-    "ruff>=0.9.1",
-    "pre-commit>=4.0.1",
-    "pytest>=8.3.4",
-    "pdm-backend>=2.4.3",
-    "coverage>=7.6.12",
-    "pytest-asyncio>=0.25.3",
-    "debugpy>=1.8.12",
-    "basedpyright>=1.29.2",
+[tool.coverage.run]
+omit = [
+  "./tests/*",
+  "src/vectorcode/_version.py",
+  "src/vectorcode/__init__.py",
+  "src/vectorcode/debugging.py",
+  "/tmp/*",
 ]
-
-[project.optional-dependencies]
-chroma0 = ["chromadb==0.6.3"]
-legacy = ["numpy<2.0.0", "torch==2.2.2", "transformers<=4.49.0"]
-intel = ['optimum[openvino]', 'openvino']
-lsp = ['pygls<2.0.0', 'lsprotocol']
-mcp = ['mcp<2.0.0', 'pydantic']
-debug = ["coredumpy>=0.4.1"]
+include = [ 'src/vectorcode/**/*.py' ]
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
-ignore = ["./tests/"]
+ignore = [ "./tests/" ]
