@@ -183,11 +183,15 @@ class _Chroma0ClientManager:
                 process = await _start_server(configs)
                 is_bundled = True
 
-            self.__clients[project_root] = _Chroma0ClientModel(
-                client=await self._create_client(configs),
-                is_bundled=is_bundled,
-                process=process,
-            )
+            try:
+                self.__clients[project_root] = _Chroma0ClientModel(
+                    client=await self._create_client(configs),
+                    is_bundled=is_bundled,
+                    process=process,
+                )
+            except httpx.RemoteProtocolError as e:  # pragma: nocover
+                e.add_note(f"Please verify that {url} is a working chromadb server.")
+                raise
         lock = None
         if self.__clients[project_root].is_bundled and need_lock:
             lock = LockManager().get_lock(str(db_path))

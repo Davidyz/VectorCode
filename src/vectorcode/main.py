@@ -4,8 +4,6 @@ import os
 import sys
 import traceback
 
-import httpx
-
 from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
@@ -107,12 +105,8 @@ async def async_main():
                 from vectorcode.subcommands import files
 
                 return_val = await files(final_configs)
-    except Exception as e:
+    except Exception:
         return_val = 1
-        if isinstance(e, httpx.RemoteProtocolError):  # pragma: nocover
-            e.add_note(
-                f"Please verify that {final_configs.db_url} is a working chromadb server."
-            )
         logger.error(traceback.format_exc())
     finally:
         return return_val
