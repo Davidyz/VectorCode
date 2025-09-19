@@ -613,7 +613,7 @@ async def test_find_project_root_at_root():
     with tempfile.TemporaryDirectory() as temp_dir:
         os.makedirs(os.path.join(temp_dir, ".git"))
         # in a git repo, find_project_root should not go beyond the git root
-        assert find_project_root(temp_dir, ".git") == temp_dir
+        assert os.path.samefile(find_project_root(temp_dir, ".git"), temp_dir)
         assert find_project_root(temp_dir, ".vectorcode") is None
 
 
@@ -623,4 +623,4 @@ async def test_find_project_config_dir_at_root():
         git_dir = os.path.join(temp_dir, ".git")
         os.makedirs(git_dir)
         # in a git repo, find_project_root should not go beyond the git root
-        assert await find_project_config_dir(temp_dir) == git_dir
+        assert os.path.samefile(await find_project_config_dir(temp_dir), git_dir)
