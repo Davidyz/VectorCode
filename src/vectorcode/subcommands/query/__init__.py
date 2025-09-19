@@ -30,7 +30,7 @@ def _prepare_formatted_result(
                 logger.warning(f"Skipping non-existent file: {res}")
         else:
             assert isinstance(res, Chunk)
-            if res.start is None or res.end is None:
+            if res.start is None or res.end is None:  # pragma: nocover
                 logger.warning(
                     "This chunk doesn't have line range metadata. Please try re-vectorising the project."
                 )
@@ -73,14 +73,20 @@ def preprocess_query_keywords(configs: Config):
 def verify_include(configs: Config):
     if QueryInclude.path not in configs.include:
         configs.include.append(QueryInclude.path)
-    assert not (
+    if (
         QueryInclude.chunk in configs.include
         and QueryInclude.document in configs.include
-    ), "`chunk` and `document` cannot be used at the same time for `--include`."
+    ):
+        logger.error(
+            "`chunk` and `document` cannot be used at the same time for `--include`."
+        )
+        return False
+    return True
 
 
 async def query(configs: Config) -> int:
-    verify_include(configs)
+    if not verify_include(configs):
+        return 1
 
     assert configs.query
     preprocess_query_keywords(configs)
