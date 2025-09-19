@@ -23,7 +23,7 @@ async def async_main():
     if cli_args.no_stderr:
         sys.stderr = open(os.devnull, "w")
 
-    if cli_args.debug:
+    if cli_args.debug:  # pragma: nocover
         from vectorcode import debugging
 
         debugging.enable()

@@ -97,7 +97,6 @@ async def test_async_main_cli_action_chunks(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.get_project_config", AsyncMock(return_value=Config())
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
 
     return_code = await async_main()
     assert return_code == 0
@@ -141,7 +140,9 @@ async def test_async_main_cli_action_query(monkeypatch):
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
     mock_final_configs = Config(
-        db_url="http://test_host:1234", action=CliAction.query, pipe=False
+        db_params={"db_url": "http://test_host:1234"},
+        action=CliAction.query,
+        pipe=False,
     )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
@@ -151,7 +152,6 @@ async def test_async_main_cli_action_query(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
     mock_query = AsyncMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.query", mock_query)
 
@@ -172,7 +172,9 @@ async def test_async_main_cli_action_vectorise(monkeypatch):
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
     mock_final_configs = Config(
-        db_url="http://test_host:1234", action=CliAction.vectorise, include_hidden=True
+        db_params={"db_url": "http://test_host:1234"},
+        action=CliAction.vectorise,
+        include_hidden=True,
     )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
@@ -182,7 +184,6 @@ async def test_async_main_cli_action_vectorise(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
     mock_vectorise = AsyncMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.vectorise", mock_vectorise)
 
@@ -197,7 +198,9 @@ async def test_async_main_cli_action_drop(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.drop)
+    mock_final_configs = Config(
+        db_params={"db_url": "http://test_host:1234"}, action=CliAction.drop
+    )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -206,7 +209,6 @@ async def test_async_main_cli_action_drop(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
     mock_drop = AsyncMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.drop", mock_drop)
 
@@ -221,7 +223,9 @@ async def test_async_main_cli_action_ls(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.ls)
+    mock_final_configs = Config(
+        db_params={"db_url": "http://test_host:1234"}, action=CliAction.ls
+    )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -230,7 +234,6 @@ async def test_async_main_cli_action_ls(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
     mock_ls = AsyncMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.ls", mock_ls)
 
@@ -247,6 +250,10 @@ async def test_async_main_cli_action_files(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=cli_args)
     )
+    monkeypatch.setattr(
+        "vectorcode.main.get_project_config",
+        AsyncMock(return_value=MagicMock(merge_from=AsyncMock(return_value=cli_args))),
+    )
     assert await async_main() == 0
     mock_files.assert_called_once()
 
@@ -257,7 +264,9 @@ async def test_async_main_cli_action_update(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.update)
+    mock_final_configs = Config(
+        db_params={"db_url": "http://test_host:1234"}, action=CliAction.update
+    )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -266,7 +275,6 @@ async def test_async_main_cli_action_update(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
     mock_update = AsyncMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.update", mock_update)
 
@@ -281,7 +289,9 @@ async def test_async_main_cli_action_clean(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.clean)
+    mock_final_configs = Config(
+        db_params={"db_url": "http://test_host:1234"}, action=CliAction.clean
+    )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -290,7 +300,6 @@ async def test_async_main_cli_action_clean(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
     mock_clean = AsyncMock(return_value=0)
     monkeypatch.setattr("vectorcode.subcommands.clean", mock_clean)
 
@@ -305,7 +314,9 @@ async def test_async_main_exception_handling(monkeypatch):
     monkeypatch.setattr(
         "vectorcode.main.parse_cli_args", AsyncMock(return_value=mock_cli_args)
     )
-    mock_final_configs = Config(db_url="http://test_host:1234", action=CliAction.query)
+    mock_final_configs = Config(
+        db_params={"db_url": "http://test_host:1234"}, action=CliAction.query
+    )
     monkeypatch.setattr(
         "vectorcode.main.get_project_config",
         AsyncMock(
@@ -314,7 +325,6 @@ async def test_async_main_exception_handling(monkeypatch):
             )
         ),
     )
-    monkeypatch.setattr("vectorcode.common.try_server", AsyncMock(return_value=True))
     mock_query = AsyncMock(side_effect=Exception("Test Exception"))
     monkeypatch.setattr("vectorcode.subcommands.query", mock_query)
 
