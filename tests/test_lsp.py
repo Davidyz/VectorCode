@@ -262,6 +262,7 @@ async def test_execute_command_vectorise(mock_language_server, mock_config: Conf
         patch(
             "vectorcode.lsp_main.expand_globs", new_callable=AsyncMock
         ) as mock_expand_globs,
+        patch("os.path.isfile", lambda x: x in dummy_expanded_files),
         patch("vectorcode.lsp_main.find_exclude_specs", return_value=[]),
         patch("os.cpu_count", return_value=1),
         patch("vectorcode.lsp_main.get_project_config", return_value=mock_config),
