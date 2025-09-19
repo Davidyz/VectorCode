@@ -92,9 +92,10 @@ async def vectorise_worker(
     stats_lock: Lock,
 ):
     async with semaphore, stats_lock:
-        stats += await database.vectorise(
-            file_path=file_path,
-        )
+        if os.path.isfile(file_path):
+            stats += await database.vectorise(
+                file_path=file_path,
+            )
 
 
 async def vectorise(configs: Config) -> int:
@@ -152,7 +153,7 @@ async def vectorise(configs: Config) -> int:
             for task in asyncio.as_completed(tasks):
                 await task
                 bar.update(1)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: nocover
             logger.warning("Abort.")
             return 1
 

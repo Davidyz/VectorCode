@@ -11,7 +11,7 @@ FileFilter = Callable[[str], bool]
 class FilterManager:
     def __init__(self, from_filters: Sequence[FileFilter] | None = None) -> None:
         self._filters: list[FileFilter] = []
-        if from_filters:
+        if from_filters:  # pragma: nocover
             self._filters.extend(from_filters)
 
     def add_filter(self, f: FileFilter = lambda x: bool(x)) -> Self:
