@@ -52,6 +52,7 @@ from vectorcode.subcommands.query import (
     _prepare_formatted_result,
     get_reranked_results,
     preprocess_query_keywords,
+    verify_include,
 )
 
 DEFAULT_PROJECT_ROOT: str | None = None
@@ -144,6 +145,14 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         message=f"Querying {cleanup_path(str(final_configs.project_root))}",
                     ),
                 )
+                if not verify_include(final_configs):
+                    log_msg = "Invalid `--include` parameters!"
+                    logger.error(log_msg)
+                    ls.progress.end(
+                        progress_token,
+                        types.WorkDoneProgressEnd(message=log_msg),
+                    )
+                    return []
                 final_results = []
                 try:
                     preprocess_query_keywords(final_configs)

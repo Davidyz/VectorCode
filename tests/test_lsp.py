@@ -86,6 +86,42 @@ async def test_execute_command_query(mock_language_server, mock_config):
 
 
 @pytest.mark.asyncio
+async def test_execute_command_query_invalid_include(mock_language_server, mock_config):
+    with (
+        patch(
+            "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
+        ) as mock_parse_cli_args,
+        patch("vectorcode.lsp_main.get_database_connector"),
+        patch(
+            "vectorcode.lsp_main.get_reranked_results", new_callable=AsyncMock
+        ) as mock_get_reranked_results,
+        patch("os.path.isfile", return_value=True),
+        patch("builtins.open", MagicMock()) as mock_open,
+    ):
+        mock_parse_cli_args.return_value = mock_config
+        mock_get_reranked_results.return_value = []
+
+        # Configure the MagicMock object to return a string when read() is called
+        mock_file = MagicMock()
+        mock_file.__enter__.return_value.read.return_value = "{}"  # Return valid JSON
+        mock_open.return_value = mock_file
+
+        # Ensure parsed_args.project_root is not None
+        mock_config.project_root = "/test/project"
+        mock_config.query = ["test"]
+        mock_config.include = [QueryInclude.chunk, QueryInclude.document]
+
+        # Mock the merge_from method
+        mock_config.merge_from = AsyncMock(return_value=mock_config)
+
+        result = await execute_command(mock_language_server, ["query", "test"])
+
+        assert result == []
+        mock_language_server.progress.begin.assert_called()
+        mock_language_server.progress.end.assert_called()
+
+
+@pytest.mark.asyncio
 async def test_execute_command_query_default_proj_root(
     mock_language_server, mock_config
 ):
