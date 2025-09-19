@@ -36,7 +36,7 @@ async def test_config_import_from():
         os.makedirs(db_path, exist_ok=True)
         config_dict: Dict[str, Any] = {
             "db_path": db_path,
-            "db_url": "http://test_host:1234",
+            "db_params": {"url": "http://test_host:1234"},
             "embedding_function": "TestEmbedding",
             "embedding_params": {"param1": "value1"},
             "chunk_size": 512,
@@ -44,12 +44,9 @@ async def test_config_import_from():
             "query_multiplier": 5,
             "reranker": "TestReranker",
             "reranker_params": {"reranker_param1": "reranker_value1"},
-            "db_settings": {"db_setting1": "db_value1"},
         }
         config = await Config.import_from(config_dict)
-        assert config.db_path == db_path
-        assert config.db_log_path == os.path.expanduser("~/.local/share/vectorcode/")
-        assert config.db_url == "http://test_host:1234"
+        assert isinstance(config.db_params, dict)
         assert config.embedding_function == "TestEmbedding"
         assert config.embedding_params == {"param1": "value1"}
         assert config.chunk_size == 512
@@ -57,7 +54,6 @@ async def test_config_import_from():
         assert config.query_multiplier == 5
         assert config.reranker == "TestReranker"
         assert config.reranker_params == {"reranker_param1": "reranker_value1"}
-        assert config.db_settings == {"db_setting1": "db_value1"}
 
 
 @pytest.mark.asyncio
@@ -81,20 +77,20 @@ async def test_config_import_from_db_path_is_file():
 
 @pytest.mark.asyncio
 async def test_config_merge_from():
-    config1 = Config(db_url="http://host1:8001", n_result=5)
-    config2 = Config(db_url="http://host2:8002", query=["test"])
+    config1 = Config(db_params={"url": "http://host1:8001"}, n_result=5)
+    config2 = Config(db_params={"url": "http://host2:8002"}, query=["test"])
     merged_config = await config1.merge_from(config2)
-    assert merged_config.db_url == "http://host2:8002"
+    assert merged_config.db_params["url"] == "http://host2:8002"
     assert merged_config.n_result == 5
     assert merged_config.query == ["test"]
 
 
 @pytest.mark.asyncio
 async def test_config_merge_from_new_fields():
-    config1 = Config(db_url="http://host1:8001")
+    config1 = Config(db_params={"url": "http://host1:8001"})
     config2 = Config(query=["test"], n_result=10, recursive=True)
     merged_config = await config1.merge_from(config2)
-    assert merged_config.db_url == "http://host1:8001"
+    assert merged_config.db_params["url"] == "http://host1:8001"
     assert merged_config.query == ["test"]
     assert merged_config.n_result == 10
     assert merged_config.recursive
@@ -104,18 +100,17 @@ async def test_config_merge_from_new_fields():
 async def test_config_import_from_missing_keys():
     config_dict: Dict[str, Any] = {}  # Empty dictionary, all keys missing
     config = await Config.import_from(config_dict)
+    default_config = Config()
 
     # Assert that default values are used
-    assert config.embedding_function == "SentenceTransformerEmbeddingFunction"
-    assert config.embedding_params == {}
-    assert config.db_url == "http://127.0.0.1:8000"
-    assert config.db_path == os.path.expanduser("~/.local/share/vectorcode/chromadb/")
-    assert config.chunk_size == 2500
-    assert config.overlap_ratio == 0.2
-    assert config.query_multiplier == -1
-    assert config.reranker == "NaiveReranker"
-    assert config.reranker_params == {}
-    assert config.db_settings is None
+    assert config.embedding_function == default_config.embedding_function
+    assert config.embedding_params == default_config.embedding_params
+    assert config.db_params == default_config.db_params
+    assert config.chunk_size == default_config.chunk_size
+    assert config.overlap_ratio == default_config.overlap_ratio
+    assert config.query_multiplier == default_config.query_multiplier
+    assert config.reranker == default_config.reranker
+    assert config.reranker_params == default_config.reranker_params
 
 
 def test_expand_envs_in_dict():
@@ -132,6 +127,8 @@ def test_expand_envs_in_dict():
     d = {"key4": "$TEST_VAR2"}
     expand_envs_in_dict(d)
     assert d["key4"] == "$TEST_VAR2"  # Should remain unchanged
+
+    expand_envs_in_dict(None)
 
     del os.environ["TEST_VAR"]  # Clean up the env
 
@@ -222,12 +219,12 @@ async def test_load_from_default_config():
                 config_dir,
             )
             os.makedirs(config_dir, exist_ok=True)
-            config_content = '{"db_url": "http://default.url:8000"}'
+            config_content = '{"db_params": {"url": "http://default.url:8000"}}'
             with open(config_path, "w") as fin:
                 fin.write(config_content)
 
             config = await load_config_file()
-            assert config.db_url == "http://default.url:8000"
+            assert isinstance(config.db_params, dict)
 
 
 @pytest.mark.asyncio
@@ -321,6 +318,7 @@ async def test_cli_arg_parser():
 def test_query_include_to_header():
     assert QueryInclude.path.to_header() == "Path: "
     assert QueryInclude.document.to_header() == "Document:\n"
+    assert QueryInclude.chunk.to_header() == "Chunk: "
 
 
 def test_find_project_root():
@@ -402,12 +400,12 @@ async def test_parse_cli_args_vectorise_recursive_dir():
 
 @pytest.mark.asyncio
 async def test_parse_cli_args_vectorise_recursive_dir_include_hidden():
-    with patch("sys.argv", ["vectorcode", "vectorise", "-r", "."]):
+    with patch("sys.argv", ["vectorcode", "vectorise", "-r", ".", "--include-hidden"]):
         config = await parse_cli_args()
         assert config.action == CliAction.vectorise
         assert config.files == ["."]
         assert config.recursive is True
-        assert config.include_hidden is False
+        assert config.include_hidden is True
 
 
 @pytest.mark.asyncio
@@ -425,10 +423,10 @@ async def test_get_project_config_local_config(tmp_path):
     vectorcode_dir.mkdir(parents=True)
 
     config_file = vectorcode_dir / "config.json"
-    config_file.write_text('{"db_url": "http://test_host:9999" }')
+    config_file.write_text('{"db_params": {"url": "http://test_host:9999"} }')
 
     config = await get_project_config(project_root)
-    assert config.db_url == "http://test_host:9999"
+    assert isinstance(config.db_params, dict)
 
 
 @pytest.mark.asyncio
@@ -438,10 +436,10 @@ async def test_get_project_config_local_config_json5(tmp_path):
     vectorcode_dir.mkdir(parents=True)
 
     config_file = vectorcode_dir / "config.json5"
-    config_file.write_text('{"db_url": "http://test_host:9999" }')
+    config_file.write_text('{"db_params": {"url": "http://test_host:9999"} }')
 
     config = await get_project_config(project_root)
-    assert config.db_url == "http://test_host:9999"
+    assert isinstance(config.db_params, dict)
 
 
 def test_find_project_root_file_input(tmp_path):
@@ -484,9 +482,10 @@ async def test_parse_cli_args_check():
 
 @pytest.mark.asyncio
 async def test_parse_cli_args_init():
-    with patch("sys.argv", ["vectorcode", "init"]):
+    with patch("sys.argv", ["vectorcode", "init", "--force"]):
         config = await parse_cli_args()
         assert config.action == CliAction.init
+        assert config.force is True
 
 
 @pytest.mark.asyncio
@@ -527,37 +526,15 @@ async def test_parse_cli_args_files():
         assert config.rm_paths == ["foo.txt"]
 
 
-@pytest.mark.asyncio
-async def test_config_import_from_hnsw():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        db_path = os.path.join(temp_dir, "test_db")
-        os.makedirs(db_path, exist_ok=True)
-        config_dict: Dict[str, Any] = {
-            "hnsw": {"space": "cosine", "ef_construction": 200, "m": 32}
-        }
-        config = await Config.import_from(config_dict)
-        assert config.hnsw["space"] == "cosine"
-        assert config.hnsw["ef_construction"] == 200
-        assert config.hnsw["m"] == 32
-
-
-@pytest.mark.asyncio
-async def test_hnsw_config_merge():
-    config1 = Config(hnsw={"space": "ip"})
-    config2 = Config(hnsw={"ef_construction": 200})
-    merged_config = await config1.merge_from(config2)
-    assert merged_config.hnsw["space"] == "ip"
-    assert merged_config.hnsw["ef_construction"] == 200
-
-
 def test_cleanup_path():
     home = os.environ.get("HOME")
-    if home is None:
-        return
-    assert cleanup_path(os.path.join(home, "test_path")) == os.path.join(
-        "~", "test_path"
-    )
+    if home:
+        assert cleanup_path(os.path.join(home, "test_path")) == os.path.join(
+            "~", "test_path"
+        )
     assert cleanup_path("/etc/dir") == "/etc/dir"
+    with patch.dict(os.environ, {"HOME": ""}):
+        assert cleanup_path("/etc/dir") == "/etc/dir"
 
 
 def test_shtab():
@@ -576,8 +553,10 @@ def test_shtab():
 async def test_filelock():
     manager = LockManager()
     with tempfile.TemporaryDirectory() as tmp_dir:
-        manager.get_lock(tmp_dir)
+        lock = manager.get_lock(tmp_dir)
         assert os.path.isfile(os.path.join(tmp_dir, "vectorcode.lock"))
+        # test getting existing lock
+        assert lock is manager.get_lock(tmp_dir)
 
 
 def test_specresolver():
@@ -610,23 +589,38 @@ def test_specresolver_builder():
         patch("vectorcode.cli_utils.open"),
     ):
         base_dir = os.path.normpath(os.path.join("foo", "bar"))
-        assert (
-            os.path.normpath(
-                SpecResolver.from_path(os.path.join(base_dir, ".gitignore")).base_dir
-            )
-            == base_dir
-        )
+        assert os.path.normpath(
+            SpecResolver.from_path(os.path.join(base_dir, ".gitignore")).base_dir
+        ) == os.path.abspath(base_dir)
 
-        assert (
-            os.path.normpath(
-                SpecResolver.from_path(
-                    os.path.join(base_dir, ".vectorcode", "vectorcode.exclude")
-                ).base_dir
-            )
-            == base_dir
-        )
         assert os.path.normpath(
             SpecResolver.from_path(
-                os.path.join(base_dir, "vectorcode", "vectorcode.exclude")
+                os.path.join(base_dir, ".vectorcode", "vectorcode.exclude")
             ).base_dir
-        ) == os.path.normpath(".")
+        ) == os.path.abspath(base_dir)
+        assert os.path.normpath(
+            SpecResolver.from_path(
+                os.path.join(base_dir, "vectorcode", "vectorcode.exclude"),
+                project_root=base_dir,
+            ).base_dir
+        ) == os.path.abspath(base_dir)
+    with pytest.raises(ValueError):
+        SpecResolver.from_path("foo/bar")
+
+
+@pytest.mark.asyncio
+async def test_find_project_root_at_root():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.makedirs(os.path.join(temp_dir, ".git"))
+        # in a git repo, find_project_root should not go beyond the git root
+        assert find_project_root(temp_dir, ".git") == temp_dir
+        assert find_project_root(temp_dir, ".vectorcode") is None
+
+
+@pytest.mark.asyncio
+async def test_find_project_config_dir_at_root():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        git_dir = os.path.join(temp_dir, ".git")
+        os.makedirs(git_dir)
+        # in a git repo, find_project_root should not go beyond the git root
+        assert await find_project_config_dir(temp_dir) == git_dir

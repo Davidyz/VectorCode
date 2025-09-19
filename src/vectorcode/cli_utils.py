@@ -589,7 +589,7 @@ async def expand_globs(
 
 
 def cleanup_path(path: str):
-    if os.path.isabs(path) and os.environ.get("HOME") is not None:
+    if os.path.isabs(path) and os.environ.get("HOME", "") != "":
         return path.replace(os.environ["HOME"], "~")
     return path
 
