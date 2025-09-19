@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Type
+from typing import Type
 
 from vectorcode.cli_utils import Config
 from vectorcode.database.base import DatabaseConnectorBase
@@ -7,7 +7,7 @@ from vectorcode.database.base import DatabaseConnectorBase
 logger = logging.getLogger(name=__name__)
 
 
-def get_database_connector(config: Config) -> DatabaseConnectorBase:
+def get_database_connector(config: Config) -> DatabaseConnectorBase:  # pragma: nocover
     """
     It's CRUCIAL to keep the `import`s of the database connectors in the branches.
     This allow them to be lazy-imported. This also allow us to keep the main package
@@ -15,7 +15,7 @@ def get_database_connector(config: Config) -> DatabaseConnectorBase:
 
     > Raises a `ValueError` in case the database connector is not supported.
     """
-    cls: Optional[Type[DatabaseConnectorBase]] = None
+    cls: Type[DatabaseConnectorBase] | None = None
 
     if not config.db_type.endswith("Connector"):
         config.db_type = f"{config.db_type}Connector"

@@ -48,7 +48,9 @@ def get_collection_id(full_path: str) -> str:
 
 
 @cache
-def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction:
+def get_embedding_function(
+    configs: Config,
+) -> chromadb.EmbeddingFunction:  # pragma: nocover
     try:
         ef = getattr(embedding_functions, configs.embedding_function)(
             **configs.embedding_params
