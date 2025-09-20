@@ -462,7 +462,9 @@ return check_cli_wrap(function(opts)
           args
         )
 
-        job_runner.run_async(args, function(result, error)
+        job_runner.run_async(args, function(result, error, code)
+          local err_string = cc_common.flatten_table_to_string(error)
+
           if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.QueryResult[]
             local summary_opts = vim.deepcopy(opts.summarise) or {}
             if type(summary_opts.enabled) == "function" then
@@ -496,13 +498,20 @@ return check_cli_wrap(function(opts)
               })
             end)
           else
-            if type(error) == "table" then
-              error = cc_common.flatten_table_to_string(error)
+            -- Only report as error if we have a meaningful error or non-zero exit code
+            if (err_string and err_string ~= "") or code ~= 0 then
+              cb({
+                status = "error",
+                data = ((err_string ~= "") and err_string)
+                  or "VectorCode query tool failed to execute.",
+              })
+            else
+              -- Successful operation but no results found
+              cb({
+                status = "success",
+                data = { raw_results = {}, count = 0 },
+              })
             end
-            cb({
-              status = "error",
-              data = error,
-            })
           end
         end, tools.chat.bufnr)
       end,

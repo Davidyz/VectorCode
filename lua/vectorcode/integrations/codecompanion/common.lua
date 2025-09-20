@@ -16,7 +16,21 @@ return {
     if type(t) == "string" then
       return t
     end
-    return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
+
+    -- Handle empty tables or tables with empty strings
+    local flattened = vim
+      .iter(t)
+      :flatten(math.huge)
+      :filter(function(item)
+        return type(item) == "string" and vim.trim(item) ~= ""
+      end)
+      :totable()
+
+    if #flattened == 0 then
+      return "Unknown error occurred"
+    end
+
+    return table.concat(flattened, "\n")
   end,
 
   ---@param use_lsp boolean
