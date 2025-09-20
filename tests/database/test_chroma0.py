@@ -145,6 +145,8 @@ async def test_list_collection_content(mock_config):
             {
                 "path": os.path.join(mock_config.project_root, "file1"),
                 "sha256": "hash1",
+                "start": 1,
+                "end": 2,
             }
         ],
         "documents": ["doc1"],
@@ -666,8 +668,9 @@ async def test_query_no_n_result(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_create_or_get_collection_exists(mock_config):
+async def test_create_or_get_collection_exists(mock_config: Config):
     """Test _create_or_get_collection when collection exists and allow_create is True."""
+    mock_config.db_params["hnsw"] = {"M": 64}
     connector = ChromaDB0Connector(mock_config)
     with (
         patch(
