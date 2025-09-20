@@ -309,7 +309,10 @@ extension, the json5 syntax will be accepted. This allows you to leave trailing
 comma in the config file, as well as writing comments (`//`). This can be very
 useful if you’re experimenting with the configs.
 
-The JSON configuration file may hold the following values: -
+The JSON configuration file may hold the following values: - `db_type`string,
+default: `"ChromaDB0Connector"`, the database backend to use; -
+`db_params`dictionary. See the corresponding database source code
+<../src/vectorcode/database/> for the default values; -
 `embedding_function`string, one of the embedding functions supported by
 Chromadb <https://www.trychroma.com/> (find more here
 <https://docs.trychroma.com/docs/embeddings/embedding-functions> and here
@@ -330,37 +333,28 @@ model supports Matryoshka Representation Learning (MRL) before using this._
 Learn more about MRL here
 <https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings>.
 When set to `null` (or unset), the embeddings won’t be truncated; -
-`db_url`string, the url that points to the Chromadb server. VectorCode will
-start an HTTP server for Chromadb at a randomly picked free port on `localhost`
-if your configured `http://host:port` is not accessible. Default:
-`http://127.0.0.1:8000`; - `db_path`string, Path to local persistent database.
-If you didn’t set up a standalone Chromadb server, this is where the files
-for your database will be stored. Default:
-`~/.local/share/vectorcode/chromadb/`; - `db_log_path`string, path to the
-_directory_ where the built-in chromadb server will write the log to. Default:
-`~/.local/share/vectorcode/`; - `chunk_size`integer, the maximum number of
-characters per chunk. A larger value reduces the number of items in the
-database, and hence accelerates the search, but at the cost of potentially
-truncated data and lost information. Default: `2500`. To disable chunking, set
-it to a negative number; - `overlap_ratio`float between 0 and 1, the ratio of
-overlapping/shared content between 2 adjacent chunks. A larger ratio improves
-the coherence of chunks, but at the cost of increasing number of entries in the
-database and hence slowing down the search. Default: `0.2`. _Starting from
-0.4.11, VectorCode will use treesitter to parse languages that it can
-automatically detect. It uses pygments to guess the language from filename, and
-tree-sitter-language-pack to fetch the correct parser. overlap_ratio has no
-effects when treesitter works. If VectorCode fails to find an appropriate
-parser, it’ll fallback to the legacy naive parser, in which case
-overlap_ratio works exactly in the same way as before;_ -
-`query_multiplier`integer, when you use the `query` command to retrieve `n`
-documents, VectorCode will check `n * query_multiplier` chunks and return at
-most `n` documents. A larger value of `query_multiplier` guarantees the return
-of `n` documents, but with the risk of including too many less-relevant chunks
-that may affect the document selection. Default: `-1` (any negative value means
-selecting documents based on all indexed chunks); - `reranker`string, the
-reranking method to use. Currently supports `NaiveReranker` (sort chunks by the
-"distance" between the embedding vectors) and `CrossEncoderReranker` (using
-sentence-transformers cross-encoder
+`chunk_size`integer, the maximum number of characters per chunk. A larger value
+reduces the number of items in the database, and hence accelerates the search,
+but at the cost of potentially truncated data and lost information. Default:
+`2500`. To disable chunking, set it to a negative number; -
+`overlap_ratio`float between 0 and 1, the ratio of overlapping/shared content
+between 2 adjacent chunks. A larger ratio improves the coherence of chunks, but
+at the cost of increasing number of entries in the database and hence slowing
+down the search. Default: `0.2`. _Starting from 0.4.11, VectorCode will use
+treesitter to parse languages that it can automatically detect. It uses
+pygments to guess the language from filename, and tree-sitter-language-pack to
+fetch the correct parser. overlap_ratio has no effects when treesitter works.
+If VectorCode fails to find an appropriate parser, it’ll fallback to the
+legacy naive parser, in which case overlap_ratio works exactly in the same way
+as before;_ - `query_multiplier`integer, when you use the `query` command to
+retrieve `n` documents, VectorCode will check `n * query_multiplier` chunks and
+return at most `n` documents. A larger value of `query_multiplier` guarantees
+the return of `n` documents, but with the risk of including too many
+less-relevant chunks that may affect the document selection. Default: `-1` (any
+negative value means selecting documents based on all indexed chunks); -
+`reranker`string, the reranking method to use. Currently supports
+`NaiveReranker` (sort chunks by the "distance" between the embedding vectors)
+and `CrossEncoderReranker` (using sentence-transformers cross-encoder
 <https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html> ).
 - `reranker_params`dictionary, similar to `embedding_params`. The options
 passed to the reranker class constructor. For `CrossEncoderReranker`, these are
@@ -368,16 +362,8 @@ the options passed to the `CrossEncoder`
 <https://sbert.net/docs/package_reference/cross_encoder/cross_encoder.html#id1>
 class. For example, if you want to use a non-default model, you can use the
 following: `json { "reranker_params": { "model_name_or_path": "your_model_here"
-} }` - `db_settings`dictionary, works in a similar way to `embedding_params`,
-but for Chromadb client settings so that you can configure authentication for
-remote Chromadb <https://docs.trychroma.com/production/administration/auth>; -
-`hnsw`a dictionary of hnsw settings
-<https://cookbook.chromadb.dev/core/configuration/#hnsw-configuration> that may
-improve the query performances or avoid runtime errors during queries. **It’s
-recommended to re-vectorise the collection after modifying these options,
-because some of the options can only be set during collection creation.**
-Example (and default): `json5 "hnsw": { "hnsw:M": 64, }` -
-`filetype_map``dict[str, list[str]]`, a dictionary where keys are language name
+} }` - `filetype_map``dict[str, list[str]]`, a dictionary where keys are
+language name
 <https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages>
 and values are lists of Python regex patterns
 <https://docs.python.org/3/library/re.html> that will match file extensions.
