@@ -569,6 +569,12 @@ def test_specresolver():
         SpecResolver(spec, base_dir="nested").match([nested_path], negated=True)
     )
 
+    assert SpecResolver(spec, base_dir="nested").match_file(nested_path)
+    assert not SpecResolver(spec, base_dir="nested").match_file(
+        nested_path, negated=True
+    )
+    assert SpecResolver(spec).match_file("../outside_file.txt")
+
     with tempfile.TemporaryDirectory() as dir:
         nested_dir = os.path.join(dir, "nested")
         nested_path = os.path.join(nested_dir, "file1.txt")

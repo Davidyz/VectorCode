@@ -113,7 +113,7 @@ class Config:
     files_action: Optional[FilesAction] = None
     rm_paths: list[str] = field(default_factory=list)
 
-    def __hash__(self) -> int:
+    def __hash__(self) -> int:  # pragma: nocover
         return hash(self.__repr__())
 
     @classmethod
