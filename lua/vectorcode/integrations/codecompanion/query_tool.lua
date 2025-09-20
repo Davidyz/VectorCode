@@ -463,20 +463,8 @@ return check_cli_wrap(function(opts)
         )
 
         job_runner.run_async(args, function(result, error, code)
-          -- Check if this is actually an error or just empty stderr
-          local is_actual_error = code ~= nil and code ~= 0
-          local has_meaningful_error = false
-          
-          if type(error) == "table" then
-            -- Check if the error table contains any non-empty strings
-            local flattened = vim.iter(error):flatten(math.huge):totable()
-            has_meaningful_error = vim.iter(flattened):any(function(item)
-              return type(item) == "string" and vim.trim(item) ~= ""
-            end)
-          elseif type(error) == "string" and vim.trim(error) ~= "" then
-            has_meaningful_error = true
-          end
-          
+          local err_string = cc_common.flatten_table_to_string(error)
+
           if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.QueryResult[]
             local summary_opts = vim.deepcopy(opts.summarise) or {}
             if type(summary_opts.enabled) == "function" then
@@ -511,19 +499,17 @@ return check_cli_wrap(function(opts)
             end)
           else
             -- Only report as error if we have a meaningful error or non-zero exit code
-            if is_actual_error or has_meaningful_error then
-              if type(error) == "table" then
-                error = cc_common.flatten_table_to_string(error)
-              end
+            if (err_string and err_string ~= "") or code ~= 0 then
               cb({
                 status = "error",
-                data = error or "VectorCode command failed",
+                data = ((err_string ~= "") and err_string)
+                  or "VectorCode query tool failed to execute.",
               })
             else
               -- Successful operation but no results found
               cb({
                 status = "success",
-                data = { raw_results = {}, count = 0, summary = "" },
+                data = { raw_results = {}, count = 0 },
               })
             end
           end
