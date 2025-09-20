@@ -261,7 +261,11 @@ be accepted. This allows you to leave trailing comma in the config file, as well
 as writing comments (`//`). This can be very useful if you're experimenting with
 the configs.
 
-The JSON configuration file may hold the following values:
+The JSON configuration file may hold the following values: 
+- `db_type`: string, default: `"ChromaDB0Connector"`, the database backend to use;
+- `db_params`: dictionary. See 
+  [the corresponding database source code](../src/vectorcode/database/) for the 
+  default values;
 - `embedding_function`: string, one of the embedding functions supported by [Chromadb](https://www.trychroma.com/) 
   (find more [here](https://docs.trychroma.com/docs/embeddings/embedding-functions) and 
   [here](https://docs.trychroma.com/integrations/chroma-integrations)). For
@@ -282,14 +286,6 @@ The JSON configuration file may hold the following values:
   to. _Make sure your model supports Matryoshka Representation Learning (MRL) 
   before using this._ Learn more about MRL [here](https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings).
   When set to `null` (or unset), the embeddings won't be truncated;
-- `db_url`: string, the url that points to the Chromadb server. VectorCode will start an
-  HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
-  configured `http://host:port` is not accessible. Default: `http://127.0.0.1:8000`;
-- `db_path`: string, Path to local persistent database. If you didn't set up a standalone 
-  Chromadb server, this is where the files for your database will be stored. 
-  Default: `~/.local/share/vectorcode/chromadb/`;
-- `db_log_path`: string, path to the _directory_ where the built-in chromadb
-  server will write the log to. Default: `~/.local/share/vectorcode/`;
 - `chunk_size`: integer, the maximum number of characters per chunk. A larger
   value reduces the number of items in the database, and hence accelerates the
   search, but at the cost of potentially truncated data and lost information.
@@ -328,20 +324,6 @@ The JSON configuration file may hold the following values:
     "reranker_params": {
       "model_name_or_path": "your_model_here"
     }
-  }
-  ```
-- `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
-  for Chromadb client settings so that you can configure 
-  [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
-- `hnsw`: a dictionary of 
-  [hnsw settings](https://cookbook.chromadb.dev/core/configuration/#hnsw-configuration) 
-  that may improve the query performances or avoid runtime errors during
-  queries. **It's recommended to re-vectorise the collection after modifying these
-  options, because some of the options can only be set during collection
-  creation.** Example (and default):
-  ```json5
-  "hnsw": {
-    "hnsw:M": 64,
   }
   ```
 - `filetype_map`: `dict[str, list[str]]`, a dictionary where keys are
