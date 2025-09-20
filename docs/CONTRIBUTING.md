@@ -40,6 +40,12 @@ You may also find it helpful to
 [enable logging](https://github.com/Davidyz/VectorCode/blob/main/docs/cli.md#debugging-and-diagnosing) 
 for the CLI when developing new features or working on fixes.
 
+### Database Connectors
+
+Please take a look at [the database documentation](../src/vectorcode/database/README.md), 
+which contains a brief introduction on the API design that explains what you'd need 
+to do to add support for a new database.
+
 ## Neovim Plugin
 
 At the moment, there isn't much to cover on here. As long as the code is 

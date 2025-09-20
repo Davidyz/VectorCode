@@ -44,6 +44,10 @@ easier.
 class DatabaseConnectorBase(ABC):  # pragma: nocover
     @classmethod
     def create(cls, configs: Config):
+        """
+        Create a new instance of the database connector.
+        This classmethod will add the docstring of the child class to the exception if the initialisation fails.
+        """
         try:
             return cls(configs)
         except Exception as e:  # pragma: nocover
@@ -54,14 +58,17 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     def __init__(self, configs: Config):
         """
-        Use the `create` classmethod so that you get docs
-        when something's wrong during the database initialisation.
+        Initialises the database connector with the given configs.
+        It is recommended to use the `create` classmethod instead of calling this directly,
+        as it provides better error handling during initialisation.
         """
         self._configs = configs
 
     async def count(self, what: ResultType = ResultType.chunk) -> int:
         """
         Returns the chunk count or file count of the given collection, depending on the value passed for `what`.
+        This method is implemented in the base class and relies on `list_collection_content`.
+        Child classes should not need to override this method if `list_collection_content` is implemented correctly.
         """
         collection_content = await self.list_collection_content(what=what)
         match what:
@@ -74,6 +81,11 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     async def query(
         self,
     ) -> list[QueryResult]:
+        """
+        Query the database for similar chunks.
+        The query keywords are stored in `self._configs.query`.
+        The implementation of this method should handle the conversion from the native database query result to a list of `vectorcode.database.types.QueryResult` objects.
+        """
         pass
 
     @abstractmethod
@@ -85,13 +97,21 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
         Vectorise the given file and add it to the database.
         The duplicate checking (using file hash) should be done outside of this function.
+
+        For developers:
+        The implementation should chunk the file, generate embeddings for the chunks, and store them in the database.
+        It should return a `VectoriseStats` object to report the outcome.
         """
         pass
 
     @abstractmethod
     async def list_collections(self) -> Sequence[CollectionInfo]:
         """
-        List collections in the database.
+        List all collections available in the database.
+
+        For developers:
+        The implementation should retrieve all collections and return them as a sequence of `CollectionInfo` objects.
+        This includes metadata about each collection like its ID, path, and size.
         """
         pass
 
@@ -119,6 +139,10 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         """
         Delete files from the database (doesn't remove files on disk).
         Returns the actual number of files deleted.
+
+        For developers:
+        The file paths to be deleted are stored in `self._configs.rm_paths`.
+        The implementation should remove all chunks associated with these files from the database.
         """
         pass
 
@@ -127,13 +151,17 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         self, *, collection_id: str | None = None, collection_path: str | None = None
     ):
         """
-        Delete a collection (`self._configs.project_root`) from the database.
+        Delete a collection from the database.
+        The collection to be dropped is specified by `collection_id` or `collection_path`.
+        If not provided, it defaults to `self._configs.project_root`.
         """
         pass
 
     def _check_new_config(self, new_config: Config) -> bool:
         """
-        Cleanup the `new_config` so that the database config matches the existing one.
+        Ensures that the new config does not attempt to change database-specific settings.
+        It copies the `db_type` and `db_params` from the existing config to the new one.
+        This is a helper method for `update_config` and `replace_config`.
         """
         assert isinstance(new_config, Config), "`new_config` is not a `Config` object."
         new_config.db_type = self._configs.db_type
@@ -141,6 +169,11 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         return True
 
     async def update_config(self, new_config: Config) -> Self:
+        """
+        Merge the new config with the existing one.
+        This method will not change the database configs.
+        Child classes should not need to override this method.
+        """
         assert self._check_new_config(new_config), (
             "The new config has different database configs."
         )
@@ -150,6 +183,11 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
         return self
 
     async def replace_config(self, new_config: Config) -> Self:
+        """
+        Replace the existing config with the new one.
+        This method will not change the database configs.
+        Child classes should not need to override this method.
+        """
         assert self._check_new_config(new_config), (
             "The new config has different database configs."
         )
@@ -158,7 +196,10 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     async def check_orphanes(self) -> int:
         """
-        Check for files that are in the database, but no longer on the disk, and remove them.
+        Check for files that are in the database but no longer on disk, and remove them.
+        Returns the number of orphaned files removed.
+        This method relies on `list_collection_content` and `delete`.
+        Child classes should not need to override this.
         """
 
         orphanes: list[str] = []
@@ -178,7 +219,10 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
 
     def get_embedding(self, texts: str | list[str]) -> list[NDArray]:
         """
-        Generate embeddings and truncate them to `self._configs.embedding_dims` if needed.
+        Generate embeddings for the given texts.
+        It uses the embedding function specified in `self._configs.embedding_function`.
+        If `self._configs.embedding_dims` is set, it truncates the embeddings.
+        Child classes should use this method to get embeddings.
         """
         if isinstance(texts, str):
             texts = [texts]
@@ -194,14 +238,20 @@ class DatabaseConnectorBase(ABC):  # pragma: nocover
     @abstractmethod
     async def get_chunks(self, file_path) -> list[Chunk]:
         """
-        Return chunks for the provided file, if any.
-        If not found, return an empty list.
+        Retrieve all chunks for a given file from the database.
+        If the file is not found in the database, it should return an empty list.
+
+        For developers:
+        This is useful for operations that need to inspect the chunked content of a file, for example, for debugging or analysis.
         """
         pass
 
     async def cleanup(self) -> list[str]:
         """
         Remove empty collections from the database.
+        Returns a list of paths of the removed collections.
+        This method relies on `list_collections` and `drop`.
+        Child classes should not need to override this.
         """
         removed: list[str] = []
         for collection in await self.list_collections():

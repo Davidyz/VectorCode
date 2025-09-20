@@ -2,88 +2,70 @@
 
 A database connector is a compatibility layer that converts data structures that a 
 database natively works with to the ones that VectorCode works with. The connector 
-classes provides abstractions for VectorCode operations (`vectorise`, `query`, etc.), 
+classes provide abstractions for VectorCode operations (`vectorise`, `query`, etc.), 
 which enables the use of different database backends.
 
 <!-- mtoc-start -->
 
-* [Creating Database Connectors](#creating-database-connectors)
-* [Implementation Details](#implementation-details)
-  * [Connector Configuration](#connector-configuration)
-  * [Database Settings](#database-settings)
-    * [Documenting the Database Settings](#documenting-the-database-settings)
-  * [CRUD Operations](#crud-operations)
+* [Adding a New Database Connector](#adding-a-new-database-connector)
+* [Key Implementation Details](#key-implementation-details)
+  * [The `Config` Object](#the-config-object)
+  * [Implementing Abstract Methods](#implementing-abstract-methods)
+  * [Error Handling](#error-handling)
+* [Testing](#testing)
 
 <!-- mtoc-end -->
 
-# Creating Database Connectors
+# Adding a New Database Connector
 
-To add support for a new database backend, you'd need to: 
+To add support for a new database backend, you will need to:
 
-1. Implement a child class of `vectorcode.database.base.DatabaseConnectorBase` and all 
-   of its abstract methods, and put it under this directory.
-2. Add a new entry in the [`get_database_connector`](./__init__.py) function that 
-   initialises your new database connector when the `configs.db_type` points to the new 
-   database.
-3. Add tests for your new database connector. The new tests should verify that your 
-   connector correctly converts between the native data structures from the database and
-   the VectorCode data structures that the rest of the codebase (embedding function, 
-   reranker, etc.)can work with.
+1.  **Implement a connector class**: Create a new file in this directory and implement a child class of `vectorcode.database.base.DatabaseConnectorBase`. You must implement all of its abstract methods.
+2.  **Write tests**: Add tests for your new connector in the `tests/database/` directory. The tests should mock the database's API and verify that your connector correctly converts data between the database's native format and VectorCode's data structures.
+3.  **Register your connector**: Add a new entry in the `get_database_connector` function in `src/vectorcode/database/__init__.py` to initialize your new connector.
 
-# Implementation Details
+For a concrete example, refer to the implementation of `DatabaseConnectorBase` and the `ChromaDB0Connector`.
 
-> Apart from this document, you may refer to [the `DatabaseConnectorBase`](./base.py) 
-> and [the `ChromaDB0Connector`](./chroma0.py) implementations as reference designs of 
-> a new database connector.
+# Key Implementation Details
 
-In the following sections, I'll use the term _database_ to refer to the actual database 
-backends (chromadb, pgvector, etc.) that holds the data and performs the CRUD operations, 
-and the term _connector_ to refer to our compatibility layer (child classes of 
-`vectorcode.database.base.DatabaseConnectorBase`).
+## The `Config` Object
 
-## Connector Configuration
+All settings for a connector are passed through a single `vectorcode.cli_utils.Config` object, which is available as `self._configs`. This includes:
 
-The connector has a private attribute (that is, the attribute name is prefixed by a `_`) 
-`self._configs`. This is a `vectorcode.cli_utils.Config` object that holds various 
-configuration options, including the database settings used to initialise the 
-connections to the database and the parameters used for the CRUD operations with the 
-database. This attribute is **mutable** and _should_ be updated before calling a CRUD 
-method using the `self.update_config(new_config)` or the `self.replace_config(new_config)` 
-methods. However, the database-related settings shouldn't be changed. A new connector
-instance should be created for that purpose.
+-   **Database Settings**: The `db_type` string and `db_params` dictionary are used to configure the connection to the database backend. As a contributor, you should document the specific `db_params` your connector requires in the class's docstring.
+-   **Operation Parameters**: Parameters for operations like `query` or `vectorise` are also present in this object.
 
-## Database Settings
+The `self._configs` attribute is mutable and can be updated for subsequent operations, but the database connection settings (`db_type`, `db_params`) should not be changed after initialization.
 
-The database settings are configured in the JSON configuration file, and will be parsed 
-and stored in the `config.db_type` and `config.db_params` attributes of the 
-`self._configs` object.
+## Implementing Abstract Methods
 
-The `db_type` attribute is a string that indicates the type of the database backend 
-(for example, `ChromaDB0` for Chromadb 0.6.3). 
+When implementing the abstract methods from `DatabaseConnectorBase`, you should:
 
-The `db_params` attribute is a dictionary that holds some database-specific settings 
-(for example, the database API endpoint URL and/or database directory).
+-   Read the necessary parameters from the `self._configs` object.
+-   Perform the corresponding operation against the database.
+-   Return data in the format specified by the method's type hints (e.g., `QueryResult`, `CollectionInfo`).
 
-### Documenting the Database Settings
+**Please refer to the docstrings in `DatabaseConnectorBase` for the specific API contract of each method.** They contain detailed information about what each method is expected to do and what parameters it uses from the `Config` object.
 
-Please document about the database-specific settings (`db_params`) in the doc-string 
-of your database connector. This doc-string will be presented in the error message when 
-the database fails to initialise, and should provide instructions to help the user 
-debug their configuration.
+## Error Handling
 
-## CRUD Operations
+If the underlying database library raises a specific exception (e.g., for a collection not being found), you should consider catching it and re-raise it as one of VectorCode's custom database exceptions from `vectorcode.database.errors`. This ensures consistent error handling in the CLI and other clients.
 
-Historically, the parameters of VectorCode operations have been stored and propagated 
-in a `vectorcode.cli_utils.Config` object. The database connectors continue to follow 
-this pattern. That is, each of the abstract methods that represent an abstracted 
-database operation (`query()`, `vectorise()`, `list()`, etc.) should read the necessary 
-parameters (`project_root`, file paths, query keywords, etc.) from the `self._configs` 
-attribute. Note that the `self._configs` attribute is mutable, so you should always read 
-the parameters from it directly for each of the operations.
+For example:
+```python
+from vectorcode.database.errors import CollectionNotFoundError
 
-> Some methods support keyword arguments that allows temporarily overriding some 
-> parameters. For example, the `list_collection_content` method supports overriding 
-> `self._configs` by passing `_collection_id` and `collection_path`. The idea is that 
-> these methods can usually be used by the implementation of other methods or subcommands 
-> (for example, `list_collection_content` is used in `count` and `check_orphanes`),
-> and being able to pass such parameters are convenient when writing those implementations.
+try:
+    some_action_here()
+except SomeCustomException as e:
+    raise CollectionNotFoundError("The collection was not found.") from e
+```
+
+# Testing
+
+The unit tests for database backends should go under [`tests/database/`](../../../tests/database/). 
+The tests should mock the request body and return values of the database. Integration 
+tests that interact with an actual database are out of scope for now.
+
+> The tests for the subcommands currently use mocked database connectors. They're not 
+> supposed to interact with live databases.
