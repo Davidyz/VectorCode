@@ -45,7 +45,13 @@ When implementing the abstract methods from `DatabaseConnectorBase`, you should:
 -   Perform the corresponding operation against the database.
 -   Return data in the format specified by the method's type hints (e.g., `QueryResult`, `CollectionInfo`).
 
-**Please refer to the docstrings in `DatabaseConnectorBase` for the specific API contract of each method.** They contain detailed information about what each method is expected to do and what parameters it uses from the `Config` object.
+**Please refer to the docstrings in `DatabaseConnectorBase` for the specific API contract of each method.** 
+They contain detailed information about what each method is expected to do and what parameters it uses from the `Config` object. 
+
+There are also some helper methods (non-abstract methods) in `DatabaseConnectorBase` that may be 
+helpful.
+For example, `self.get_embedding(texts)` provides a convenient way to get the embeddings of some strings that takes all config parameters into account (embedding function, embedding dimension, etc.).
+Using these methods helps keeping your implementation consistent with the overall design.
 
 ## Error Handling
 

@@ -27,7 +27,9 @@ To implement a custom database connector, you should inherit the following
 
 You should also try to wrap the exceptions with the ones in 
 `src/vectorcode/database/errors.py` where appropriate, because this helps the 
-CLI/LSP/MCP interfaces to handle some common edge cases. To do this, you should do the following in a try-except block:
+CLI/LSP/MCP interfaces to handle some common edge cases (for example, querying 
+from an unindexed project). To do this, you should do the following in a 
+try-except block:
 ```python
 from vectorcode.database.errors import CollectionNotFoundError
 
