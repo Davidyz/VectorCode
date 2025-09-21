@@ -264,7 +264,7 @@ the configs.
 The JSON configuration file may hold the following values: 
 - `db_type`: string, default: `"ChromaDB0Connector"`, the database backend to use;
 - `db_params`: dictionary. See 
-  [the corresponding database source code](../src/vectorcode/database/) for the 
+  [the database connector documentation](../src/vectorcode/database/README.md) for the 
   default values;
 - `embedding_function`: string, one of the embedding functions supported by [Chromadb](https://www.trychroma.com/) 
   (find more [here](https://docs.trychroma.com/docs/embeddings/embedding-functions) and 
