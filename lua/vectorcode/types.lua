@@ -53,12 +53,12 @@
 
 ---Options for the registration of an async cache for a buffer.
 ---@class VectorCode.RegisterOpts: VectorCode.QueryOpts
----@field debounce integer? Seconds. Default: 10
----@field events string|string[]|nil autocmd events that triggers async jobs. Default: `{"BufWritePost", "InsertEnter", "BufReadPost"}`
----@field single_job boolean? Whether to restrict to 1 async job per buffer. Default: false
----@field query_cb VectorCode.QueryCallback? Function that accepts the buffer ID and returns the query message(s). Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`
----@field run_on_register boolean? Whether to run the query when registering. Default: false
----@field project_root string?
+---@field debounce? integer Seconds. Default: 10
+---@field events? string|string[] autocmd events that triggers async jobs. Default: `{"BufWritePost", "InsertEnter", "BufReadPost"}`
+---@field single_job? boolean Whether to restrict to 1 async job per buffer. Default: false
+---@field query_cb? VectorCode.QueryCallback Function that accepts the buffer ID and returns the query message(s). Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`
+---@field run_on_register? boolean Whether to run the query when registering. Default: false
+---@field project_root? string
 
 ---A unified interface used by `lsp` backend and `default` backend
 ---@class VectorCode.CacheBackend
@@ -96,29 +96,29 @@
 --- Users may ask the LLM to request a different number of results in the chat.
 --- You may set this to a table to configure different values for document/chunk mode.
 --- Default: `{ document = 10, chunk = 50 }`
----@field default_num integer|{document:integer, chunk: integer}|nil
+---@field default_num? integer|{document:integer, chunk: integer}
 --- Whether to avoid duplicated references. Default: `true`
 ---@field no_duplicate boolean?
 --- Whether to send chunks instead of full files to the LLM. Default: `false`
 --- > Make sure you adjust `max_num` and `default_num` accordingly.
----@field chunk_mode boolean?
----@field summarise VectorCode.CodeCompanion.SummariseOpts?
+---@field chunk_mode? boolean
+---@field summarise? VectorCode.CodeCompanion.SummariseOpts
 
 ---@class VectorCode.CodeCompanion.VectoriseToolOpts: VectorCode.CodeCompanion.ToolOpts
 
 ---@class VectorCode.CodeCompanion.ToolGroupOpts
---- Whether to register the tool group
----@field enabled boolean
---- Whether to show the individual tools in the references
----@field collapse boolean
---- Other tools that you'd like to include in `vectorcode_toolbox`
----@field extras string[]
+---Whether to register the tool group
+---@field enabled? boolean
+---Whether to show the individual tools in the references
+---@field collapse? boolean
+---Other tools that you'd like to include in `vectorcode_toolbox`
+---@field extras? string[]
 
 --- The result of the query tool should be structured in the following table
 ---@class VectorCode.CodeCompanion.QueryToolResult
 ---@field raw_results VectorCode.QueryResult[]
 ---@field count integer
----@field summary string|nil
+---@field summary? string
 
 ---@class VectorCode.CodeCompanion.SummariseOpts
 ---A boolean flag that controls whether summarisation should be enabled.
@@ -128,13 +128,13 @@
 ---This function recieves 2 parameters:
 --- - `CodeCompanion.Chat`: the chat object;
 --- - `VectorCode.QueryResult[]`: a list of query results.
----@field enabled boolean|(fun(chat: CodeCompanion.Chat, results: VectorCode.QueryResult[]):boolean)|nil
+---@field enabled? boolean|(fun(chat: CodeCompanion.Chat, results: VectorCode.QueryResult[]):boolean)
 ---The adapter used for the summarisation task. When set to `nil`, the adapter from the current chat will be used.
----@field adapter string|CodeCompanion.HTTPAdapter|fun():CodeCompanion.HTTPAdapter|nil
+---@field adapter? string|CodeCompanion.HTTPAdapter|fun():CodeCompanion.HTTPAdapter
 ---The system prompt sent to the summariser model.
 ---When set to a function, it'll recieve the default system prompt as the only parameter,
 ---and should return the new (full) system prompt. This allows you to customise or rewrite the system prompt.
----@field system_prompt string|(fun(original_prompt: string): string)
+---@field system_prompt? string|(fun(original_prompt: string): string)
 ---When set to true, include the query messages so that the LLM may make task-related summarisations.
 ---This happens __after__ the `system_prompt` callback processing
----@field query_augmented boolean
+---@field query_augmented? boolean
