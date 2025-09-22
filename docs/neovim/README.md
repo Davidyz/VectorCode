@@ -47,11 +47,10 @@
 Using Lazy:
 
 ```lua 
-{
+return {
   "Davidyz/VectorCode",
   version = "*", -- optional, depending on whether you're on nightly or release
   dependencies = { "nvim-lua/plenary.nvim" },
-  cmd = "VectorCode", -- if you're lazy-loading VectorCode
 }
 ```
 The VectorCode CLI and neovim plugin share the same release scheme (version
@@ -74,7 +73,7 @@ the neovim plugin updates. For example, if you're using lazy.nvim and `uv`,
 you can use the following plugin spec:
 
 ```lua
-{
+return {
   "Davidyz/VectorCode",
   version = "*",
   build = "uv tool upgrade vectorcode", -- This helps keeping the CLI up-to-date
@@ -106,11 +105,11 @@ For example, in [lazy.nvim](https://github.com/folke/lazy.nvim), it's not
 sufficient to simply add VectorCode as a dependency. You'd also need to wrap the 
 `opts` table in a function:
 ```lua
-{
+return {
   "olimorris/codecompanion.nvim",
   opts = function()
     return your_opts_here
-  end
+  end,
 }
 ```
 If you pass a table, instead of a function, as the value for the `opts` key,

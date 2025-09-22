@@ -3,18 +3,18 @@
 ---@alias sub_cmd "ls"|"query"|"vectorise"|"files_ls"|"files_rm"
 
 ---@class VectorCode.CodeCompanion.ExtensionOpts
---- A table where the keys are the subcommand name (`ls`, `query`, `vectorise`)
+---A table where the keys are the subcommand name (`ls`, `query`, `vectorise`, etc.)
 --- and the values are their config options.
----@field tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
---- Whether to add a tool group that contains all vectorcode tools.
----@field tool_group VectorCode.CodeCompanion.ToolGroupOpts
+---@field tool_opts? table<sub_cmd|"*", VectorCode.CodeCompanion.ToolOpts>
+---Options related to the `vectorcode_toolbox` tool group
+---@field tool_group? VectorCode.CodeCompanion.ToolGroupOpts
 ---Prompt library that automatically creates VectorCode collections on local files
 ---and set up prompts to let LLM search from certain directories.
 ---
 ---The keys should be the human-readable name of the prompt (as they'd appear in
 ---the action menu), and values would be `VectorCode.CodeCompanion.PromptFactory.Opts`
 ---objects.
----@field prompt_library table<string, VectorCode.CodeCompanion.PromptFactory.Opts>
+---@field prompt_library? table<string, VectorCode.CodeCompanion.PromptFactory.Opts>
 
 local vc_config = require("vectorcode.config")
 local logger = vc_config.logger
@@ -25,7 +25,6 @@ local default_extension_opts = {
   tool_opts = {
     -- NOTE: the other default opts are defined in the source code files of the tools.
     -- `include_in_toolbox` is here so that the extension setup works as expected.
-
     ls = { include_in_toolbox = true },
     query = { include_in_toolbox = true },
     vectorise = { include_in_toolbox = true },
@@ -33,14 +32,13 @@ local default_extension_opts = {
     files_rm = {},
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
-
   prompt_library = require("vectorcode.integrations.codecompanion.prompts.presets"),
 }
 
 ---@type sub_cmd[]
 local valid_tools = { "ls", "query", "vectorise", "files_ls", "files_rm" }
 
----@param tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
+---@param tool_opts table<sub_cmd|"*", VectorCode.CodeCompanion.ToolOpts>
 ---@return table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
 local function merge_tool_opts(tool_opts)
   local wildcard_opts = tool_opts["*"]
@@ -50,7 +48,9 @@ local function merge_tool_opts(tool_opts)
         tool_opts[tool_name] = vim.tbl_deep_extend("force", wildcard_opts, opts)
       end
     end
+    tool_opts["*"] = nil
   end
+  ---@cast tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
   return tool_opts
 end
 
@@ -130,14 +130,15 @@ local M = {
           vc_config.notify_opts
         )
       end
-      if type(prompt_opts.project_root) == "function" then
-        prompt_opts.project_root = prompt_opts.project_root()
+      local project_root = prompt_opts.project_root
+      if type(project_root) == "function" then
+        project_root = project_root()
       end
-      if not utils.is_directory(prompt_opts.project_root) then
+      if not utils.is_directory(project_root) then
         vim.notify(
           string.format(
             "`%s` is not a valid directory for CodeCompanion prompt library.\nSkipping `%s`.",
-            prompt_opts.project_root,
+            project_root,
             name
           ),
           vim.log.levels.WARN,
