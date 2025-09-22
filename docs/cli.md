@@ -262,7 +262,8 @@ as writing comments (`//`). This can be very useful if you're experimenting with
 the configs.
 
 The JSON configuration file may hold the following values: 
-- `db_type`: string, default: `"ChromaDB0Connector"`, the database backend to use;
+- `db_type`: string, default: `"ChromaDB0Connector"` (for chromadb 0.6.3), the 
+  database backend to use;
 - `db_params`: dictionary. See 
   [the database connector documentation](../src/vectorcode/database/README.md) for the 
   default values;
