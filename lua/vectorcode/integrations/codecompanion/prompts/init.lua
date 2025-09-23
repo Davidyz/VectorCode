@@ -68,7 +68,6 @@ function M.register_prompt(opts)
 
   assert(type(opts.name) == "string", "`name` cannot be `nil`.")
 
-  local cc_common = require("vectorcode.integrations.codecompanion.common")
   local constants = require("codecompanion.config").config.constants
   local prompts = {}
 
@@ -132,7 +131,7 @@ Here's my question:
                 vc_config.notify_opts
               )
             elseif err ~= nil then
-              err = cc_common.flatten_table_to_string(err)
+              err = utils.flatten_table_to_string(err)
               if err ~= "" then
                 vim.schedule_wrap(vim.notify)(
                   err,

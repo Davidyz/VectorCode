@@ -1,6 +1,7 @@
 local M = {}
 
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 local logger = vc_config.logger
 local get_config = vc_config.get_user_config
 local notify_opts = vc_config.notify_opts
@@ -60,7 +61,7 @@ M.query = vc_config.check_cli_wrap(
     else
       jobrunner.run_async(args, function(result, error)
         logger.debug(result)
-        callback(result)
+        callback(result or {})
         if error then
           logger.warn(vim.inspect(error))
         end
@@ -191,8 +192,8 @@ function M.check(check_item, stdout_cb)
     return_code = code
     if type(stdout_cb) == "function" then
       stdout_cb({
-        stdout = table.concat(vim.iter(result):flatten(math.huge):totable()),
-        stderr = table.concat(vim.iter(error):flatten(math.huge):totable()),
+        stdout = utils.flatten_table_to_string(result),
+        stderr = utils.flatten_table_to_string(error),
         code = code,
         signal = signal,
       })
