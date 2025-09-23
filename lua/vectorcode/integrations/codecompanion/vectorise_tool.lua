@@ -2,6 +2,7 @@
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 local logger = vc_config.logger
 
 ---@alias VectoriseToolArgs { paths: string[], project_root: string? }
@@ -129,7 +130,7 @@ The value should be one of the following:
             vim.inspect(stderr)
           )
         )
-        stderr = cc_common.flatten_table_to_string(stderr)
+        stderr = utils.flatten_table_to_string(stderr)
         tools.chat:add_tool_output(
           self,
           string.format("**VectorCode `vectorise` Tool: %s", stderr)

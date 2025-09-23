@@ -173,4 +173,30 @@ function M.is_directory(f)
   return stats and (stats.type == "directory") or false
 end
 
+---@param t table|string|nil
+---@return string
+M.flatten_table_to_string = function(t)
+  if t == nil then
+    return ""
+  end
+  if type(t) == "string" then
+    return t
+  end
+
+  -- Handle empty tables or tables with empty strings
+  local flattened = vim
+    .iter(t)
+    :flatten(math.huge)
+    :filter(function(item)
+      return type(item) == "string" and vim.trim(item) ~= ""
+    end)
+    :totable()
+
+  if #flattened == 0 then
+    return "Unknown error occurred"
+  end
+
+  return table.concat(flattened, "\n")
+end
+
 return M

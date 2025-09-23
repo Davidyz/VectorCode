@@ -132,7 +132,7 @@ Here's my question:
                 vc_config.notify_opts
               )
             elseif err ~= nil then
-              err = cc_common.flatten_table_to_string(err)
+              err = utils.flatten_table_to_string(err)
               if err ~= "" then
                 vim.schedule_wrap(vim.notify)(
                   err,

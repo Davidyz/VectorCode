@@ -5,6 +5,7 @@ local cc_config = require("codecompanion.config").config
 local cc_schema = require("codecompanion.schema")
 local http_client = require("codecompanion.http")
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 local check_cli_wrap = vc_config.check_cli_wrap
 local logger = vc_config.logger
 
@@ -463,7 +464,7 @@ return check_cli_wrap(function(opts)
         )
 
         job_runner.run_async(args, function(result, error, code)
-          local err_string = cc_common.flatten_table_to_string(error)
+          local err_string = utils.flatten_table_to_string(error)
 
           if
             result ~= nil
@@ -603,7 +604,7 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
             vim.inspect(stderr)
           )
         )
-        stderr = cc_common.flatten_table_to_string(stderr)
+        stderr = utils.flatten_table_to_string(stderr)
         if string.find(stderr, "InvalidCollectionException") then
           if cmd.project_root then
             tools.chat:add_tool_output(

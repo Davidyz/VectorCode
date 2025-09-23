@@ -2,6 +2,7 @@
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 
 local default_opts = {
   use_lsp = vc_config.get_user_config().async_backend == "lsp",
@@ -43,7 +44,7 @@ return function(opts)
             cb({ status = "success", data = result })
           else
             if type(error) == "table" then
-              error = cc_common.flatten_table_to_string(error)
+              error = utils.flatten_table_to_string(error)
             end
             cb({
               status = "error",
