@@ -68,7 +68,6 @@ function M.register_prompt(opts)
 
   assert(type(opts.name) == "string", "`name` cannot be `nil`.")
 
-  local cc_common = require("vectorcode.integrations.codecompanion.common")
   local constants = require("codecompanion.config").config.constants
   local prompts = {}
 

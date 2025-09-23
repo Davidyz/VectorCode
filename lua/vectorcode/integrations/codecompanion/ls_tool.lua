@@ -1,6 +1,5 @@
 ---@module "codecompanion"
 
-local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
 local utils = require("vectorcode.utils")
 local logger = vc_config.logger
