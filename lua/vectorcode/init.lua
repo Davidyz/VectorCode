@@ -60,7 +60,7 @@ M.query = vc_config.check_cli_wrap(
     else
       jobrunner.run_async(args, function(result, error)
         logger.debug(result)
-        callback(result)
+        callback(result or {})
         if error then
           logger.warn(vim.inspect(error))
         end
@@ -191,8 +191,8 @@ function M.check(check_item, stdout_cb)
     return_code = code
     if type(stdout_cb) == "function" then
       stdout_cb({
-        stdout = table.concat(vim.iter(result):flatten(math.huge):totable()),
-        stderr = table.concat(vim.iter(error):flatten(math.huge):totable()),
+        stdout = table.concat(vim.iter(result or {}):flatten(math.huge):totable()),
+        stderr = table.concat(vim.iter(error or {}):flatten(math.huge):totable()),
         code = code,
         signal = signal,
       })

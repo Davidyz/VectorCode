@@ -10,9 +10,12 @@ local TOOL_RESULT_SOURCE = "VectorCodeToolResult"
 return {
   tool_result_source = TOOL_RESULT_SOURCE,
 
-  ---@param t table|string
+  ---@param t table|string|nil
   ---@return string
   flatten_table_to_string = function(t)
+    if t == nil then
+      return ""
+    end
     if type(t) == "string" then
       return t
     end

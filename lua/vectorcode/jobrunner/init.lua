@@ -1,6 +1,6 @@
 local utils = require("vectorcode.utils")
 
----@alias VectorCode.JobRunner.Callback fun(result: table, error: table, code:integer, signal: integer?)
+---@alias VectorCode.JobRunner.Callback fun(result: table|nil, error: table|nil, code:integer, signal: integer?)
 
 --- A class for calling vectorcode commands that aims at providing a unified API for both LSP and command-line backend.
 --- Implementations exist for both direct command-line execution (`cmd.lua`) and LSP (`lsp.lua`).
@@ -24,7 +24,7 @@ local utils = require("vectorcode.utils")
 --- - `error`: error messages, if any.
 --- - `code`: exit code (or error code) for the process.
 --- - `signal`: _for cmd runner only_, the shell signal sent to the process.
----@field run fun(args: string[], timeout_ms: integer?, bufnr: integer):(result:table, error:table, code:integer, signal: integer?)
+---@field run fun(args: string[], timeout_ms: integer?, bufnr: integer):(result:table|nil, error:table|nil, code:integer, signal: integer?)
 --- Checks if a job associated with the given handle is currently running.
 --- Returns true if the job is running, false otherwise.
 ---@field is_job_running fun(job_handle: integer):boolean
