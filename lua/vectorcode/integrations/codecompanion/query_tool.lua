@@ -417,10 +417,7 @@ return check_cli_wrap(function(opts)
         end
         if action.project_root ~= nil then
           action.project_root = vim.fs.normalize(action.project_root)
-          if
-            vim.uv.fs_stat(action.project_root) ~= nil
-            and vim.uv.fs_stat(action.project_root).type == "directory"
-          then
+          if utils.is_directory(action.project_root) then
             action.project_root = vim.fs.abspath(vim.fs.normalize(action.project_root))
             vim.list_extend(args, { "--project_root", action.project_root })
           else
@@ -446,8 +443,7 @@ return check_cli_wrap(function(opts)
             elseif ref.bufnr then
               local fname = vim.api.nvim_buf_get_name(ref.bufnr)
               if fname ~= nil then
-                local stat = vim.uv.fs_stat(fname)
-                if stat and stat.type == "file" then
+                if utils.is_file(fname) then
                   table.insert(existing_files, fname)
                 end
               end
