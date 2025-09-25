@@ -114,6 +114,7 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
             project_root=project_root,
         )
     )
+    total_file_count = len(paths)
     filters = FilterManager()
     for ignore_spec_file in find_exclude_specs(final_config):
         if os.path.isfile(ignore_spec_file):
@@ -125,7 +126,7 @@ async def vectorise_files(paths: list[str], project_root: str) -> dict[str, int]
 
     database = get_database_connector(final_config)
     try:
-        stats = VectoriseStats()
+        stats = VectoriseStats(skipped=total_file_count - len(final_config.files))
         stats_lock = asyncio.Lock()
         semaphore = asyncio.Semaphore(os.cpu_count() or 1)
         tasks = [

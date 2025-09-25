@@ -212,6 +212,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     recursive=final_configs.recursive,
                     include_hidden=final_configs.include_hidden,
                 )
+                total_file_count = len(files)
                 if not final_configs.force:  # pragma: nocover
                     filters = FilterManager()
                     # tested in 'vectorise' subcommands
@@ -226,7 +227,9 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                             )
                             filters.add_filter(lambda x: spec.match_file(x, True))
                     final_configs.files = list(str(i) for i in filters(files))
-                stats = VectoriseStats()
+                stats = VectoriseStats(
+                    skipped=total_file_count - len(final_configs.files)
+                )
                 stats_lock = asyncio.Lock()
                 semaphore = asyncio.Semaphore(os.cpu_count() or 1)
                 tasks = [

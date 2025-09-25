@@ -38,7 +38,7 @@ async def update(configs: Config) -> int:
         logger.info("Ignoring exclude specs.")
 
     files = list(filters(files))
-    stats = VectoriseStats()
+    stats = VectoriseStats(skipped=len(collection_files) - len(files))
     stats_lock = Lock()
     semaphore = asyncio.Semaphore(os.cpu_count() or 1)
 

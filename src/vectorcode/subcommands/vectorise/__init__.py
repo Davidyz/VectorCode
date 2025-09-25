@@ -108,6 +108,8 @@ async def vectorise(configs: Config) -> int:
         include_hidden=configs.include_hidden,
     )
 
+    total_file_count = len(files)
+
     filters = FilterManager()
 
     try:
@@ -136,7 +138,7 @@ async def vectorise(configs: Config) -> int:
         logger.info("Ignoring exclude specs.")
 
     files = list(filters(files))
-    stats = VectoriseStats()
+    stats = VectoriseStats(skipped=total_file_count - len(files))
     stats_lock = Lock()
     semaphore = asyncio.Semaphore(os.cpu_count() or 1)
 
