@@ -149,10 +149,7 @@ M.vectorise = vc_config.check_cli_wrap(
 M.update = vc_config.check_cli_wrap(function(project_root)
   logger.info("vectorcode.update: ", project_root)
   local args = { "update" }
-  if
-    type(project_root) == "string"
-    and vim.uv.fs_stat(vim.fs.normalize(project_root)).type == "directory"
-  then
+  if project_root ~= nil and utils.is_directory(project_root) then
     vim.list_extend(args, { "--project_root", project_root })
   end
   logger.debug("vectorcode.update cmd args: ", args)

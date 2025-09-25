@@ -33,8 +33,7 @@ return function(opts)
             or vim.fs.root(0, { ".vectorcode", ".git" })
           if action.project_root ~= nil then
             action.project_root = vim.fs.normalize(action.project_root)
-            local stat = vim.uv.fs_stat(action.project_root)
-            if stat and stat.type == "directory" then
+            if utils.is_directory(action.project_root) then
               vim.list_extend(args, { "--project_root", action.project_root })
             end
           end
