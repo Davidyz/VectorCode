@@ -87,15 +87,13 @@ class Config:
     files: list[Union[str, os.PathLike]] = field(default_factory=list)
     project_root: Optional[Union[str, Path]] = None
     query: Optional[list[str]] = None
-    db_url: str = "http://127.0.0.1:8000"
+    db_type: str = "ChromaDB0"
+    db_params: dict[str, Any] = field(default_factory=dict)
     embedding_function: str = "SentenceTransformerEmbeddingFunction"  # This should fallback to whatever the default is.
     embedding_params: dict[str, Any] = field(default_factory=(lambda: {}))
     embedding_dims: Optional[int] = None
     n_result: int = 1
     force: bool = False
-    db_path: Optional[str] = "~/.local/share/vectorcode/chromadb/"
-    db_log_path: str = "~/.local/share/vectorcode/"
-    db_settings: Optional[dict] = None
     chunk_size: int = 2500
     overlap_ratio: float = 0.2
     query_multiplier: int = -1
@@ -107,7 +105,6 @@ class Config:
     include: list[QueryInclude] = field(
         default_factory=lambda: [QueryInclude.path, QueryInclude.document]
     )
-    hnsw: dict[str, str | int] = field(default_factory=dict)
     chunk_filters: dict[str, list[str]] = field(default_factory=dict)
     filetype_map: dict[str, list[str]] = field(default_factory=dict)
     encoding: str = "utf8"
@@ -116,7 +113,7 @@ class Config:
     files_action: Optional[FilesAction] = None
     rm_paths: list[str] = field(default_factory=list)
 
-    def __hash__(self) -> int:
+    def __hash__(self) -> int:  # pragma: nocover
         return hash(self.__repr__())
 
     @classmethod
@@ -144,11 +141,8 @@ class Config:
                 "embedding_dims": config_dict.get(
                     "embedding_dims", default_config.embedding_dims
                 ),
-                "db_url": config_dict.get("db_url", default_config.db_url),
-                "db_path": db_path,
-                "db_log_path": os.path.expanduser(
-                    config_dict.get("db_log_path", default_config.db_log_path)
-                ),
+                "db_type": config_dict.get("db_type", default_config.db_type),
+                "db_params": config_dict.get("db_url", default_config.db_params),
                 "chunk_size": config_dict.get("chunk_size", default_config.chunk_size),
                 "overlap_ratio": config_dict.get(
                     "overlap_ratio", default_config.overlap_ratio
@@ -160,10 +154,6 @@ class Config:
                 "reranker_params": config_dict.get(
                     "reranker_params", default_config.reranker_params
                 ),
-                "db_settings": config_dict.get(
-                    "db_settings", default_config.db_settings
-                ),
-                "hnsw": config_dict.get("hnsw", default_config.hnsw),
                 "chunk_filters": config_dict.get(
                     "chunk_filters", default_config.chunk_filters
                 ),
@@ -599,7 +589,7 @@ async def expand_globs(
 
 
 def cleanup_path(path: str):
-    if os.path.isabs(path) and os.environ.get("HOME") is not None:
+    if os.path.isabs(path) and os.environ.get("HOME", "") != "":
         return path.replace(os.environ["HOME"], "~")
     return path
 
@@ -718,6 +708,7 @@ class SpecResolver:
         return cls(spec_path, base_dir)
 
     def __init__(self, spec: str | GitIgnoreSpec, base_dir: str = "."):
+        self.spec: GitIgnoreSpec
         if isinstance(spec, str):
             with open(spec) as fin:
                 self.spec = GitIgnoreSpec.from_lines(
@@ -725,20 +716,21 @@ class SpecResolver:
                 )
         else:
             self.spec = spec
-        self.base_dir = base_dir
+        self.base_dir = Path(base_dir).resolve()
+
+    def match_file(self, path: str, negated: bool = False) -> bool:
+        if self.base_dir in Path(path).resolve().parents:
+            matched = self.spec.match_file(os.path.relpath(path, self.base_dir))
+            if negated:
+                matched = not matched
+            return matched
+        return True
 
     def match(
         self, paths: Iterable[str], negated: bool = False
     ) -> Generator[str, None, None]:
         # get paths relative to `base_dir`
 
-        base = Path(self.base_dir).resolve()
         for p in paths:
-            if base in Path(p).resolve().parents:
-                should_yield = self.spec.match_file(os.path.relpath(p, self.base_dir))
-                if negated:
-                    should_yield = not should_yield
-                if should_yield:
-                    yield p
-            else:
+            if self.match_file(p, negated):
                 yield p

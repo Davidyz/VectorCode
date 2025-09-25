@@ -7,7 +7,7 @@ import numpy
 
 from vectorcode.chunking import Chunk
 from vectorcode.cli_utils import Config, QueryInclude
-from vectorcode.subcommands.query.types import QueryResult
+from vectorcode.database.types import QueryResult
 
 logger = logging.getLogger(name=__name__)
 
