@@ -11,7 +11,7 @@ from vectorcode.cli_utils import (
     CliAction,
     config_logging,
     find_project_root,
-    get_project_config,
+    load_config_file,
     parse_cli_args,
 )
 from vectorcode.common import ClientManager
@@ -43,7 +43,7 @@ async def async_main():
 
     try:
         final_configs = await (
-            await get_project_config(cli_args.project_root)
+            await load_config_file(cli_args.project_root)
         ).merge_from(cli_args)
     except IOError as e:
         traceback.print_exception(e, file=sys.stderr)

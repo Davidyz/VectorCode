@@ -482,31 +482,42 @@ def expand_envs_in_dict(d: dict):
                 stack.append(curr[k])
 
 
-async def load_config_file(path: Optional[Union[str, Path]] = None):
-    """Load config file from ~/.config/vectorcode/config.json(5)"""
-    if path is None:
-        for name in ("config.json5", "config.json"):
-            p = os.path.join(GLOBAL_CONFIG_DIR, name)
-            if os.path.isfile(p):
-                path = str(p)
-                break
-    if path and os.path.isfile(path):
-        logger.debug(f"Loading config from {path}")
-        with open(path) as fin:
-            content = fin.read()
-        if content:
-            config = json5.loads(content)
-            if isinstance(config, dict):
-                expand_envs_in_dict(config)
-                return await Config.import_from(config)
-            else:
-                logger.error("Invalid configuration format!")
-                raise ValueError("Invalid configuration format!")
-        else:
-            logger.debug("Skipping empty json file.")
-    else:
-        logger.warning("Loading default config.")
-    return Config()
+async def load_config_file(path: str | Path | None = None) -> Config:
+    """
+    Load config object by merging the project-local and the global config files.
+
+    Raises `ValueError` if the config file is not a valid json dictionary.
+    """
+    valid_config_paths = []
+    # default to load from the global config
+    for name in ("config.json5", "config.json"):
+        p = os.path.join(GLOBAL_CONFIG_DIR, name)
+        if os.path.isfile(p):
+            valid_config_paths.append(str(p))
+            break
+
+    if path:
+        if os.path.isfile((path)):
+            valid_config_paths.append(path)
+        elif os.path.isdir(path):
+            for name in ("config.json5", "config.json"):
+                p = os.path.join(path, ".vectorcode", name)
+                if os.path.isfile(p):
+                    valid_config_paths.append(str(p))
+                    break
+
+    final_config = Config()
+
+    for p in valid_config_paths:
+        with open(p) as fin:
+            content = json5.load(fin)
+        logger.info(f"Loaded config from {p}")
+        if not isinstance(content, dict):
+            raise ValueError("Invalid configuration format!")
+        final_config = await final_config.merge_from(await Config.import_from(content))
+        logger.debug(f"Merged config: {final_config}")
+
+    return final_config
 
 
 async def find_project_config_dir(start_from: Union[str, Path] = "."):

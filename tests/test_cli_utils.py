@@ -261,7 +261,8 @@ async def test_load_config_file_empty_file():
         with open(config_path, "w") as f:
             f.write("")
 
-        assert await load_config_file(config_path) == Config()
+        with pytest.raises(ValueError):
+            await load_config_file(config_path)
 
 
 @pytest.mark.asyncio
