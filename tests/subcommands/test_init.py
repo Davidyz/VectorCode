@@ -88,7 +88,11 @@ async def test_init_copies_global_config(capsys):
 
             # Assert files were copied
             assert return_code == 0
-            assert copyfile_mock.call_count == len(config_items)
+            assert copyfile_mock.call_count == sum(
+                # not copying `json`s.
+                "json" not in i
+                for i in config_items.keys()
+            )
 
             # Check output messages
             captured = capsys.readouterr()
