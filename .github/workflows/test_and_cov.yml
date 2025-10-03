@@ -37,6 +37,9 @@ jobs:
       - name: Configure pdm to use uv
         run: pdm config use_uv true
 
+      - name: Use chroma0 for CI
+        run: export EXTRA_LOCK_ARGS="--group chroma0"
+
       - name: install pdm and dependencies
         run: make deps
 

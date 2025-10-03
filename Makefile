@@ -1,6 +1,7 @@
 .PHONY: multitest
 
-DEFAULT_GROUPS=--group dev --group lsp --group mcp --group debug
+EXTRA_LOCK_ARGS?=
+DEFAULT_GROUPS=--group dev --group lsp --group mcp --group debug $(EXTRA_LOCK_ARGS)
 
 deps:
 	pdm lock $(DEFAULT_GROUPS) || pdm lock $(DEFAULT_GROUPS) --group legacy; \

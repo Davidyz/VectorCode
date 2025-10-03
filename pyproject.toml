@@ -20,7 +20,7 @@ classifiers = [
 dynamic = [ "version" ]
 dependencies = [
   "charset-normalizer>=3.4.1",
-  "chromadb==0.6.3",
+  "chromadb",
   "colorlog",
   "filelock>=3.15",
   "httpx",
@@ -38,6 +38,7 @@ dependencies = [
   "tree-sitter-language-pack",
   "wheel<0.46",
 ]
+optional-dependencies.chroma0 = [ "chromadb==0.6.3" ]
 optional-dependencies.debug = [ "coredumpy>=0.4.1" ]
 optional-dependencies.intel = [ "openvino", "optimum[openvino]" ]
 optional-dependencies.legacy = [ "numpy<2", "torch==2.2.2", "transformers<=4.49" ]
