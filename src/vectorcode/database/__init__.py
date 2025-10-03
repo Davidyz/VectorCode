@@ -7,7 +7,7 @@ from vectorcode.database.base import DatabaseConnectorBase
 logger = logging.getLogger(name=__name__)
 
 
-def get_database_connector(config: Config) -> DatabaseConnectorBase:  # pragma: nocover
+def get_database_connector(config: Config) -> DatabaseConnectorBase:
     """
     It's CRUCIAL to keep the `import`s of the database connectors in the branches.
     This allow them to be lazy-imported. This also allow us to keep the main package
