@@ -4,6 +4,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+
+try:
+    import chromadb
+
+    if not chromadb.__version__.startswith("0.6.3"):
+        pytest.skip(
+            f"Found chromadb {chromadb.__version__}. Skipping chroma0 tests.",
+            allow_module_level=True,
+        )
+except ModuleNotFoundError:
+    pytest.skip(
+        "ChromaDB 0.6.3 not found. Skipping choma0 tests.",
+        allow_module_level=True,
+    )
+
 from chromadb.api.types import QueryResult
 from chromadb.errors import InvalidCollectionException
 from tree_sitter import Point

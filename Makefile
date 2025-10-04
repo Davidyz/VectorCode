@@ -1,8 +1,11 @@
-.PHONY: multitest
-
 EXTRA_LOCK_ARGS?=
-EXTRA_DEPS?=""
+EXTRA_DEPS?=
+
+LOADED_DOT_ENV=@if [ -f .env ] ; then source .env; fi;
+
 DEFAULT_GROUPS=--group dev --group lsp --group mcp --group debug $(EXTRA_LOCK_ARGS)
+
+.PHONY: multitest
 
 deps:
 	pdm lock $(DEFAULT_GROUPS) || pdm lock $(DEFAULT_GROUPS) --group legacy; \
