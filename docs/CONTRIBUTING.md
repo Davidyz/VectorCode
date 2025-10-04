@@ -66,6 +66,15 @@ Please take a look at [the database documentation](../src/vectorcode/database/RE
 which contains a brief introduction on the API design that explains what you'd need 
 to do to add support for a new database.
 
+### Coverage Across Mutiple Runs
+
+If, for some reasons, you need to run the tests multiple times to get full coverage 
+(maybe when there are conflicting dependency groups like chromadb 0.6.3 vs chromadb 1.x), you can pass `--append` flag to the `coverage` command.
+If you're using `make coverage`, you can set this flag via the `EXTRA_COVERAGEPY_ARGS` environment variable:
+```bash 
+EXTRA_COVERAGEPY_ARGS="--append" make coverage
+```
+
 ## Neovim Plugin
 
 At the moment, there isn't much to cover on here. As long as the code is 

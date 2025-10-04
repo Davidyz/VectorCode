@@ -1,5 +1,6 @@
 EXTRA_LOCK_ARGS?=
 EXTRA_DEPS?=
+EXTRA_COVERAGEPY_ARGS?=
 
 LOADED_DOT_ENV=@if [ -f .env ] ; then source .env; fi;
 
@@ -24,7 +25,7 @@ multitest:
 
 coverage:
 	make deps; \
-	pdm run coverage run -m pytest; \
+	pdm run coverage run $(EXTRA_COVERAGEPY_ARGS) -m pytest; \
 	pdm run coverage html; \
 	pdm run coverage report -m
 
