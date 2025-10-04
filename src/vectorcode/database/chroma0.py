@@ -13,6 +13,18 @@ from typing import Any, Optional, Sequence, cast
 from urllib.parse import urlparse
 
 import chromadb
+
+if not chromadb.__version__.startswith("0.6.3"):  # pragma: nocover
+    logging.error(
+        f"""
+Found ChromaDB {chromadb.__version__}, which is incompatible wiht your VectorCode installation. Please install vectorcode[chroma0].
+
+For example:
+uv tool install vectorcode[chroma0]
+"""
+    )
+    sys.exit(1)
+
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
