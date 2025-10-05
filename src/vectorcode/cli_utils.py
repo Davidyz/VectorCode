@@ -135,7 +135,7 @@ class Config:
                     "embedding_dims", default_config.embedding_dims
                 ),
                 "db_type": config_dict.get("db_type", default_config.db_type),
-                "db_params": config_dict.get("db_url", default_config.db_params),
+                "db_params": config_dict.get("db_params", default_config.db_params),
                 "chunk_size": config_dict.get("chunk_size", default_config.chunk_size),
                 "overlap_ratio": config_dict.get(
                     "overlap_ratio", default_config.overlap_ratio

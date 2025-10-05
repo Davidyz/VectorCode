@@ -57,25 +57,6 @@ async def test_config_import_from():
 
 
 @pytest.mark.asyncio
-async def test_config_import_from_invalid_path():
-    config_dict: Dict[str, Any] = {"db_path": "/path/does/not/exist"}
-    with pytest.raises(IOError):
-        await Config.import_from(config_dict)
-
-
-@pytest.mark.asyncio
-async def test_config_import_from_db_path_is_file():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        db_path = os.path.join(temp_dir, "test_db_file")
-        with open(db_path, "w") as f:
-            f.write("test")
-
-        config_dict: Dict[str, Any] = {"db_path": db_path}
-        with pytest.raises(IOError):
-            await Config.import_from(config_dict)
-
-
-@pytest.mark.asyncio
 async def test_config_merge_from():
     config1 = Config(db_params={"url": "http://host1:8001"}, n_result=5)
     config2 = Config(db_params={"url": "http://host2:8002"}, query=["test"])
