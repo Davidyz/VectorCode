@@ -13,9 +13,21 @@ from typing import Any, Optional, cast
 from urllib.parse import urlparse
 
 import chromadb
+
+if not chromadb.__version__.startswith("0.6.3"):  # pragma: nocover
+    logging.error(
+        f"""
+        Found ChromaDB {chromadb.__version__}, which is incompatible with your VectorCode installation. Please install vectorcode[chroma0].
+
+        For example:
+        uv tool install vectorcode[chroma0]
+        """
+    )
+    sys.exit(1)
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
+from chromadb.api.types import IncludeEnum
 from chromadb.config import APIVersion, Settings
 from tree_sitter import Point
 
@@ -124,16 +136,6 @@ class _Chroma0ClientManager:
     __clients: dict[str, _Chroma0ClientModel]
 
     def __new__(cls) -> "_Chroma0ClientManager":
-        if not chromadb.__version__.startswith("0.6.3"):  # pragma: nocover
-            _logger.error(
-                f"""
-        Found ChromaDB {chromadb.__version__}, which is incompatible with your VectorCode installation. Please install vectorcode[chroma0].
-
-        For example:
-        uv tool install vectorcode[chroma0]
-        """
-            )
-            sys.exit(1)
         if cls.singleton is None:
             cls.singleton = super().__new__(cls)
             cls.singleton.__clients = {}
@@ -277,9 +279,9 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         query_result = await collection.query(
             query_embeddings=keywords_embeddings,
             include=[
-                "metadatas",
-                "documents",
-                "distances",
+                IncludeEnum.metadatas,
+                IncludeEnum.documents,
+                IncludeEnum.distances,
             ],
             n_results=query_count,
             where=query_filter,
@@ -433,8 +435,8 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         content = CollectionContent()
         raw_content = await collection.get(
             include=[
-                "metadatas",
-                "documents",
+                IncludeEnum.metadatas,
+                IncludeEnum.documents,
             ]
         )
         metadatas = raw_content.get("metadatas", [])
@@ -527,7 +529,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
         raw_results = await collection.get(
             where={"path": file_path},
-            include=["metadatas", "documents"],
+            include=[IncludeEnum.metadatas, IncludeEnum.documents],
         )
         assert raw_results["metadatas"] is not None
         assert raw_results["documents"] is not None
