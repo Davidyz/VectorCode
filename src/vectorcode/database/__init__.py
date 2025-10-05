@@ -26,6 +26,10 @@ def get_database_connector(config: Config) -> DatabaseConnectorBase:
             from vectorcode.database.chroma0 import ChromaDB0Connector
 
             cls = ChromaDB0Connector
+        case "ChromaDBConnector":
+            from vectorcode.database.chroma import ChromaDBConnector
+
+            cls = ChromaDBConnector
         case _:
             raise ValueError(f"Unrecognised database type: {config.db_type}")
 

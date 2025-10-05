@@ -11,6 +11,7 @@ from vectorcode.database import get_database_connector
     "db_type, module_to_mock, class_name",
     [
         ("ChromaDB0", "vectorcode.database.chroma0", "ChromaDB0Connector"),
+        ("ChromaDB", "vectorcode.database.chroma", "ChromaDBConnector"),
         # To test a new connector, add a tuple here following the same pattern.
         # e.g. ("NewDB", "vectorcode.database.newdb", "NewDBConnector"),
     ],
