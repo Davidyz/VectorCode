@@ -28,10 +28,10 @@ from vectorcode.database import types
 from vectorcode.database.chroma0 import (
     ChromaDB0Connector,
     _Chroma0ClientManager,
-    _convert_chroma_query_results,
     _start_server,
     _try_server,
     _wait_for_server,
+    convert_chroma_query_results,
 )
 from vectorcode.database.errors import CollectionNotFoundError
 
@@ -85,10 +85,10 @@ async def test_query(mock_config):
         "metadatas": [[{"path": os.path.join(mock_config.project_root, "file1")}]],
         "ids": [["id1"]],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     with patch(
-        "vectorcode.database.chroma0._convert_chroma_query_results"
+        "vectorcode.database.chroma0.convert_chroma_query_results"
     ) as mock_convert:
         mock_convert.return_value = ["converted_results"]
         results = await connector.query()
@@ -102,7 +102,7 @@ async def test_vectorise(mock_config):
     """Test the vectorise method."""
     connector = ChromaDB0Connector(mock_config)
     mock_collection = AsyncMock()
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     mock_chunker = MagicMock()
     mock_chunker.chunk.return_value = [MagicMock(text="chunk1")]
@@ -167,7 +167,7 @@ async def test_list_collection_content(mock_config):
         "documents": ["doc1"],
         "ids": ["id1"],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     content = await connector.list_collection_content()
     assert len(content.files) == 1
@@ -180,7 +180,7 @@ async def test_delete(mock_config):
     file_to_delete = os.path.join(mock_config.project_root, "file1")
     connector = ChromaDB0Connector(mock_config)
     mock_collection = AsyncMock()
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
     connector.list_collection_content = AsyncMock(
         return_value=MagicMock(files=[MagicMock(path=file_to_delete)])
     )
@@ -230,7 +230,7 @@ async def test_get_chunks(mock_config):
         "documents": ["doc1"],
         "ids": ["id1"],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     chunks = await connector.get_chunks(os.path.join(mock_config.project_root, "file1"))
     assert len(chunks) == 1
@@ -252,7 +252,7 @@ def test_convert_chroma_query_results(mock_config):
         "data": None,
     }
     queries = ["query1"]
-    results = _convert_chroma_query_results(chroma_result, queries)
+    results = convert_chroma_query_results(chroma_result, queries)
     assert len(results) == 2
     assert results[0].chunk.text == "doc1"
     assert results[0].path == file1_path
@@ -268,7 +268,9 @@ def test_convert_chroma_query_results(mock_config):
 async def test_get_chunks_collection_not_found(mock_config):
     """Test get_chunks when collection is not found."""
     connector = ChromaDB0Connector(mock_config)
-    connector._create_or_get_collection = AsyncMock(side_effect=CollectionNotFoundError)
+    connector._create_or_get_async_collection = AsyncMock(
+        side_effect=CollectionNotFoundError
+    )
     with patch("vectorcode.database.chroma0._logger") as mock_logger:
         result = await connector.get_chunks(
             os.path.join(mock_config.project_root, "file1")
@@ -285,7 +287,7 @@ async def test_vectorise_no_embeddings(mock_config):
     mock_chunker.chunk.return_value = [MagicMock(text="chunk1")]
     connector.get_embedding = MagicMock(return_value=[])
     with patch(
-        "vectorcode.database.chroma0.ChromaDB0Connector._create_or_get_collection",
+        "vectorcode.database.chroma0.ChromaDB0Connector._create_or_get_async_collection",
         new_callable=AsyncMock,
     ) as mock_create_collection:
         stats = await connector.vectorise(
@@ -312,10 +314,10 @@ async def test_query_with_exclude(mock_config):
         "metadatas": [[{"path": file1_path}]],
         "ids": [["id1"]],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     with patch(
-        "vectorcode.database.chroma0._convert_chroma_query_results"
+        "vectorcode.database.chroma0.convert_chroma_query_results"
     ) as mock_convert:
         mock_convert.return_value = ["converted_results"]
         await connector.query()
@@ -340,10 +342,10 @@ async def test_query_with_include_chunk(mock_config):
         "metadatas": [[{"path": os.path.join(mock_config.project_root, "file1")}]],
         "ids": [["id1"]],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     with patch(
-        "vectorcode.database.chroma0._convert_chroma_query_results"
+        "vectorcode.database.chroma0.convert_chroma_query_results"
     ) as mock_convert:
         mock_convert.return_value = ["converted_results"]
         await connector.query()
@@ -354,8 +356,8 @@ async def test_query_with_include_chunk(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_create_or_get_collection_not_found(mock_config):
-    """Test _create_or_get_collection when collection is not found and allow_create is False."""
+async def test_create_or_get_async_collection_not_found(mock_config):
+    """Test _create_or_get_async_collection when collection is not found and allow_create is False."""
     connector = ChromaDB0Connector(mock_config)
     with patch(
         "vectorcode.database.chroma0._Chroma0ClientManager.get_client"
@@ -365,7 +367,7 @@ async def test_create_or_get_collection_not_found(mock_config):
         mock_get_client.return_value.__aenter__.return_value = mock_client
 
         with pytest.raises(CollectionNotFoundError):
-            await connector._create_or_get_collection(
+            await connector._create_or_get_async_collection(
                 "collection_path", allow_create=False
             )
 
@@ -377,7 +379,7 @@ async def test_delete_no_paths(mock_config):
     non_existent_file = os.path.join(mock_config.project_root, "non_existent_file")
     connector = ChromaDB0Connector(mock_config)
     mock_collection = AsyncMock()
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
     connector.list_collection_content = AsyncMock(
         return_value=MagicMock(files=[MagicMock(path=file_to_keep)])
     )
@@ -413,7 +415,7 @@ async def test_list_collection_content_with_what(mock_config):
         "documents": ["doc1"],
         "ids": ["id1"],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     # Test with what=ResultType.document
     content = await connector.list_collection_content(what=types.ResultType.document)
@@ -432,7 +434,7 @@ async def test_delete_with_string_rm_paths(mock_config):
     file_to_delete = os.path.join(mock_config.project_root, "file1")
     connector = ChromaDB0Connector(mock_config)
     mock_collection = AsyncMock()
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
     connector.list_collection_content = AsyncMock(
         return_value=MagicMock(files=[MagicMock(path=file_to_delete)])
     )
@@ -477,7 +479,9 @@ async def test_drop_with_collection_path(mock_config):
 async def test_get_chunks_generic_exception(mock_config):
     """Test get_chunks with a generic exception."""
     connector = ChromaDB0Connector(mock_config)
-    connector._create_or_get_collection = AsyncMock(side_effect=Exception("test error"))
+    connector._create_or_get_async_collection = AsyncMock(
+        side_effect=Exception("test error")
+    )
     with pytest.raises(Exception) as excinfo:
         await connector.get_chunks(os.path.join(mock_config.project_root, "file1"))
     assert "test error" in str(excinfo.value)
@@ -668,13 +672,13 @@ async def test_query_no_n_result(mock_config):
         "metadatas": [[{"path": os.path.join(mock_config.project_root, "file1")}]],
         "ids": [["id1"]],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
     mock_content = MagicMock()
     mock_content.chunks = [1] * 10
     connector.list_collection_content = AsyncMock(return_value=mock_content)
 
     with patch(
-        "vectorcode.database.chroma0._convert_chroma_query_results"
+        "vectorcode.database.chroma0.convert_chroma_query_results"
     ) as mock_convert:
         mock_convert.return_value = ["converted_results"]
         await connector.query()
@@ -683,8 +687,8 @@ async def test_query_no_n_result(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_create_or_get_collection_exists(mock_config: Config):
-    """Test _create_or_get_collection when collection exists and allow_create is True."""
+async def test_create_or_get_async_collection_exists(mock_config: Config):
+    """Test _create_or_get_async_collection when collection exists and allow_create is True."""
     mock_config.db_params["hnsw"] = {"M": 64}
     connector = ChromaDB0Connector(mock_config)
     with (
@@ -706,7 +710,7 @@ async def test_create_or_get_collection_exists(mock_config: Config):
         mock_client.get_or_create_collection.return_value = mock_collection
         mock_get_client.return_value.__aenter__.return_value = mock_client
         with patch("socket.gethostname", return_value="test-host"):
-            collection = await connector._create_or_get_collection(
+            collection = await connector._create_or_get_async_collection(
                 "collection_path", allow_create=True
             )
             assert collection == mock_collection
@@ -757,10 +761,10 @@ async def test_query_with_exclude_and_include_chunk(mock_config):
         "metadatas": [[{"path": "file1"}]],
         "ids": [["id1"]],
     }
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
 
     with patch(
-        "vectorcode.database.chroma0._convert_chroma_query_results"
+        "vectorcode.database.chroma0.convert_chroma_query_results"
     ) as mock_convert:
         mock_convert.return_value = ["converted_results"]
         await connector.query()
@@ -773,8 +777,8 @@ async def test_query_with_exclude_and_include_chunk(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_create_or_get_collection_metadata_mismatch(mock_config):
-    """Test _create_or_get_collection when metadata mismatches."""
+async def test_create_or_get_async_collection_metadata_mismatch(mock_config):
+    """Test _create_or_get_async_collection when metadata mismatches."""
     connector = ChromaDB0Connector(mock_config)
     with (
         patch(
@@ -796,7 +800,7 @@ async def test_create_or_get_collection_metadata_mismatch(mock_config):
         mock_get_client.return_value.__aenter__.return_value = mock_client
         with patch("socket.gethostname", return_value="test-host"):
             with pytest.raises(AssertionError):
-                await connector._create_or_get_collection(
+                await connector._create_or_get_async_collection(
                     "collection_path", allow_create=True
                 )
 
@@ -806,7 +810,7 @@ async def test_delete_no_matching_files(mock_config):
     """Test delete with no matching files."""
     connector = ChromaDB0Connector(mock_config)
     mock_collection = AsyncMock()
-    connector._create_or_get_collection = AsyncMock(return_value=mock_collection)
+    connector._create_or_get_async_collection = AsyncMock(return_value=mock_collection)
     connector.list_collection_content = AsyncMock(
         return_value=MagicMock(files=[MagicMock(path="file1")])
     )

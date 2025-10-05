@@ -9,28 +9,14 @@ import subprocess
 import sys
 from asyncio.subprocess import Process
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence, cast
+from typing import Any, Optional, cast
 from urllib.parse import urlparse
 
 import chromadb
-
-if not chromadb.__version__.startswith("0.6.3"):  # pragma: nocover
-    logging.error(
-        f"""
-Found ChromaDB {chromadb.__version__}, which is incompatible wiht your VectorCode installation. Please install vectorcode[chroma0].
-
-For example:
-uv tool install vectorcode[chroma0]
-"""
-    )
-    sys.exit(1)
-
 import httpx
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.api.types import IncludeEnum, QueryResult
 from chromadb.config import APIVersion, Settings
-from chromadb.errors import InvalidCollectionException
 from tree_sitter import Point
 
 from vectorcode.chunking import Chunk, TreeSitterChunker
@@ -41,8 +27,8 @@ from vectorcode.cli_utils import (
     expand_globs,
     expand_path,
 )
-from vectorcode.database import types
 from vectorcode.database.base import DatabaseConnectorBase
+from vectorcode.database.chroma_common import convert_chroma_query_results
 from vectorcode.database.errors import CollectionNotFoundError
 from vectorcode.database.types import (
     CollectionContent,
@@ -54,41 +40,6 @@ from vectorcode.database.types import (
 from vectorcode.database.utils import get_collection_id, get_uuid, hash_file
 
 _logger = logging.getLogger(name=__name__)
-
-
-def _convert_chroma_query_results(
-    chroma_result: QueryResult, queries: Sequence[str]
-) -> list[types.QueryResult]:
-    """Convert chromadb query result to in-house query results"""
-    assert chroma_result["documents"] is not None
-    assert chroma_result["distances"] is not None
-    assert chroma_result["metadatas"] is not None
-    assert chroma_result["ids"] is not None
-
-    chroma_results_list: list[types.QueryResult] = []
-    for q_i in range(len(queries)):
-        q = queries[q_i]
-        documents = chroma_result["documents"][q_i]
-        distances = chroma_result["distances"][q_i]
-        metadatas = chroma_result["metadatas"][q_i]
-        ids = chroma_result["ids"][q_i]
-        for doc, dist, meta, _id in zip(documents, distances, metadatas, ids):
-            chunk = Chunk(text=doc, id=_id)
-            if meta.get("start"):
-                chunk.start = Point(int(meta.get("start", 0)), 0)
-            if meta.get("end"):
-                chunk.end = Point(int(meta.get("end", 0)), 0)
-            if meta.get("path"):
-                chunk.path = str(meta["path"])
-            chroma_results_list.append(
-                types.QueryResult(
-                    chunk=chunk,
-                    path=str(meta.get("path", "")),
-                    query=(q,),
-                    scores=(-dist,),
-                )
-            )
-    return chroma_results_list
 
 
 async def _try_server(base_url: str):
@@ -173,6 +124,16 @@ class _Chroma0ClientManager:
     __clients: dict[str, _Chroma0ClientModel]
 
     def __new__(cls) -> "_Chroma0ClientManager":
+        if not chromadb.__version__.startswith("0.6.3"):  # pragma: nocover
+            _logger.error(
+                f"""
+        Found ChromaDB {chromadb.__version__}, which is incompatible with your VectorCode installation. Please install vectorcode[chroma0].
+
+        For example:
+        uv tool install vectorcode[chroma0]
+        """
+            )
+            sys.exit(1)
         if cls.singleton is None:
             cls.singleton = super().__new__(cls)
             cls.singleton.__clients = {}
@@ -296,7 +257,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         )
 
         collection_path = str(self._configs.project_root)
-        collection: AsyncCollection = await self._create_or_get_collection(
+        collection: AsyncCollection = await self._create_or_get_async_collection(
             collection_path=collection_path, allow_create=False
         )
         query_count = self._configs.n_result or (await self.count(ResultType.chunk))
@@ -316,16 +277,16 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         query_result = await collection.query(
             query_embeddings=keywords_embeddings,
             include=[
-                IncludeEnum.metadatas,
-                IncludeEnum.documents,
-                IncludeEnum.distances,
+                "metadatas",
+                "documents",
+                "distances",
             ],
             n_results=query_count,
             where=query_filter,
         )
-        return _convert_chroma_query_results(query_result, self._configs.query)
+        return convert_chroma_query_results(query_result, self._configs.query)
 
-    async def _create_or_get_collection(
+    async def _create_or_get_async_collection(
         self, collection_path: str, allow_create: bool = False
     ) -> AsyncCollection:
         """
@@ -354,6 +315,8 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         async with _Chroma0ClientManager().get_client(self._configs, True) as client:
             collection_id = get_collection_id(collection_path)
             if not allow_create:
+                from chromadb.errors import InvalidCollectionException
+
                 try:
                     return await client.get_collection(collection_id)
                 except (InvalidCollectionException, ValueError) as e:
@@ -377,7 +340,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         chunker: TreeSitterChunker | None = None,
     ) -> VectoriseStats:
         collection_path = str(self._configs.project_root)
-        collection = await self._create_or_get_collection(
+        collection = await self._create_or_get_async_collection(
             collection_path, allow_create=True
         )
         chunker = chunker or TreeSitterChunker(self._configs)
@@ -461,7 +424,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         """
         if collection_id is None:
             collection_path = str(collection_path or self._configs.project_root)
-            collection = await self._create_or_get_collection((collection_path))
+            collection = await self._create_or_get_async_collection((collection_path))
         else:
             async with _Chroma0ClientManager().get_client(
                 self._configs, False
@@ -470,8 +433,8 @@ class ChromaDB0Connector(DatabaseConnectorBase):
         content = CollectionContent()
         raw_content = await collection.get(
             include=[
-                IncludeEnum.metadatas,
-                IncludeEnum.documents,
+                "metadatas",
+                "documents",
             ]
         )
         metadatas = raw_content.get("metadatas", [])
@@ -510,7 +473,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
     async def delete(self) -> int:
         collection_path = str(self._configs.project_root)
-        collection = await self._create_or_get_collection(collection_path, False)
+        collection = await self._create_or_get_async_collection(collection_path, False)
         rm_paths = self._configs.rm_paths
         if isinstance(rm_paths, str):
             rm_paths = [rm_paths]
@@ -551,7 +514,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
     async def get_chunks(self, file_path) -> list[Chunk]:
         file_path = os.path.abspath(file_path)
         try:
-            collection = await self._create_or_get_collection(
+            collection = await self._create_or_get_async_collection(
                 collection_path=str(self._configs.project_root), allow_create=False
             )
         except CollectionNotFoundError:
@@ -564,7 +527,7 @@ class ChromaDB0Connector(DatabaseConnectorBase):
 
         raw_results = await collection.get(
             where={"path": file_path},
-            include=[IncludeEnum.metadatas, IncludeEnum.documents],
+            include=["metadatas", "documents"],
         )
         assert raw_results["metadatas"] is not None
         assert raw_results["documents"] is not None
