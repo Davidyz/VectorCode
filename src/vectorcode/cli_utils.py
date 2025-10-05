@@ -122,14 +122,7 @@ class Config:
         Raise IOError if db_path is not valid.
         """
         default_config = Config()
-        db_path = config_dict.get("db_path")
 
-        if db_path is None:
-            db_path = os.path.expanduser("~/.local/share/vectorcode/chromadb/")
-        elif not os.path.isdir(db_path):
-            raise IOError(
-                f"The configured db_path ({str(db_path)}) is not a valid directory."
-            )
         return Config(
             **{
                 "embedding_function": config_dict.get(
