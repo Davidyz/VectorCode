@@ -221,6 +221,26 @@ async def test_drop(mock_config):
 
 
 @pytest.mark.asyncio
+async def test_drop_invalid_collection(mock_config):
+    """Test the drop method."""
+    connector = ChromaDB0Connector(mock_config)
+    with (
+        patch(
+            "vectorcode.database.chroma0._Chroma0ClientManager.get_client"
+        ) as mock_get_client,
+        patch(
+            "vectorcode.database.chroma0.get_collection_id",
+            return_value="collection_id",
+        ),
+    ):
+        mock_client = AsyncMock()
+        mock_get_client.return_value.__aenter__.return_value = mock_client
+        mock_client.delete_collection.side_effect = ValueError
+        with pytest.raises(CollectionNotFoundError):
+            await connector.drop()
+
+
+@pytest.mark.asyncio
 async def test_get_chunks(mock_config):
     """Test the get_chunks method."""
     connector = ChromaDB0Connector(mock_config)
