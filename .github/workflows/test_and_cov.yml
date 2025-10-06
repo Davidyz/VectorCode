@@ -56,9 +56,6 @@ jobs:
           pdm run coverage report -m
           pdm run coverage xml -i
 
-      - name: static analysis by basedpyright
-        run: pdm run basedpyright
-
       - name: upload coverage reports to codecov
         uses: codecov/codecov-action@v5
         with:

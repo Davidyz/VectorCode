@@ -32,7 +32,7 @@ from vectorcode.database.types import (
 )
 from vectorcode.database.utils import get_collection_id, get_uuid, hash_file
 
-if not chromadb.__version__.startswith("1."):
+if not chromadb.__version__.startswith("1."):  # pragma: nocover
     logging.error(
         f"""
 Found ChromaDB {chromadb.__version__}, which is incompatible wiht your VectorCode installation. Please install `vectorcode`.
@@ -146,10 +146,13 @@ class ChromaDBConnector(DatabaseConnectorBase):
         """
         Acquire a file (dir) lock if using persistent client.
         """
+        locked = False
         if self._lock is not None:
             await self._lock.acquire()
+            locked = True
         yield
-        if self._lock is not None:
+        if locked:
+            assert self._lock is not None
             await self._lock.release()
 
     async def _create_or_get_collection(
