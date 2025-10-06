@@ -9,15 +9,23 @@ from urllib.parse import urlparse
 
 import chromadb
 from filelock import AsyncFileLock
+from tree_sitter import Point
 
 from vectorcode.chunking import Chunk, TreeSitterChunker
-from vectorcode.cli_utils import Config, LockManager, QueryInclude
+from vectorcode.cli_utils import (
+    Config,
+    LockManager,
+    QueryInclude,
+    expand_globs,
+    expand_path,
+)
 from vectorcode.database import DatabaseConnectorBase
 from vectorcode.database.chroma_common import convert_chroma_query_results
 from vectorcode.database.errors import CollectionNotFoundError
 from vectorcode.database.types import (
     CollectionContent,
     CollectionInfo,
+    FileInCollection,
     QueryResult,
     ResultType,
     VectoriseStats,
@@ -39,6 +47,7 @@ uv tool install vectorcode
 from chromadb import Collection
 from chromadb.api import ClientAPI
 from chromadb.config import APIVersion, Settings
+from chromadb.errors import NotFoundError
 
 logger = logging.getLogger(name=__name__)
 
@@ -56,10 +65,23 @@ _default_settings: dict[str, Any] = {
 
 
 class ChromaDBConnector(DatabaseConnectorBase):
+    """
+    This is the connector layer for **ChromaDB 1.x**
+
+    Valid `db_params` options for ChromaDB 1.x:
+        - `db_url`: default to `http://127.0.0.1:8000`
+        - `db_path`: default to `~/.local/share/vectorcode/chromadb/`;
+        - `db_log_path`: default to `~/.local/share/vectorcode/`
+        - `db_settings`: See https://github.com/chroma-core/chroma/blob/508080841d2b2ebb3a9fbdc612087248df6f1382/chromadb/config.py#L120
+        - `hnsw`: default to `{ "hnsw:M": 64 }`
+    """
+
     def __init__(self, configs: Config):
         super().__init__(configs)
         params = _default_settings.copy()
         params.update(self._configs.db_params.copy())
+        params["db_path"] = os.path.expanduser(params["db_path"])
+        params["db_log_path"] = os.path.expanduser(params["db_log_path"])
         self._configs.db_params = params
 
         self._lock: AsyncFileLock | None = None
@@ -162,7 +184,7 @@ class ChromaDBConnector(DatabaseConnectorBase):
             if not allow_create:
                 try:
                     return client.get_collection(collection_id)
-                except ValueError as e:
+                except (ValueError, NotFoundError) as e:
                     raise CollectionNotFoundError(
                         f"There's no existing collection for {collection_path} in ChromaDB with the following setup: {self._configs.db_params}"
                     ) from e
@@ -266,17 +288,88 @@ class ChromaDBConnector(DatabaseConnectorBase):
         return VectoriseStats(add=1)
 
     async def delete(self) -> int:
-        return await super().delete()
+        project_root = self._configs.project_root
+        collection = await self._create_or_get_collection(str(project_root), False)
+
+        rm_paths = self._configs.rm_paths
+        if isinstance(rm_paths, str):
+            rm_paths = [rm_paths]
+        rm_paths = [
+            str(expand_path(path=i, absolute=True))
+            for i in await expand_globs(
+                paths=self._configs.rm_paths,
+                recursive=self._configs.recursive,
+                include_hidden=self._configs.include_hidden,
+            )
+        ]
+
+        files_in_collection = set(
+            str(expand_path(i.path, True))
+            for i in (
+                await self.list_collection_content(what=ResultType.document)
+            ).files
+        )
+
+        rm_paths = {
+            str(expand_path(i, True))
+            for i in rm_paths
+            if os.path.isfile(i) and (i in files_in_collection)
+        }
+
+        if rm_paths:
+            async with self.maybe_lock():
+                collection.delete(
+                    where=cast(chromadb.Where, {"path": {"$in": list(rm_paths)}})
+                )
+        return len(rm_paths)
 
     async def drop(
         self, *, collection_id: str | None = None, collection_path: str | None = None
     ):
-        return await super().drop(
-            collection_id=collection_id, collection_path=collection_path
-        )
+        collection_path = str(collection_path or self._configs.project_root)
+        collection_id = collection_id or get_collection_id(collection_path)
+        try:
+            async with self.maybe_lock():
+                await asyncio.to_thread(
+                    (await self.get_client()).delete_collection, collection_id
+                )
+        except ValueError as e:
+            raise CollectionNotFoundError(
+                f"Collection at {collection_path} is not found."
+            ) from e
 
     async def get_chunks(self, file_path) -> list[Chunk]:
-        return await super().get_chunks(file_path)
+        file_path = os.path.abspath(file_path)
+        try:
+            collection = await self._create_or_get_collection(
+                str(self._configs.project_root), False
+            )
+        except CollectionNotFoundError:
+            logger.warning(
+                f"There's no existing collection at {self._configs.project_root}."
+            )
+            return []
+
+        raw_results = collection.get(
+            where={"path": file_path},
+            include=["metadatas", "documents"],
+        )
+        assert raw_results["metadatas"] is not None
+        assert raw_results["documents"] is not None
+
+        result: list[Chunk] = []
+        for i in range(len(raw_results["ids"])):
+            meta = raw_results["metadatas"][i]
+            text = raw_results["documents"][i]
+            _id = raw_results["ids"][i]
+            chunk = Chunk(text=text, id=_id)
+            if meta.get("start") is not None:
+                chunk.start = Point(row=cast(int, meta["start"]), column=0)
+            if meta.get("end") is not None:
+                chunk.end = Point(row=cast(int, meta["end"]), column=0)
+
+            result.append(chunk)
+        return result
 
     async def list_collection_content(
         self,
@@ -285,7 +378,81 @@ class ChromaDBConnector(DatabaseConnectorBase):
         collection_id: str | None = None,
         collection_path: str | None = None,
     ) -> CollectionContent:
-        return CollectionContent(files=[], chunks=[])
+        """
+        When `what` is None, this method should populate both `CollectionContent.files` and `CollectionContent.chunks`.
+        Otherwise, this method may populate only one of them to save waiting time.
+        """
+        if collection_id is None:
+            collection_path = str(collection_path or self._configs.project_root)
+            collection = await self._create_or_get_collection(collection_path, False)
+        else:
+            try:
+                collection = (await self.get_client()).get_collection(collection_id)
+            except (ValueError, NotFoundError) as e:
+                raise CollectionNotFoundError(
+                    f"There's no existing collection for {collection_path} in ChromaDB with the following setup: {self._configs.db_params}"
+                ) from e
+        content = CollectionContent()
+        raw_content = await asyncio.to_thread(
+            collection.get,
+            include=[
+                "metadatas",
+                "documents",
+            ],
+        )
+        metadatas = raw_content.get("metadatas", [])
+        documents = raw_content.get("documents", [])
+        ids = raw_content.get("ids", [])
+        assert metadatas is not None
+        assert documents is not None
+        assert ids is not None
+        if what is None or what == ResultType.document:
+            content.files.extend(
+                set(
+                    FileInCollection(
+                        path=str(i.get("path")), sha256=str(i.get("sha256"))
+                    )
+                    for i in metadatas
+                )
+            )
+        if what is None or what == ResultType.chunk:
+            for i in range(len(ids)):
+                start, end = None, None
+                if metadatas[i].get("start") is not None:
+                    start = Point(row=cast(int, metadatas[i]["start"]), column=0)
+                if metadatas[i].get("end") is not None:
+                    end = Point(row=cast(int, metadatas[i]["end"]), column=0)
+                content.chunks.append(
+                    Chunk(
+                        text=documents[i],
+                        path=str(metadatas[i].get("path", "")) or None,
+                        id=ids[i],
+                        start=start,
+                        end=end,
+                    )
+                )
+
+        return content
 
     async def list_collections(self) -> Sequence[CollectionInfo]:
-        return []
+        client = await self.get_client()
+        result: list[CollectionInfo] = []
+        for col in client.list_collections():
+            project_root = str(col.metadata.get("path"))
+            col_counts = await self.list_collection_content(
+                collection_path=project_root
+            )
+            result.append(
+                CollectionInfo(
+                    id=col.name,
+                    path=project_root,
+                    embedding_function=col.metadata.get(
+                        "embedding_function",
+                        Config().embedding_function,  # fallback to default
+                    ),
+                    database_backend="Chroma",
+                    file_count=len(col_counts.files),
+                    chunk_count=len(col_counts.chunks),
+                )
+            )
+        return result
