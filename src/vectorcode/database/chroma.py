@@ -4,6 +4,7 @@ import logging
 import os
 import socket
 import sys
+from asyncio import Lock
 from typing import Any, Literal, Optional, Sequence, cast
 from urllib.parse import urlparse
 
@@ -84,9 +85,12 @@ class ChromaDBConnector(DatabaseConnectorBase):
         params["db_log_path"] = os.path.expanduser(params["db_log_path"])
         self._configs.db_params = params
 
-        self._lock: AsyncFileLock | None = None
         self._client: ClientAPI | None = None
         self._client_type: SupportedClientType
+
+        # locks for persistent client
+        self._file_lock: AsyncFileLock | None = None  # inter-process lock
+        self._thread_lock: Lock | None = None  # inter-thread lock
 
     def _create_client(self) -> ClientAPI:
         global _SUPPORTED_CLIENT_TYPE
@@ -113,9 +117,9 @@ class ChromaDBConnector(DatabaseConnectorBase):
                 f"Created chromadb.HttpClient from the following settings: {settings_obj}"
             )
             self._client = chromadb.HttpClient(
-                host=parsed_url.hostname,
-                port=parsed_url.port,
-                ssl=parsed_url.scheme == "https",
+                host=settings["chroma_server_host"],
+                port=settings["chroma_server_http_port"],
+                ssl=settings["chroma_server_ssl_enabled"],
                 settings=settings_obj,
             )
             self._client_type = "http"
@@ -138,7 +142,8 @@ class ChromaDBConnector(DatabaseConnectorBase):
             async with LockManager().get_lock(
                 self._configs.db_params["db_path"]
             ) as lock:
-                self._lock = lock
+                self._file_lock = lock
+                self._thread_lock = Lock()
         return self._client
 
     @contextlib.asynccontextmanager
@@ -147,13 +152,17 @@ class ChromaDBConnector(DatabaseConnectorBase):
         Acquire a file (dir) lock if using persistent client.
         """
         locked = False
-        if self._lock is not None:
-            await self._lock.acquire()
+        if self._file_lock is not None:
+            assert self._thread_lock is not None
+            await self._file_lock.acquire()
+            await self._thread_lock.acquire()
             locked = True
         yield
         if locked:
-            assert self._lock is not None
-            await self._lock.release()
+            assert self._thread_lock is not None
+            assert self._file_lock is not None
+            await self._file_lock.release()
+            self._thread_lock.release()
 
     async def _create_or_get_collection(
         self, collection_path: str, allow_create: bool = False

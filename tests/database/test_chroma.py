@@ -700,4 +700,5 @@ async def test_persistent_client(mock_config):
         assert connector._client_type == "persistent"
         assert os.path.isfile(os.path.join(tmp_db_dir, "vectorcode.lock"))
         async with connector.maybe_lock():
-            assert connector._lock.is_locked
+            assert connector._file_lock.is_locked
+            assert connector._thread_lock.locked()
