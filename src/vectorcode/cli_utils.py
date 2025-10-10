@@ -4,11 +4,22 @@ import glob
 import logging
 import os
 import sys
+from asyncio import Lock
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import Enum, StrEnum
 from pathlib import Path
-from typing import Any, Generator, Iterable, Optional, Sequence, Union
+from typing import (
+    Any,
+    Generator,
+    Iterable,
+    Literal,
+    Optional,
+    Sequence,
+    Type,
+    Union,
+    overload,
+)
 
 import json5
 import shtab
@@ -644,12 +655,15 @@ def config_logging(
     )
 
 
+LockType = AsyncFileLock | Lock
+
+
 class LockManager:
     """
     A class that manages file locks that protects the database files in daemon processes (LSP, MCP).
     """
 
-    __locks: dict[str, AsyncFileLock]
+    __locks: dict[tuple[str, Type[LockType]], LockType]
     singleton: Optional["LockManager"] = None
 
     def __new__(cls) -> "LockManager":
@@ -658,7 +672,23 @@ class LockManager:
             cls.singleton.__locks = {}
         return cls.singleton
 
-    def get_lock(self, path: str | os.PathLike) -> AsyncFileLock:
+    @overload
+    def get_lock(
+        self, path: str | os.PathLike, lock_type_name: Literal["asyncio"]
+    ) -> Lock: ...
+
+    @overload
+    def get_lock(
+        self,
+        path: str | os.PathLike,
+        lock_type_name: Literal["filelock"] | None,
+    ) -> AsyncFileLock: ...
+
+    def get_lock(
+        self,
+        path: str | os.PathLike,
+        lock_type_name: Literal["filelock"] | Literal["asyncio"] | None = "filelock",
+    ):
         path = str(expand_path(str(path), True))
         if os.path.isdir(path):
             lock_file = os.path.join(path, "vectorcode.lock")
@@ -667,9 +697,19 @@ class LockManager:
                 with open(lock_file, mode="w") as fin:
                     fin.write("")
             path = lock_file
-        if self.__locks.get(path) is None:
-            self.__locks[path] = AsyncFileLock(path)  # pyright: ignore[reportArgumentType]
-        return self.__locks[path]
+        lock: LockType
+        match lock_type_name:
+            case "filelock":
+                lock = AsyncFileLock(path)  # pyright: ignore[reportAssignmentType]
+            case "asyncio":
+                lock = Lock()
+            case _:  # pragma: nocover
+                raise ValueError(f"Unsupported lock type: {lock_type_name}")
+
+        cache_key = (path, type(lock))
+        if self.__locks.get(cache_key) is None:
+            self.__locks[cache_key] = lock
+        return self.__locks[cache_key]
 
 
 class SpecResolver:

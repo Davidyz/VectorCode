@@ -139,11 +139,13 @@ class ChromaDBConnector(DatabaseConnectorBase):
             self._create_client()
         assert self._client is not None
         if self._client_type == "persistent":
-            async with LockManager().get_lock(
-                self._configs.db_params["db_path"]
-            ) as lock:
-                self._file_lock = lock
-                self._thread_lock = Lock()
+            lock_manager = LockManager()
+            self._file_lock = lock_manager.get_lock(
+                str(self._configs.db_params["db_path"]), "filelock"
+            )
+            self._thread_lock = lock_manager.get_lock(
+                str(self._configs.db_params["db_path"]), "asyncio"
+            )
         return self._client
 
     @contextlib.asynccontextmanager
