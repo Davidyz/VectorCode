@@ -25,7 +25,7 @@ multitest:
 
 coverage:
 	make deps; \
-	pdm run coverage run $(EXTRA_COVERAGEPY_ARGS) -m pytest; \
+	pdm run coverage run $(EXTRA_COVERAGEPY_ARGS) -m pytest --enable-coredumpy --coredumpy-dir dumps; \
 	pdm run coverage html; \
 	pdm run coverage report -m
 

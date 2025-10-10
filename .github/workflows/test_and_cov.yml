@@ -47,12 +47,9 @@ jobs:
           mkdir -p "$HF_HOME"
           [ -z "$(ls "$HF_HOME")" ] || rm "${HF_HOME:?}/*" -rf && true
 
-      - name: run tests 
-        run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
-
       - name: run coverage
         run: |
-          pdm run coverage run -m pytest
+          sh ./scripts/coverage.sh
           pdm run coverage report -m
           pdm run coverage xml -i
 
