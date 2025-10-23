@@ -600,7 +600,7 @@ DO NOT MODIFY UNLESS INSTRUCTED BY THE USER, OR A PREVIOUS QUERY RETURNED NO RES
             vim.inspect(stderr)
           )
         )
-        stderr = utils.flatten_table_to_string(stderr)
+        stderr = utils.flatten_table_to_string(stderr, "Unknown error.")
         if string.find(stderr, "InvalidCollectionException") then
           if cmd.project_root then
             tools.chat:add_tool_output(

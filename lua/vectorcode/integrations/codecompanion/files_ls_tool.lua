@@ -43,7 +43,7 @@ return function(opts)
             cb({ status = "success", data = result })
           else
             if type(error) == "table" then
-              error = utils.flatten_table_to_string(error)
+              error = utils.flatten_table_to_string(error, "Unknown error.")
             end
             cb({
               status = "error",

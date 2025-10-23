@@ -174,10 +174,12 @@ function M.is_directory(f)
 end
 
 ---@param t table|string|nil
+---@param fallback string?
 ---@return string
-M.flatten_table_to_string = function(t)
+M.flatten_table_to_string = function(t, fallback)
+  fallback = fallback or ""
   if t == nil then
-    return ""
+    return fallback
   end
   if type(t) == "string" then
     return t
@@ -193,7 +195,7 @@ M.flatten_table_to_string = function(t)
     :totable()
 
   if #flattened == 0 then
-    return "Unknown error occurred"
+    return fallback
   end
 
   return table.concat(flattened, "\n")

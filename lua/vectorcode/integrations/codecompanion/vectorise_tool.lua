@@ -125,7 +125,7 @@ The value should be one of the following:
             vim.inspect(stderr)
           )
         )
-        stderr = utils.flatten_table_to_string(stderr)
+        stderr = utils.flatten_table_to_string(stderr, "Unknown error.")
         tools.chat:add_tool_output(
           self,
           string.format("**VectorCode `vectorise` Tool: %s", stderr)
