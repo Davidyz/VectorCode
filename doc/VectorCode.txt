@@ -185,13 +185,13 @@ The following requires VectorCode 0.7+ and a recent version of
 CodeCompanion.nvim.
 
 The CodeCompanion extension will register the following tools: -
-`@{vectorcode_ls}`an equivalent of `vectorcode ls` command that shows the
-indexed projects on your system; - `@{vectorcode_query}`an equivalent of
+`@{vectorcode_ls}`: an equivalent of `vectorcode ls` command that shows the
+indexed projects on your system; - `@{vectorcode_query}`: an equivalent of
 `vectorcode query` command that searches from a project; -
-`@{vectorcode_vectorise}`an equivalent of `vectorcode vectorise` command that
-adds files to the database; - `@{vectorcode_files_ls}`an equivalent of
+`@{vectorcode_vectorise}`: an equivalent of `vectorcode vectorise` command that
+adds files to the database; - `@{vectorcode_files_ls}`: an equivalent of
 `vectorcode files ls` command that gives a list of indexed files in a project;
-- `@{vectorcode_files_rm}`an equivalent of `vectorcode files rm` command that
+- `@{vectorcode_files_rm}`: an equivalent of `vectorcode files rm` command that
 removes files from a collection.
 
 By default, it’ll also create a tool group called `@{vectorcode_toolbox}`,
@@ -249,15 +249,15 @@ the `include_in_toolbox` option explained below.
 
 The following are the common options that all tools supports:
 
-- `use_lsp`whether to use the LSP backend to run the queries. Using LSP
+- `use_lsp`: whether to use the LSP backend to run the queries. Using LSP
     provides some insignificant performance boost and a nice notification pop-up
     if you’re using fidget.nvim <https://github.com/j-hui/fidget.nvim>. Default:
     `true` if `async_backend` is set to `"lsp"` in `setup()`. Otherwise, it’ll be
     `false`;
-- `requires_approval`whether CodeCompanion.nvim asks for your approval before
+- `requires_approval`: whether CodeCompanion.nvim asks for your approval before
     executing the tool call. Default: `false` for `ls` and `query`; `true` for
     `vectorise`;
-- `include_in_toolbox`whether this tool should be included in
+- `include_in_toolbox`: whether this tool should be included in
     `vectorcode_toolbox`. Default: `true` for `query`, `vectorise` and `ls`,
     `false` for `files_*`.
 
@@ -266,38 +266,38 @@ individually, or use the `["*"]` key to specify the default settings for all
 tools. If you’ve set both the default settings (via `["*"]`) and the
 individual settings for a tool, the individual settings take precedence.
 
-The `query` tool contains the following extra config options: -
-`chunk_mode`boolean, whether the VectorCode backend should return chunks or
-full documents. Default: `false`; - `max_num` and `default_num`If they’re set
-to integers, they represent the default and maximum allowed number of results
-returned by VectorCode (regardless of document or chunk mode). They can also be
-set to tables with 2 keys: `document` and `chunk`. In this case, their values
-would be used for the corresponding mode. You may ask the LLM to request a
-different number of chunks or documents, but they’ll be capped by the values
-in `max_num`. Default: See the sample snippet above. Negative values for
-`max_num` means unlimited. - `no_duplicate`boolean, whether the query calls
-should attempt to exclude files that has been retrieved and provided in the
-previous turns of the current chat. This helps saving tokens and increase the
-chance of retrieving the correct files when the previous retrievals fail to do
-so. Default: `true`. - `summarise`optional summarisation for the retrieval
-results. This is a table with the following keys: - `enabled`This can either be
-a boolean that toggles summarisation on/off completely, or a function that
+The `query` tool contains the following extra config options: - `chunk_mode`:
+boolean, whether the VectorCode backend should return chunks or full documents.
+Default: `false`; - `max_num` and `default_num`: If they’re set to integers,
+they represent the default and maximum allowed number of results returned by
+VectorCode (regardless of document or chunk mode). They can also be set to
+tables with 2 keys: `document` and `chunk`. In this case, their values would be
+used for the corresponding mode. You may ask the LLM to request a different
+number of chunks or documents, but they’ll be capped by the values in
+`max_num`. Default: See the sample snippet above. Negative values for `max_num`
+means unlimited. - `no_duplicate`: boolean, whether the query calls should
+attempt to exclude files that has been retrieved and provided in the previous
+turns of the current chat. This helps saving tokens and increase the chance of
+retrieving the correct files when the previous retrievals fail to do so.
+Default: `true`. - `summarise`: optional summarisation for the retrieval
+results. This is a table with the following keys: - `enabled`: This can either
+be a boolean that toggles summarisation on/off completely, or a function that
 accepts the `CodeCompanion.Chat` object and the raw query results as the 2
 paramters and returns a boolean. When it’s the later, it’ll be evaluated
 for every tool call. This allows you to write some custom logic to dynamically
 turn summarisation on and off. _When the summarisation is enabled, but you find
 the summaries not informative enough, you can tell the LLM to disable the
 summarisation during the chat so that it sees the raw information_; -
-`adapter`See CodeCompanion documentation
+`adapter`: See CodeCompanion documentation
 <https://codecompanion.olimorris.dev/configuration/adapters.html#configuring-adapters>.
-When not provided, it’ll use the chat adapter; - `system_prompt`When set to a
-string, this will be used as the system prompt for the summarisation model.
+When not provided, it’ll use the chat adapter; - `system_prompt`: When set to
+a string, this will be used as the system prompt for the summarisation model.
 When set to a function, it’ll be called with the default system prompt as the
 only parameter, and it should return a string that will be used as a system
 prompt. This allows you to append/prepend things to the default system prompt;
-- `query_augmented`boolean, whether the system prompt should contain the query
-so that when the LLM decide what information to include, it _may_ be able to
-avoid omitting stuff related to query.
+- `query_augmented`: boolean, whether the system prompt should contain the
+query so that when the LLM decide what information to include, it _may_ be able
+to avoid omitting stuff related to query.
 
 
 PROMPT LIBRARY
@@ -340,12 +340,12 @@ The `prompt_library` option is a mapping of prompt name (`string`) to a lua
 table (type annotation available) that contains some information used to
 generate the embeddings:
 
-- `project_root``string`, the path to the directory (for example,
+- `project_root`: `string`, the path to the directory (for example,
     `/usr/share/nvim/runtime/`);
-- `file_patterns``string[]`, file name patterns that defines files to be vectorised.
+- `file_patterns`: `string[]`, file name patterns that defines files to be vectorised.
     You should either use absolute paths or relative paths from the project root;
-- `system_prompt` and `user_prompt``string|fun(context:table):string|nil`
-    Theseoptions allow you to customise the prompts. See
+- `system_prompt` and `user_prompt`: `string|fun(context:table):string|nil`:
+    These options allow you to customise the prompts. See
     codecompanion.nvim documentation <https://codecompanion.olimorris.dev/extending/prompts#recipe-2-using-context-in-your-prompts>
     if you want to use a function here that build the prompts from the context.
 
@@ -399,10 +399,10 @@ CONFIGURATION OPTIONS
 
 The `make_context_provider` function accepts these options:
 
-- `prompt_header`Text that appears before the code context (default: "The following are relevant files from the repository. Use them as extra context for helping with code completion and understanding:")
-- `prompt_footer`Text that appears after the code context (default: "and provide a strategy with examples about: ")
-- `skip_empty`Whether to skip adding context when no files are retrieved (default: true)
-- `format_file`A function that formats each retrieved file (takes a file result object and returns formatted string)
+- `prompt_header`: Text that appears before the code context (default: "The following are relevant files from the repository. Use them as extra context for helping with code completion and understanding:")
+- `prompt_footer`: Text that appears after the code context (default: "and provide a strategy with examples about: ")
+- `skip_empty`: Whether to skip adding context when no files are retrieved (default: true)
+- `format_file`: A function that formats each retrieved file (takes a file result object and returns formatted string)
 
 
 USAGE TIPS
@@ -456,9 +456,9 @@ cached retrieval results.
     }
 <
 
-`opts` is a table with the following configuration option: -
-`show_job_count`boolean, whether to show the number of running jobs for the
-buffer. Default: `false`.
+`opts` is a table with the following configuration option: - `show_job_count`:
+boolean, whether to show the number of running jobs for the buffer. Default:
+`false`.
 
 This will, however, start VectorCode when lualine starts (which usually means
 when neovim starts). If this bothers you, you can use the following snippet:
@@ -573,32 +573,33 @@ This function initialises the VectorCode client and sets up some default
 <
 
 The following are the available options for the parameter of this function: -
-`cli_cmds`A table to customize the CLI command names / paths used by the
-plugin. Supported key: - `vectorcode`The command / path to use for the main CLI
-tool. Default: `"vectorcode"`. - `n_query`number of retrieved documents. A
-large number gives a higher chance of including the right file, but with the
+`cli_cmds`: A table to customize the CLI command names / paths used by the
+plugin. Supported key: - `vectorcode`: The command / path to use for the main
+CLI tool. Default: `"vectorcode"`. - `n_query`: number of retrieved documents.
+A large number gives a higher chance of including the right file, but with the
 risk of saturating the context window and getting truncated. Default: `1`; -
-`notify`whether to show notifications when a query is completed. Default:
-`true`; - `timeout_ms`timeout in milliseconds for the query operation. Applies
-to synchronous API only. Default: `5000` (5 seconds); - `exclude_this`whether
-to exclude the file you’re editing. Setting this to `false` may lead to an
-outdated version of the current file being sent to the LLM as the prompt, and
-can lead to generations with outdated information; - `async_opts`default
+`notify`: whether to show notifications when a query is completed. Default:
+`true`; - `timeout_ms`: timeout in milliseconds for the query operation.
+Applies to synchronous API only. Default: `5000` (5 seconds); - `exclude_this`:
+whether to exclude the file you’re editing. Setting this to `false` may lead
+to an outdated version of the current file being sent to the LLM as the prompt,
+and can lead to generations with outdated information; - `async_opts`: default
 options used when registering buffers. See
-|VectorCode-`register_buffer(bufnr?,-opts?)`| for details; - `async_backend`the
-async backend to use, currently either `"default"` or `"lsp"`. Default:
-`"default"`; - `on_setup`some actions that can be registered to run when
-`setup` is called. Supported keys: - `update`if `true`, the plugin will run
-`vectorcode update` on startup to update the embeddings; - `lsp`if `true`, the
-plugin will try to start the LSP server on startup so that you won’t need to
-wait for the server loading when making your first request. _Please pay extra
-attention on lazy-loading so that the LSP server won’t be started without a
-buffer to be attached to (see here)._ - `sync_log_env_var``boolean`. If true,
-this plugin will automatically set the `VECTORCODE_LOG_LEVEL` environment
-variable for LSP or cmd processes started within your neovim session when
-logging is turned on for this plugin. Use at caution because the non-LSP CLI
-write all logs to stderr, which _may_ make this plugin VERY verbose. See
-|VectorCode-debugging-and-logging| for details on how to turn on logging.
+|VectorCode-`register_buffer(bufnr?,-opts?)`| for details; - `async_backend`:
+the async backend to use, currently either `"default"` or `"lsp"`. Default:
+`"default"`; - `on_setup`: some actions that can be registered to run when
+`setup` is called. Supported keys: - `update`: if `true`, the plugin will run
+`vectorcode update` on startup to update the embeddings; - `lsp`: if `true`,
+the plugin will try to start the LSP server on startup so that you won’t need
+to wait for the server loading when making your first request. _Please pay
+extra attention on lazy-loading so that the LSP server won’t be started
+without a buffer to be attached to (see here)._ - `sync_log_env_var`:
+`boolean`. If true, this plugin will automatically set the
+`VECTORCODE_LOG_LEVEL` environment variable for LSP or cmd processes started
+within your neovim session when logging is turned on for this plugin. Use at
+caution because the non-LSP CLI write all logs to stderr, which _may_ make this
+plugin VERY verbose. See |VectorCode-debugging-and-logging| for details on how
+to turn on logging.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the

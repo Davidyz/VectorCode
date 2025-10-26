@@ -18,19 +18,37 @@ return {
         return
       end
       check_item = check_item or "config"
-      jobrunner.run_async({ "check", check_item }, function(result, error, code, signal)
-        local out = {
-          stdout = table.concat(vim.iter(result):flatten(math.huge):totable()),
-          stderr = table.concat(vim.iter(error):flatten(math.huge):totable()),
-          code = code,
-          signal = signal,
-        }
-        if out.code == 0 and type(on_success) == "function" then
-          vim.schedule_wrap(on_success)(out)
-        elseif out.code ~= 0 and type(on_failure) == "function" then
-          vim.schedule_wrap(on_failure)(out)
-        end
-      end, 0)
+      jobrunner.run_async(
+        { "check", check_item },
+        function(result, _error, code, signal)
+          local out_msg = nil
+          if type(result) == "table" and #result > 0 then
+            out_msg = table.concat(vim.iter(result):flatten(math.huge):totable())
+          elseif type(result) == "string" then
+            out_msg = result
+          end
+
+          local err_msg = nil
+          if type(_error) == "table" and #_error > 0 then
+            err_msg = table.concat(vim.iter(_error):flatten(math.huge):totable())
+          elseif type(_error) == "string" then
+            out_msg = _error
+          end
+
+          local out = {
+            stdout = out_msg,
+            stderr = err_msg,
+            code = code,
+            signal = signal,
+          }
+          if out.code == 0 and type(on_success) == "function" then
+            vim.schedule_wrap(on_success)(out)
+          elseif out.code ~= 0 and type(on_failure) == "function" then
+            vim.schedule_wrap(on_failure)(out)
+          end
+        end,
+        0
+      )
     end,
   },
 }

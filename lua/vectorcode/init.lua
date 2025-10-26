@@ -190,7 +190,7 @@ function M.check(check_item, stdout_cb)
     if type(stdout_cb) == "function" then
       stdout_cb({
         stdout = utils.flatten_table_to_string(result),
-        stderr = utils.flatten_table_to_string(error),
+        stderr = utils.flatten_table_to_string(error, "Unknown error."),
         code = code,
         signal = signal,
       })
