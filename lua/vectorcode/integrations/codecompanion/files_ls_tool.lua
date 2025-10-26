@@ -28,6 +28,7 @@ return function(opts)
       ---@return nil|{ status: string, data: string }
       function(tools, action, _, cb)
         local args = { "files", "ls", "--pipe" }
+        action = utils.fix_nil(action)
         if action ~= nil then
           action.project_root = action.project_root
             or vim.fs.root(0, { ".vectorcode", ".git" })

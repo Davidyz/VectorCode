@@ -201,4 +201,20 @@ M.flatten_table_to_string = function(t, fallback)
   return table.concat(flattened, "\n")
 end
 
+---Convert any `vim.NIL` instances to `nil` in lua.
+---@generic Obj: any
+---@param obj Obj
+---@return Obj
+function M.fix_nil(obj)
+  if obj == vim.NIL then
+    return nil
+  end
+  if type(obj) == "table" then
+    for k, v in pairs(obj) do
+      obj[k] = M.fix_nil(v)
+    end
+  end
+  return obj
+end
+
 return M

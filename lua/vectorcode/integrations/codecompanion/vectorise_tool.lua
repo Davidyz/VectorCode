@@ -76,6 +76,7 @@ The value should be one of the following:
       ---@return nil|{ status: string, data: string }
       function(tools, action, _, cb)
         local args = { "vectorise", "--pipe" }
+        action = utils.fix_nil(action)
         if action.project_root then
           local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root))
           if utils.is_directory(project_root) then
