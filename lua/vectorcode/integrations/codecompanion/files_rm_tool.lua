@@ -58,6 +58,7 @@ The value should be one of the following:
       ---@return nil|{ status: string, data: string }
       function(tools, action, _, cb)
         local args = { "files", "rm", "--pipe" }
+        action = utils.fix_nil(action)
         if action.project_root then
           local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root))
           if utils.is_directory(project_root) then
@@ -85,7 +86,7 @@ The value should be one of the following:
           args,
           ---@param result VectoriseResult
           function(result, error, code, _)
-            if result then
+            if code == 0 then
               cb({ status = "success", data = result })
             else
               cb({ status = "error", data = { error = error, code = code } })

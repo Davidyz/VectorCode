@@ -385,7 +385,7 @@ return check_cli_wrap(function(opts)
           "CodeCompanion query tool called with the following arguments:\n",
           action
         )
-
+        action = utils.fix_nil(action)
         if action.deduplicate == nil then
           action.deduplicate = opts.no_duplicate
         end
