@@ -82,6 +82,7 @@ server: LanguageServer = LanguageServer(name="vectorcode-server", version=__vers
 
 @server.command("vectorcode")
 async def execute_command(ls: LanguageServer, args: list[str]):
+    progress_token = str(uuid.uuid4())
     try:
         global DEFAULT_PROJECT_ROOT
         start_time = time.time()
@@ -119,8 +120,6 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             final_configs = parsed_args
         logger.info("Merged final configs: %s", final_configs)
         async with ClientManager().get_client(final_configs) as client:
-            progress_token = str(uuid.uuid4())
-
             if final_configs.action in {
                 CliAction.vectorise,
                 CliAction.query,
@@ -155,6 +154,8 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                             progress_token,
                             types.WorkDoneProgressEnd(message=log_message),
                         )
+
+                        progress_token = None
                         logger.info(log_message)
                     return final_results
                 case CliAction.ls:
@@ -174,6 +175,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                             types.WorkDoneProgressEnd(message="List retrieved."),
                         )
                         logger.info(f"Retrieved {len(projects)} project(s).")
+                        progress_token = None
                     return projects
                 case CliAction.vectorise:
                     assert collection is not None, (
@@ -241,6 +243,8 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                             message=f"Vectorised {stats.add + stats.update} files."
                         ),
                     )
+
+                    progress_token = None
                     return stats.to_dict()
                 case CliAction.files:
                     if collection is None:  # pragma: nocover
@@ -249,6 +253,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         )
                     match final_configs.files_action:
                         case FilesAction.ls:
+                            progress_token = None
                             return await list_collection_files(collection)
                         case FilesAction.rm:
                             to_be_removed = list(
@@ -277,6 +282,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                                     message="Removal finished.",
                                 ),
                             )
+                            progress_token = None
                 case _ as c:  # pragma: nocover
                     error_message = f"Unsupported vectorcode subcommand: {str(c)}"
                     logger.error(
@@ -290,6 +296,14 @@ async def execute_command(ls: LanguageServer, args: list[str]):
         else:
             # wrap non-pygls errors for error codes.
             raise JsonRpcInternalError(message=traceback.format_exc()) from e
+    finally:
+        if progress_token is not None:
+            ls.progress.end(
+                progress_token,
+                types.WorkDoneProgressEnd(
+                    message="Operation finished with error.",
+                ),
+            )
 
 
 async def lsp_start() -> int:
