@@ -4,8 +4,6 @@ import os
 import sys
 import traceback
 
-import httpx
-
 from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
@@ -14,7 +12,6 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
-from vectorcode.common import ClientManager
 
 logger = logging.getLogger(name=__name__)
 
@@ -24,7 +21,7 @@ async def async_main():
     if cli_args.no_stderr:
         sys.stderr = open(os.devnull, "w")
 
-    if cli_args.debug:
+    if cli_args.debug:  # pragma: nocover
         from vectorcode import debugging
 
         debugging.enable()
@@ -108,15 +105,10 @@ async def async_main():
                 from vectorcode.subcommands import files
 
                 return_val = await files(final_configs)
-    except Exception as e:
+    except Exception:
         return_val = 1
-        if isinstance(e, httpx.RemoteProtocolError):  # pragma: nocover
-            e.add_note(
-                f"Please verify that {final_configs.db_url} is a working chromadb server."
-            )
         logger.error(traceback.format_exc())
     finally:
-        await ClientManager().kill_servers()
         return return_val
 
 

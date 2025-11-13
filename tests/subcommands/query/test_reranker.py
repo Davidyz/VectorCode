@@ -5,6 +5,7 @@ import numpy
 import pytest
 
 from vectorcode.cli_utils import Config, QueryInclude
+from vectorcode.database.types import QueryResult
 from vectorcode.subcommands.query.reranker import (
     CrossEncoderReranker,
     NaiveReranker,
@@ -14,7 +15,6 @@ from vectorcode.subcommands.query.reranker import (
     get_available_rerankers,
     get_reranker,
 )
-from vectorcode.subcommands.query.types import QueryResult
 
 
 @pytest.fixture(scope="function")

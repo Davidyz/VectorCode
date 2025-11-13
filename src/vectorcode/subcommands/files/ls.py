@@ -2,22 +2,29 @@ import json
 import logging
 
 from vectorcode.cli_utils import Config
-from vectorcode.common import ClientManager, get_collection, list_collection_files
+from vectorcode.database import get_database_connector
+from vectorcode.database.errors import CollectionNotFoundError
+from vectorcode.database.types import ResultType
 
 logger = logging.getLogger(name=__name__)
 
 
 async def ls(configs: Config) -> int:
-    async with ClientManager().get_client(configs=configs) as client:
-        try:
-            collection = await get_collection(client, configs, False)
-        except ValueError:
-            logger.error(f"There's no existing collection at {configs.project_root}.")
-            return 1
-        paths = await list_collection_files(collection)
+    try:
+        database = get_database_connector(configs)
+        files = list(
+            i.path
+            for i in (
+                await database.list_collection_content(what=ResultType.document)
+            ).files
+        )
         if configs.pipe:
-            print(json.dumps(list(paths)))
+            print(json.dumps(files))
         else:
-            for p in paths:
-                print(p)
-    return 0
+            print("\n".join(files))
+        return 0
+    except CollectionNotFoundError:
+        logger.error(f"There's no existing collection for `{configs.project_root}`.")
+        return 1
+    except Exception:  # pragma: nocover
+        raise

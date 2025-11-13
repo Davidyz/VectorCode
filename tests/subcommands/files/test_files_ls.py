@@ -2,47 +2,29 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from chromadb.api.models.AsyncCollection import AsyncCollection
 
 from vectorcode.cli_utils import CliAction, Config, FilesAction
+from vectorcode.database.errors import CollectionNotFoundError
+from vectorcode.database.types import FileInCollection
 from vectorcode.subcommands.files.ls import ls
 
 
 @pytest.fixture
-def client():
-    return AsyncMock()
-
-
-@pytest.fixture
-def collection():
-    col = AsyncMock(spec=AsyncCollection)
-    col.get.return_value = {
-        "ids": ["id1", "id2", "id3"],
-        "distances": [0.1, 0.2, 0.3],
-        "metadatas": [
-            {"path": "file1.py", "start": 1, "end": 1},
-            {"path": "file2.py", "start": 1, "end": 1},
-            {"path": "file3.py", "start": 1, "end": 1},
-        ],
-        "documents": [
-            "content1",
-            "content2",
-            "content3",
-        ],
-    }
-    return col
+def mock_db():
+    db = AsyncMock()
+    db.list_collection_content.return_value.files = [
+        FileInCollection(path="file1.py", sha256="hash1"),
+        FileInCollection(path="file2.py", sha256="hash2"),
+        FileInCollection(path="file3.py", sha256="hash3"),
+    ]
+    return db
 
 
 @pytest.mark.asyncio
-async def test_ls(client, collection, capsys):
-    with (
-        patch("vectorcode.subcommands.files.ls.ClientManager") as MockClientManager,
-        patch(
-            "vectorcode.subcommands.files.ls.get_collection", return_value=collection
-        ),
-        patch("vectorcode.common.try_server", return_value=True),
+async def test_ls(mock_db, capsys):
+    with patch(
+        "vectorcode.subcommands.files.ls.get_database_connector", return_value=mock_db
     ):
-        MockClientManager.return_value._create_client.return_value = client
         await ls(Config(action=CliAction.files, files_action=FilesAction.ls))
         out = capsys.readouterr().out
         assert "file1.py" in out
@@ -51,27 +33,21 @@ async def test_ls(client, collection, capsys):
 
 
 @pytest.mark.asyncio
-async def test_ls_piped(client, collection, capsys):
-    with (
-        patch("vectorcode.subcommands.files.ls.ClientManager") as MockClientManager,
-        patch(
-            "vectorcode.subcommands.files.ls.get_collection", return_value=collection
-        ),
-        patch("vectorcode.common.try_server", return_value=True),
+async def test_ls_piped(mock_db, capsys):
+    with patch(
+        "vectorcode.subcommands.files.ls.get_database_connector", return_value=mock_db
     ):
-        MockClientManager.return_value._create_client.return_value = client
         await ls(Config(action=CliAction.files, files_action=FilesAction.ls, pipe=True))
         out = capsys.readouterr().out
         assert json.dumps(["file1.py", "file2.py", "file3.py"]).strip() == out.strip()
 
 
 @pytest.mark.asyncio
-async def test_ls_no_collection(client, collection, capsys):
-    with (
-        patch("vectorcode.subcommands.files.ls.ClientManager") as MockClientManager,
-        patch("vectorcode.subcommands.files.ls.get_collection", side_effect=ValueError),
+async def test_ls_no_collection(mock_db):
+    mock_db.list_collection_content.side_effect = CollectionNotFoundError
+    with patch(
+        "vectorcode.subcommands.files.ls.get_database_connector", return_value=mock_db
     ):
-        MockClientManager.return_value._create_client.return_value = client
         assert (
             await ls(
                 Config(action=CliAction.files, files_action=FilesAction.ls, pipe=True)
@@ -81,18 +57,15 @@ async def test_ls_no_collection(client, collection, capsys):
 
 
 @pytest.mark.asyncio
-async def test_ls_empty_collection(client, capsys):
-    mock_collection = AsyncMock(spec=AsyncCollection)
-    mock_collection.get.return_value = {}
-    with (
-        patch("vectorcode.subcommands.files.ls.ClientManager") as MockClientManager,
-        patch(
-            "vectorcode.subcommands.files.ls.get_collection",
-            return_value=mock_collection,
-        ),
-        patch("vectorcode.common.try_server", return_value=True),
+async def test_ls_empty_collection(mock_db, capsys):
+    mock_db.list_collection_content.return_value.files = []
+    with patch(
+        "vectorcode.subcommands.files.ls.get_database_connector", return_value=mock_db
     ):
-        MockClientManager.return_value._create_client.return_value = client
         assert (
-            await ls(Config(action=CliAction.files, files_action=FilesAction.ls)) == 0
+            await ls(
+                Config(pipe=True, action=CliAction.files, files_action=FilesAction.ls)
+            )
+            == 0
         )
+        assert capsys.readouterr().out.strip() == "[]"

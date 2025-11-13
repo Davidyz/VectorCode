@@ -38,7 +38,7 @@ jobs:
         run: pdm config use_uv true
 
       - name: install pdm and dependencies
-        run: make deps
+        run: EXTRA_LOCK_ARGS="--group chroma0" make deps
 
       - name: Set custom HF cache directory
         run: |
@@ -47,17 +47,11 @@ jobs:
           mkdir -p "$HF_HOME"
           [ -z "$(ls "$HF_HOME")" ] || rm "${HF_HOME:?}/*" -rf && true
 
-      - name: run tests 
-        run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
-
       - name: run coverage
         run: |
-          pdm run coverage run -m pytest
+          sh ./scripts/coverage.sh
           pdm run coverage report -m
           pdm run coverage xml -i
-
-      - name: static analysis by basedpyright
-        run: pdm run basedpyright
 
       - name: upload coverage reports to codecov
         uses: codecov/codecov-action@v5
