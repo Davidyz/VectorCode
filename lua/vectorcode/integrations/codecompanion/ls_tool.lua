@@ -1,7 +1,7 @@
 ---@module "codecompanion"
 
-local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 local logger = vc_config.logger
 
 ---@type VectorCode.CodeCompanion.LsToolOpts
@@ -45,7 +45,7 @@ return function(opts)
             cb({ status = "success", data = result })
           else
             if type(error) == "table" then
-              error = cc_common.flatten_table_to_string(error)
+              error = utils.flatten_table_to_string(error, "Unknown error.")
             end
             cb({
               status = "error",

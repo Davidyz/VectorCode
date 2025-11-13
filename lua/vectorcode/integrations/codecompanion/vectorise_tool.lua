@@ -2,6 +2,7 @@
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 local logger = vc_config.logger
 
 ---@alias VectoriseToolArgs { paths: string[], project_root: string? }
@@ -75,10 +76,10 @@ The value should be one of the following:
       ---@return nil|{ status: string, data: string }
       function(tools, action, _, cb)
         local args = { "vectorise", "--pipe" }
+        action = utils.fix_nil(action)
         if action.project_root then
           local project_root = vim.fs.abspath(vim.fs.normalize(action.project_root))
-          local stat = vim.uv.fs_stat(project_root)
-          if stat and stat.type == "directory" then
+          if utils.is_directory(project_root) then
             vim.list_extend(args, { "--project_root", project_root })
           else
             return { status = "error", data = "Invalid path " .. project_root }
@@ -86,11 +87,7 @@ The value should be one of the following:
         end
         if
           vim.iter(action.paths):any(function(p)
-            local stat = vim.uv.fs_stat(vim.fs.normalize(p))
-            if stat and stat.type == "directory" then
-              return true
-            end
-            return false
+            return utils.is_directory(p)
           end)
         then
           return {
@@ -129,7 +126,7 @@ The value should be one of the following:
             vim.inspect(stderr)
           )
         )
-        stderr = cc_common.flatten_table_to_string(stderr)
+        stderr = utils.flatten_table_to_string(stderr, "Unknown error.")
         tools.chat:add_tool_output(
           self,
           string.format("**VectorCode `vectorise` Tool: %s", stderr)

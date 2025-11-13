@@ -173,4 +173,48 @@ function M.is_directory(f)
   return stats and (stats.type == "directory") or false
 end
 
+---@param t table|string|nil
+---@param fallback string?
+---@return string
+M.flatten_table_to_string = function(t, fallback)
+  fallback = fallback or ""
+  if t == nil then
+    return fallback
+  end
+  if type(t) == "string" then
+    return t
+  end
+
+  -- Handle empty tables or tables with empty strings
+  local flattened = vim
+    .iter(t)
+    :flatten(math.huge)
+    :filter(function(item)
+      return type(item) == "string" and vim.trim(item) ~= ""
+    end)
+    :totable()
+
+  if #flattened == 0 then
+    return fallback
+  end
+
+  return table.concat(flattened, "\n")
+end
+
+---Convert any `vim.NIL` instances to `nil` in lua.
+---@generic Obj: any
+---@param obj Obj
+---@return Obj
+function M.fix_nil(obj)
+  if obj == vim.NIL then
+    return nil
+  end
+  if type(obj) == "table" then
+    for k, v in pairs(obj) do
+      obj[k] = M.fix_nil(v)
+    end
+  end
+  return obj
+end
+
 return M

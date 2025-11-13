@@ -10,27 +10,17 @@ local TOOL_RESULT_SOURCE = "VectorCodeToolResult"
 return {
   tool_result_source = TOOL_RESULT_SOURCE,
 
-  ---@param t table|string
+  ---@param t table|string|nil
   ---@return string
   flatten_table_to_string = function(t)
-    if type(t) == "string" then
-      return t
-    end
-
-    -- Handle empty tables or tables with empty strings
-    local flattened = vim
-      .iter(t)
-      :flatten(math.huge)
-      :filter(function(item)
-        return type(item) == "string" and vim.trim(item) ~= ""
-      end)
-      :totable()
-
-    if #flattened == 0 then
-      return "Unknown error occurred"
-    end
-
-    return table.concat(flattened, "\n")
+    vim.deprecate(
+      "vectorcode.integrations.codecompanion.common.flatten_table_to_string",
+      "vectorcode.utils.flatten_table_to_string",
+      "1.0.0",
+      "vectorcode",
+      true
+    )
+    return require("vectorcode.utils").flatten_table_to_string(t)
   end,
 
   ---@param use_lsp boolean

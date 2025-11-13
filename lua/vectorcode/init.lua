@@ -1,6 +1,7 @@
 local M = {}
 
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 local logger = vc_config.logger
 local get_config = vc_config.get_user_config
 local notify_opts = vc_config.notify_opts
@@ -60,7 +61,7 @@ M.query = vc_config.check_cli_wrap(
     else
       jobrunner.run_async(args, function(result, error)
         logger.debug(result)
-        callback(result)
+        callback(result or {})
         if error then
           logger.warn(vim.inspect(error))
         end
@@ -148,10 +149,7 @@ M.vectorise = vc_config.check_cli_wrap(
 M.update = vc_config.check_cli_wrap(function(project_root)
   logger.info("vectorcode.update: ", project_root)
   local args = { "update" }
-  if
-    type(project_root) == "string"
-    and vim.uv.fs_stat(vim.fs.normalize(project_root)).type == "directory"
-  then
+  if project_root ~= nil and utils.is_directory(project_root) then
     vim.list_extend(args, { "--project_root", project_root })
   end
   logger.debug("vectorcode.update cmd args: ", args)
@@ -191,8 +189,8 @@ function M.check(check_item, stdout_cb)
     return_code = code
     if type(stdout_cb) == "function" then
       stdout_cb({
-        stdout = table.concat(vim.iter(result):flatten(math.huge):totable()),
-        stderr = table.concat(vim.iter(error):flatten(math.huge):totable()),
+        stdout = utils.flatten_table_to_string(result),
+        stderr = utils.flatten_table_to_string(error, "Unknown error."),
         code = code,
         signal = signal,
       })

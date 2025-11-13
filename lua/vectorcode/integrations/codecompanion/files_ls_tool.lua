@@ -2,6 +2,7 @@
 
 local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
+local utils = require("vectorcode.utils")
 
 local default_opts = {
   use_lsp = vc_config.get_user_config().async_backend == "lsp",
@@ -27,13 +28,13 @@ return function(opts)
       ---@return nil|{ status: string, data: string }
       function(tools, action, _, cb)
         local args = { "files", "ls", "--pipe" }
+        action = utils.fix_nil(action)
         if action ~= nil then
           action.project_root = action.project_root
             or vim.fs.root(0, { ".vectorcode", ".git" })
           if action.project_root ~= nil then
             action.project_root = vim.fs.normalize(action.project_root)
-            local stat = vim.uv.fs_stat(action.project_root)
-            if stat and stat.type == "directory" then
+            if utils.is_directory(action.project_root) then
               vim.list_extend(args, { "--project_root", action.project_root })
             end
           end
@@ -43,7 +44,7 @@ return function(opts)
             cb({ status = "success", data = result })
           else
             if type(error) == "table" then
-              error = cc_common.flatten_table_to_string(error)
+              error = utils.flatten_table_to_string(error, "Unknown error.")
             end
             cb({
               status = "error",

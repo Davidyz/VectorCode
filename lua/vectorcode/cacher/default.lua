@@ -1,5 +1,7 @@
 ---@type VectorCode.CacheBackend
 local M = {}
+
+local utils = require("vectorcode.utils")
 local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 local jobrunner = require("vectorcode.jobrunner.cmd")
@@ -54,7 +56,7 @@ local function async_runner(query_message, buf_nr)
   local project_root = cache.options.project_root
   if project_root ~= nil then
     assert(
-      vim.uv.fs_stat(vim.fs.normalize(project_root)).type == "directory",
+      utils.is_directory(project_root),
       ("%s is not a valid directory!"):format(project_root)
     )
     vim.list_extend(args, { "--project_root", project_root })

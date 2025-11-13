@@ -84,6 +84,7 @@ server: LanguageServer = LanguageServer(name="vectorcode-server", version=__vers
 
 @server.command("vectorcode")
 async def execute_command(ls: LanguageServer, args: list[str]):
+    progress_token = str(uuid.uuid4())
     try:
         global DEFAULT_PROJECT_ROOT
         start_time = time.time()
@@ -152,6 +153,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         progress_token,
                         types.WorkDoneProgressEnd(message=log_msg),
                     )
+                    progress_token = None
                     return []
                 final_results = []
                 try:
@@ -169,6 +171,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         progress_token,
                         types.WorkDoneProgressEnd(message=log_message),
                     )
+                    progress_token = None
                     logger.info(log_message)
                 return final_results
             case CliAction.ls:
@@ -192,6 +195,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         progress_token,
                         types.WorkDoneProgressEnd(message="List retrieved."),
                     )
+                    progress_token = None
                     logger.info(f"Retrieved {len(projects)} project(s).")
                 return projects
             case CliAction.vectorise:
@@ -258,6 +262,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                         message=f"Vectorised {stats.add + stats.update} files."
                     ),
                 )
+                progress_token = None
                 return stats.to_dict()
             case CliAction.files:
                 match final_configs.files_action:
@@ -293,6 +298,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                                 message="Removal finished.",
                             ),
                         )
+                        progress_token = None
             case _ as c:  # pragma: nocover
                 error_message = f"Unsupported vectorcode subcommand: {str(c)}"
                 logger.error(
@@ -306,6 +312,14 @@ async def execute_command(ls: LanguageServer, args: list[str]):
         else:
             # wrap non-pygls errors for error codes.
             raise JsonRpcInternalError(message=traceback.format_exc()) from e
+    finally:
+        if progress_token is not None:
+            ls.progress.end(
+                progress_token,
+                types.WorkDoneProgressEnd(
+                    message="Operation finished with error.",
+                ),
+            )
 
 
 async def lsp_start() -> int:
