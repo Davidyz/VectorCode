@@ -46,7 +46,7 @@ from vectorcode.cli_utils import (
     expand_globs,
     expand_path,
     find_project_root,
-    get_project_config,
+    load_config_file,
     parse_cli_args,
 )
 from vectorcode.common import ClientManager, get_collection, list_collection_files
@@ -113,7 +113,7 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
 
             final_configs = await (
-                await get_project_config(parsed_args.project_root)
+                await load_config_file(parsed_args.project_root)
             ).merge_from(parsed_args)
             final_configs.pipe = True
         else:

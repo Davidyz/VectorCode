@@ -114,8 +114,6 @@ async def init(configs: Config) -> int:
     else:
         os.makedirs(project_config_dir, exist_ok=True)
         for item in (
-            "config.json5",
-            "config.json",
             "vectorcode.include",
             "vectorcode.exclude",
         ):
