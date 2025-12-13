@@ -66,7 +66,7 @@ local M = {
     local cc_chat_integration = cc_integration.chat
     for _, sub_cmd in pairs(valid_tools) do
       local tool_name = string.format("vectorcode_%s", sub_cmd)
-      if cc_config.strategies.chat.tools[tool_name] ~= nil then
+      if cc_config.interactions.chat.tools[tool_name] ~= nil then
         vim.notify(
           string.format(
             "There's an existing tool named `%s`. Please either remove it or rename it.",
@@ -82,7 +82,7 @@ local M = {
           )
         )
       else
-        cc_config.strategies.chat.tools[tool_name] = {
+        cc_config.interactions.chat.tools[tool_name] = {
           description = string.format("Run VectorCode %s tool", sub_cmd),
           callback = cc_chat_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
           opts = { requires_approval = opts.tool_opts[sub_cmd].requires_approval },
@@ -110,7 +110,7 @@ local M = {
           vim.inspect(included_tools)
         )
       )
-      cc_config.strategies.chat.tools.groups["vectorcode_toolbox"] = {
+      cc_config.interactions.chat.tools.groups["vectorcode_toolbox"] = {
         opts = { collapse_tools = opts.tool_group.collapse },
         description = "Use VectorCode to automatically build and retrieve repository-level context.",
         tools = included_tools,
