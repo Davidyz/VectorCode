@@ -7,8 +7,6 @@ local logger = vc_config.logger
 ---@type VectorCode.CodeCompanion.LsToolOpts
 local default_ls_options = {
   use_lsp = vc_config.get_user_config().async_backend == "lsp",
-  requires_approval = false,
-  include_in_toolbox = true,
 }
 
 ---@param opts VectorCode.CodeCompanion.LsToolOpts|{}|nil

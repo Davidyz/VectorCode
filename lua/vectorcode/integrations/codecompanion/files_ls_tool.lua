@@ -6,8 +6,6 @@ local utils = require("vectorcode.utils")
 
 local default_opts = {
   use_lsp = vc_config.get_user_config().async_backend == "lsp",
-  requires_approval = false,
-  include_in_toolbox = false,
 }
 
 ---@param opts VectorCode.CodeCompanion.FilesLsToolOpts

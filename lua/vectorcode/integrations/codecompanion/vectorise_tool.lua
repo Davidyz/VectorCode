@@ -12,8 +12,6 @@ local logger = vc_config.logger
 ---@type VectorCode.CodeCompanion.VectoriseToolOpts
 local default_vectorise_options = {
   use_lsp = vc_config.get_user_config().async_backend == "lsp",
-  requires_approval = true,
-  include_in_toolbox = true,
 }
 
 ---@param opts VectorCode.CodeCompanion.VectoriseToolOpts|{}|nil

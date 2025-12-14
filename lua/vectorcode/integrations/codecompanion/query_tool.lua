@@ -16,8 +16,6 @@ local job_runner = nil
 ---@type VectorCode.CodeCompanion.QueryToolOpts
 local default_query_options = {
   use_lsp = vc_config.get_user_config().async_backend == "lsp",
-  requires_approval = false,
-  include_in_toolbox = true,
   max_num = { chunk = -1, document = -1 },
   default_num = { chunk = 50, document = 10 },
   no_duplicate = true,
