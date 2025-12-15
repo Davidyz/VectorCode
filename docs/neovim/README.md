@@ -234,8 +234,9 @@ The following are the common options that all tools supports:
   if you're using [fidget.nvim](https://github.com/j-hui/fidget.nvim). Default:
   `true` if `async_backend` is set to `"lsp"` in `setup()`. Otherwise, it'll be
   `false`;
-- `requires_approval`: whether CodeCompanion.nvim asks for your approval before
-  executing the tool call. Default: `false` for `ls` and `query`; `true` for
+- `require_approval_before`: whether CodeCompanion.nvim asks for your approval before
+  executing the tool call. _Use `requires_approval` if you're using CodeCompanion.nvim `<v18.0.0`_.
+  Default: `false` for `ls` and `query`; `true` for
   `vectorise`;
 - `include_in_toolbox`: whether this tool should be included in
   `vectorcode_toolbox`. Default: `true` for `query`, `vectorise` and `ls`,

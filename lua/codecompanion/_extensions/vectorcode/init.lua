@@ -22,14 +22,19 @@ local utils = require("vectorcode.utils")
 
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
+  ---@type table<sub_cmd, VectorCode.CodeCompanion.ToolOpts|{}>
   tool_opts = {
     -- NOTE: the other default opts are defined in the source code files of the tools.
     -- `include_in_toolbox` is here so that the extension setup works as expected.
     ls = { include_in_toolbox = true },
     query = { include_in_toolbox = true },
-    vectorise = { include_in_toolbox = true },
+    vectorise = {
+      requires_approval = true,
+      require_approval_before = true,
+      include_in_toolbox = true,
+    },
     files_ls = {},
-    files_rm = {},
+    files_rm = { require_approval_before = true, requires_approval = true },
   },
   tool_group = { enabled = true, collapse = true, extras = {} },
   prompt_library = require("vectorcode.integrations.codecompanion.prompts.presets"),
@@ -58,15 +63,32 @@ end
 local M = {
   ---@param opts VectorCode.CodeCompanion.ExtensionOpts
   setup = vc_config.check_cli_wrap(function(opts)
+    if
+      opts
+      and opts.tool_opts
+      and vim.iter(opts.tool_opts):any(function(_, v)
+        return v.requires_approval ~= nil
+      end)
+    then
+      vim.deprecate(
+        "requires_approval",
+        "require_approval_before",
+        "1.0.0",
+        "VectorCode",
+        false
+      )
+    end
     opts = vim.tbl_deep_extend("force", default_extension_opts, opts or {})
     opts.tool_opts = merge_tool_opts(opts.tool_opts)
     logger.info("Received codecompanion extension opts:\n", opts)
     local cc_config = require("codecompanion.config").config
     local cc_integration = require("vectorcode.integrations").codecompanion
     local cc_chat_integration = cc_integration.chat
+
+    local interactions = cc_config.strategies or cc_config.interactions
     for _, sub_cmd in pairs(valid_tools) do
       local tool_name = string.format("vectorcode_%s", sub_cmd)
-      if cc_config.strategies.chat.tools[tool_name] ~= nil then
+      if interactions.chat.tools[tool_name] ~= nil then
         vim.notify(
           string.format(
             "There's an existing tool named `%s`. Please either remove it or rename it.",
@@ -82,10 +104,16 @@ local M = {
           )
         )
       else
-        cc_config.strategies.chat.tools[tool_name] = {
+        local require_approval = opts.tool_opts[sub_cmd].requires_approval
+          or opts.tool_opts[sub_cmd].require_approval_before
+
+        interactions.chat.tools[tool_name] = {
           description = string.format("Run VectorCode %s tool", sub_cmd),
           callback = cc_chat_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
-          opts = { requires_approval = opts.tool_opts[sub_cmd].requires_approval },
+          opts = {
+            requires_approval = require_approval,
+            require_approval_before = require_approval,
+          },
         }
         logger.info(string.format("%s tool has been created.", tool_name))
       end
@@ -110,7 +138,7 @@ local M = {
           vim.inspect(included_tools)
         )
       )
-      cc_config.strategies.chat.tools.groups["vectorcode_toolbox"] = {
+      interactions.chat.tools.groups["vectorcode_toolbox"] = {
         opts = { collapse_tools = opts.tool_group.collapse },
         description = "Use VectorCode to automatically build and retrieve repository-level context.",
         tools = included_tools,

@@ -6,8 +6,6 @@ local utils = require("vectorcode.utils")
 
 local default_opts = {
   use_lsp = vc_config.get_user_config().async_backend == "lsp",
-  requires_approval = true,
-  include_in_toolbox = false,
 }
 
 ---@alias FilesRmArgs { paths: string[], project_root: string? }

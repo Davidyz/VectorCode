@@ -76,6 +76,7 @@
 --- Whether to use the LSP backend. Default: `false`
 ---@field use_lsp boolean?
 ---@field requires_approval boolean?
+---@field require_approval_before boolean?
 --- Whether this tool should be included in `vectorcode_toolbox`
 ---@field include_in_toolbox boolean?
 
