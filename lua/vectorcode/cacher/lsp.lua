@@ -227,7 +227,7 @@ M.register_buffer = vc_config.check_cli_wrap(
       desc = "Kill all running VectorCode async jobs.",
       group = group,
       callback = function()
-        if client_id ~= nil then
+        if client_id ~= nil and vim.lsp.buf_is_attached(bufnr, client_id) then
           vim.lsp.buf_detach_client(bufnr, client_id)
         end
       end,
@@ -255,7 +255,7 @@ M.deregister_buffer = vc_config.check_cli_wrap(
       kill_jobs(bufnr)
       vim.api.nvim_del_augroup_by_name(("VectorCodeCacheGroup%d"):format(bufnr))
       CACHE[bufnr] = nil
-      if client_id ~= nil then
+      if client_id ~= nil and vim.lsp.buf_is_attached(bufnr, client_id) then
         vim.lsp.buf_detach_client(bufnr, client_id)
       end
       if opts.notify then
