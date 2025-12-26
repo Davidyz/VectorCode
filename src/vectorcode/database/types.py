@@ -1,11 +1,104 @@
 import heapq
+import json
 from collections import defaultdict
-from dataclasses import dataclass
-from typing import Literal, Union
+from dataclasses import dataclass, field, fields
+from enum import StrEnum
+from typing import Any, Literal, Self, Sequence, Union
 
 import numpy
+import tabulate
 
 from vectorcode.chunking import Chunk
+
+CollectionID = str
+
+
+class ResultType(StrEnum):
+    document = "document"
+    chunk = "chunk"
+
+
+@dataclass
+class QueryOpts:
+    keywords: Sequence[str]
+    count: int | None = None
+    return_type: ResultType = ResultType.chunk
+    excluded_files: Sequence[str] = field(default_factory=list)
+
+
+@dataclass
+class VectoriseStats:
+    add: int = 0
+    update: int = 0
+    removed: int = 0
+    skipped: int = 0
+    failed: int = 0
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+    def to_dict(self) -> dict[str, int]:
+        return {i.name: getattr(self, i.name) for i in fields(self)}
+
+    def to_table(self) -> str:
+        _fields = fields(self)
+        return tabulate.tabulate(
+            [
+                [i.name.capitalize() for i in _fields],
+                [getattr(self, i.name) for i in _fields],
+            ],
+            headers="firstrow",
+        )
+
+    def __add__(self, other) -> "VectoriseStats":
+        assert isinstance(other, VectoriseStats), (
+            "`VectoriseStats` can only perform arithmatics with objects of the same type."
+        )
+        new = VectoriseStats()
+        for f in fields(self):
+            f_name = f.name
+            setattr(new, f_name, sum(getattr(i, f_name) for i in (self, other)))
+        return new
+
+    def __iadd__(self, other) -> Self:
+        for f in fields(self):
+            setattr(self, f.name, sum(getattr(obj, f.name) for obj in (self, other)))
+        return self
+
+
+@dataclass
+class CollectionInfo:
+    id: CollectionID
+    path: str  # absolute path to the directory
+    embedding_function: str
+    database_backend: str
+    file_count: int = 0
+    chunk_count: int = 0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, int | str]:
+        return {
+            "project-root": self.path,
+            "size": self.chunk_count,
+            "num_files": self.file_count,
+            "collection_name": self.id,
+            "embedding_function": self.embedding_function,
+        }
+
+
+@dataclass
+class FileInCollection:
+    path: str
+    sha256: str
+
+    def __hash__(self):
+        return hash(self.sha256)
+
+
+@dataclass
+class CollectionContent:
+    files: list[FileInCollection] = field(default_factory=list)
+    chunks: list[Chunk] = field(default_factory=list)
 
 
 @dataclass

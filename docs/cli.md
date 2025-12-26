@@ -5,7 +5,6 @@
 
 * [Installation](#installation)
   * [Install from Source](#install-from-source)
-  * [Migration from `pipx`](#migration-from-pipx)
   * [Chromadb](#chromadb)
   * [For Windows Users](#for-windows-users)
   * [Legacy Environments](#legacy-environments)
@@ -55,7 +54,7 @@ your system Python or project-local virtual environments.
 
 After installing `uv`, run:
 ```bash
-uv tool install "vectorcode<1.0.0"
+uv tool install "vectorcode[chroma0]"
 ```
 in your shell. To specify a particular version of Python, use the `--python` 
 flag. For example, `uv tool install vectorcode --python python3.11`. For hardware
@@ -63,36 +62,23 @@ accelerated embedding, refer to [the relevant section](#hardware-acceleration).
 If you want a CPU-only installation without CUDA dependencies required by 
 default by PyTorch, run:
 ```bash
-uv tool install "vectorcode<1.0.0" --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
+uv tool install "vectorcode[chroma0]" --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
 ```
 
 If you need to install multiple dependency group (for [LSP](#lsp-mode) or
 [MCP](#mcp-server)), you can use the following syntax:
 ```bash
-uv tool install "vectorcode[lsp,mcp]<1.0.0"
+uv tool install "vectorcode[lsp,mcp,chroma0]"
 ```
 
 > [!NOTE] 
 > The command only install VectorCode and `SentenceTransformer`, the default
 > embedding engine. If you need to install an extra dependency, you can use 
-> `uv tool install vectorcode --with <your_deps_here>`
+> `uv tool install vectorcode[chroma0] --with <your_deps_here>`
 
 ### Install from Source
-To install from source, either `git clone` this repository and run `uv tool install
-<path_to_vectorcode_repo>`, or use `pipx`:
-```bash
-pipx install git+https://github.com/Davidyz/VectorCode
-```
-
-### Migration from `pipx`
-
-The motivation behind the change from `pipx` to `uv tool` is mainly the
-performance. The caching mechanism in uv makes it a lot faster than `pipx` for a
-lot of operations. If you installed VectorCode via `pipx`, you can continue to
-use `pipx` to manage your VectorCode installation. If you wish to switch to
-`uv`, you need to uninstall VectorCode using `pipx` and then use `uv` to install
-it as described above. All your VectorCode configurations and database files
-will work out of the box on your new install.
+To install from source, please `git clone` this repository and run `uv tool install
+<path_to_vectorcode_repo>`.
 
 ### Chromadb
 [Chromadb](https://www.trychroma.com/) is the vector database used by VectorCode
@@ -102,10 +88,6 @@ set up a standalone local server (they provides detailed instructions through
 [docker](https://docs.trychroma.com/production/containers/docker) and
 [systemd](https://cookbook.chromadb.dev/running/systemd-service/)), because this
 will significantly reduce the IO overhead and avoid potential race condition.
-
-> If you're setting up a standalone ChromaDB server, I recommend sticking to
-> v0.6.3,
-> because VectorCode is not ready for the upgrade to ChromaDB 1.0 yet.
 
 ### For Windows Users
 
@@ -261,7 +243,12 @@ be accepted. This allows you to leave trailing comma in the config file, as well
 as writing comments (`//`). This can be very useful if you're experimenting with
 the configs.
 
-The JSON configuration file may hold the following values:
+The JSON configuration file may hold the following values: 
+- `db_type`: string, default: `"ChromaDB0Connector"` (for chromadb 0.6.3), the 
+  database backend to use;
+- `db_params`: dictionary. See 
+  [the database connector documentation](../src/vectorcode/database/README.md) for the 
+  default values;
 - `embedding_function`: string, one of the embedding functions supported by [Chromadb](https://www.trychroma.com/) 
   (find more [here](https://docs.trychroma.com/docs/embeddings/embedding-functions) and 
   [here](https://docs.trychroma.com/integrations/chroma-integrations)). For
@@ -282,14 +269,6 @@ The JSON configuration file may hold the following values:
   to. _Make sure your model supports Matryoshka Representation Learning (MRL) 
   before using this._ Learn more about MRL [here](https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings).
   When set to `null` (or unset), the embeddings won't be truncated;
-- `db_url`: string, the url that points to the Chromadb server. VectorCode will start an
-  HTTP server for Chromadb at a randomly picked free port on `localhost` if your 
-  configured `http://host:port` is not accessible. Default: `http://127.0.0.1:8000`;
-- `db_path`: string, Path to local persistent database. If you didn't set up a standalone 
-  Chromadb server, this is where the files for your database will be stored. 
-  Default: `~/.local/share/vectorcode/chromadb/`;
-- `db_log_path`: string, path to the _directory_ where the built-in chromadb
-  server will write the log to. Default: `~/.local/share/vectorcode/`;
 - `chunk_size`: integer, the maximum number of characters per chunk. A larger
   value reduces the number of items in the database, and hence accelerates the
   search, but at the cost of potentially truncated data and lost information.
@@ -330,32 +309,20 @@ The JSON configuration file may hold the following values:
     }
   }
   ```
-- `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
-  for Chromadb client settings so that you can configure 
-  [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
-- `hnsw`: a dictionary of 
-  [hnsw settings](https://cookbook.chromadb.dev/core/configuration/#hnsw-configuration) 
-  that may improve the query performances or avoid runtime errors during
-  queries. **It's recommended to re-vectorise the collection after modifying these
-  options, because some of the options can only be set during collection
-  creation.** Example (and default):
+- `filetype_map`: `dict[str, list[str]]`, a dictionary where keys are
+  [language name](https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages)
+  and values are lists of [Python regex patterns](https://docs.python.org/3/library/re.html)
+  that will match file extensions. This allows overriding automatic language
+  detection and specifying a treesitter parser for certain file types for which the language parser cannot be
+  correctly identified (e.g., `.phtml` files containing both php and html).
+  Example configuration:
   ```json5
-  "hnsw": {
-    "hnsw:M": 64,
+  {
+    "filetype_map": {
+      "php": ["^phtml$"],
+    },
   }
   ```
-- `filetype_map`: `dict[str, list[str]]`, a dictionary where keys are
-    [language name](https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages)
-    and values are lists of [Python regex patterns](https://docs.python.org/3/library/re.html)
-    that will match file extensions. This allows overriding automatic language
-    detection and specifying a treesitter parser for certain file types for which the language parser cannot be
-    correctly identified (e.g., `.phtml` files containing both php and html).
-    Example configuration:
-    ```json5
-    "filetype_map": {
-      "php": ["^phtml$"]
-    }
-    ```
 
 - `chunk_filters`: `dict[str, list[str]]`, a dictionary where the keys are
   [language name](https://github.com/Goldziher/tree-sitter-language-pack?tab=readme-ov-file#available-languages)
@@ -364,10 +331,12 @@ The JSON configuration file may hold the following values:
   to languages supported by treesitter chunker. By default, no filters will be
   added. Example configuration:
   ```json5
-  "chunk_filters": {
-    "python": ["^[^a-zA-Z0-9]+$"], // multiple patterns will be merged (unioned)
-    // or you can use wildcard to match any languages that has no dedicated filters:
-    "*": ["^[^a-zA-Z0-9]+$"],
+  {
+    "chunk_filters": {
+      "python": ["^[^a-zA-Z0-9]+$"], // multiple patterns will be merged (unioned)
+      // or you can use wildcard to match any languages that has no dedicated filters:
+      "*": ["^[^a-zA-Z0-9]+$"],
+    },
   }
   ```
 - `encoding`: string, alternative encoding used for this project. By default
@@ -669,13 +638,13 @@ The output is in JSON format. It contains a dictionary with the following fields
 A JSON array of collection information of the following format will be printed:
 ```json 
 {
-  "project_root": str,
-  "user": str,
-  "hostname": str,
-  "collection_name": str,
-  "size": int,
-  "num_files": int,
-  "embedding_function": str
+  "project_root": "project_root",
+  "user": "user",
+  "hostname": "host",
+  "collection_name": "fuerbvo13571943ofuib",
+  "size": 10,
+  "num_files": 100,
+  "embedding_function": "SomeEmbeddingFunction"
 }
 ```
 - `"project_root"`: the path to the `project-root`;

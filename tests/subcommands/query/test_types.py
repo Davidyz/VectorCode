@@ -2,7 +2,7 @@ import pytest
 from tree_sitter import Point
 
 from vectorcode.chunking import Chunk
-from vectorcode.subcommands.query.types import QueryResult
+from vectorcode.database.types import QueryResult
 
 
 def make_dummy_chunk():

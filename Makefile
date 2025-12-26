@@ -1,10 +1,17 @@
-.PHONY: multitest
+EXTRA_LOCK_ARGS?=
+EXTRA_DEPS?=
+EXTRA_COVERAGEPY_ARGS?=
 
-DEFAULT_GROUPS=--group dev --group lsp --group mcp --group debug
+LOADED_DOT_ENV=@if [ -f .env ] ; then source .env; fi;
+
+DEFAULT_GROUPS=--group dev --group lsp --group mcp --group debug $(EXTRA_LOCK_ARGS)
+
+.PHONY: multitest
 
 deps:
 	pdm lock $(DEFAULT_GROUPS) || pdm lock $(DEFAULT_GROUPS) --group legacy; \
 	pdm install
+	[ -z "$(EXTRA_DEPS)" ] || (pdm run python -m ensurepip && pdm run python -m pip install $(EXTRA_DEPS))
 	
 test:
 	make deps; \
@@ -18,7 +25,7 @@ multitest:
 
 coverage:
 	make deps; \
-	pdm run coverage run -m pytest; \
+	pdm run coverage run $(EXTRA_COVERAGEPY_ARGS) -m pytest --enable-coredumpy --coredumpy-dir dumps; \
 	pdm run coverage html; \
 	pdm run coverage report -m
 
