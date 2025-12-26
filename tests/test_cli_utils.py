@@ -208,6 +208,52 @@ async def test_load_config_file_invalid_json():
 
 
 @pytest.mark.asyncio
+async def test_load_config_file_merging():
+    with tempfile.TemporaryDirectory() as dummy_home:
+        global_config_dir = os.path.join(dummy_home, ".config", "vectorcode")
+        os.makedirs(global_config_dir, exist_ok=True)
+        with open(os.path.join(global_config_dir, "config.json"), mode="w") as fin:
+            fin.writelines(['{"embedding_function": "DummyEmbeddingFunction"}'])
+
+        with tempfile.TemporaryDirectory(dir=dummy_home) as proj_root:
+            os.makedirs(os.path.join(proj_root, ".vectorcode"), exist_ok=True)
+            with open(
+                os.path.join(proj_root, ".vectorcode", "config.json"), mode="w"
+            ) as fin:
+                fin.writelines(
+                    ['{"embedding_function": "AnotherDummyEmbeddingFunction"}']
+                )
+
+            with patch(
+                "vectorcode.cli_utils.GLOBAL_CONFIG_DIR", new=str(global_config_dir)
+            ):
+                assert (
+                    await load_config_file()
+                ).embedding_function == "DummyEmbeddingFunction"
+                assert (
+                    await load_config_file(proj_root)
+                ).embedding_function == "AnotherDummyEmbeddingFunction"
+
+
+@pytest.mark.asyncio
+async def test_load_config_file_with_envs():
+    with tempfile.TemporaryDirectory() as proj_root:
+        os.makedirs(os.path.join(proj_root, ".vectorcode"), exist_ok=True)
+        with (
+            open(
+                os.path.join(proj_root, ".vectorcode", "config.json"), mode="w"
+            ) as fin,
+        ):
+            fin.writelines(['{"embedding_function": "$DUMMY_EMBEDDING_FUNCTION"}'])
+        with patch.dict(
+            os.environ, {"DUMMY_EMBEDDING_FUNCTION": "DummyEmbeddingFunction"}
+        ):
+            assert (
+                await load_config_file(proj_root)
+            ).embedding_function == "DummyEmbeddingFunction"
+
+
+@pytest.mark.asyncio
 async def test_load_from_default_config():
     for name in ("config.json5", "config.json"):
         with (
@@ -261,7 +307,8 @@ async def test_load_config_file_empty_file():
         with open(config_path, "w") as f:
             f.write("")
 
-        assert await load_config_file(config_path) == Config()
+        with pytest.raises(ValueError):
+            await load_config_file(config_path)
 
 
 @pytest.mark.asyncio
