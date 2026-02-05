@@ -93,6 +93,7 @@ class Config:
     embedding_dims: Optional[int] = None
     n_result: int = 1
     force: bool = False
+    batch_size: int = 100
     db_path: Optional[str] = "~/.local/share/vectorcode/chromadb/"
     db_log_path: str = "~/.local/share/vectorcode/"
     db_settings: Optional[dict] = None
@@ -290,6 +291,13 @@ def get_cli_parser():
         default=False,
         help="Force to vectorise the file(s) against the gitignore.",
     )
+    vectorise_parser.add_argument(
+        "-b",
+        "--batch_size",
+        type=int,
+        default=__default_config.batch_size,
+        help="Number of files to process per batch (default: 100). Use -1 for no batching.",
+    )
 
     query_parser = subparsers.add_parser(
         "query",
@@ -439,6 +447,7 @@ async def parse_cli_args(args: Optional[Sequence[str]] = None):
             configs_items["recursive"] = main_args.recursive
             configs_items["include_hidden"] = main_args.include_hidden
             configs_items["force"] = main_args.force
+            configs_items["batch_size"] = main_args.batch_size
             configs_items["chunk_size"] = main_args.chunk_size
             configs_items["overlap_ratio"] = main_args.overlap
             configs_items["encoding"] = main_args.encoding
