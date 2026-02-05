@@ -807,6 +807,130 @@ async def test_vectorise_exclude_file_recursive():
 
 
 @pytest.mark.asyncio
+async def test_vectorise_with_batch_size():
+    """Test that batch_size correctly limits concurrent task creation."""
+    configs = Config(
+        db_url="http://test_host:1234",
+        db_path="test_db",
+        embedding_function="SentenceTransformerEmbeddingFunction",
+        embedding_params={},
+        project_root="/test_project",
+        files=[f"file{i}.py" for i in range(10)],
+        recursive=False,
+        force=False,
+        pipe=False,
+        batch_size=3,
+    )
+    mock_client = AsyncMock()
+    mock_collection = MagicMock(spec=AsyncCollection)
+    mock_collection.get.return_value = {"ids": []}
+    mock_collection.delete.return_value = None
+    mock_collection.metadata = {
+        "embedding_function": "SentenceTransformerEmbeddingFunction",
+        "path": "/test_project",
+        "hostname": socket.gethostname(),
+        "created-by": "VectorCode",
+        "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
+    }
+    mock_client.get_max_batch_size.return_value = 50
+    mock_embedding_function = MagicMock()
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("vectorcode.subcommands.vectorise.ClientManager"),
+        )
+        stack.enter_context(patch("os.path.isfile", return_value=False))
+        stack.enter_context(
+            patch(
+                "vectorcode.subcommands.vectorise.expand_globs",
+                return_value=configs.files,
+            )
+        )
+        mock_chunked_add = stack.enter_context(
+            patch("vectorcode.subcommands.vectorise.chunked_add", return_value=None)
+        )
+        stack.enter_context(
+            patch(
+                "vectorcode.common.get_embedding_function",
+                return_value=mock_embedding_function,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "vectorcode.subcommands.vectorise.get_collection",
+                return_value=mock_collection,
+            )
+        )
+
+        result = await vectorise(configs)
+        assert result == 0
+        # All 10 files should be processed
+        assert mock_chunked_add.call_count == 10
+
+
+@pytest.mark.asyncio
+async def test_vectorise_with_batch_size_disabled():
+    """Test that batch_size=-1 disables batching (processes all files at once)."""
+    configs = Config(
+        db_url="http://test_host:1234",
+        db_path="test_db",
+        embedding_function="SentenceTransformerEmbeddingFunction",
+        embedding_params={},
+        project_root="/test_project",
+        files=[f"file{i}.py" for i in range(5)],
+        recursive=False,
+        force=False,
+        pipe=False,
+        batch_size=-1,
+    )
+    mock_client = AsyncMock()
+    mock_collection = MagicMock(spec=AsyncCollection)
+    mock_collection.get.return_value = {"ids": []}
+    mock_collection.delete.return_value = None
+    mock_collection.metadata = {
+        "embedding_function": "SentenceTransformerEmbeddingFunction",
+        "path": "/test_project",
+        "hostname": socket.gethostname(),
+        "created-by": "VectorCode",
+        "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
+    }
+    mock_client.get_max_batch_size.return_value = 50
+    mock_embedding_function = MagicMock()
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("vectorcode.subcommands.vectorise.ClientManager"),
+        )
+        stack.enter_context(patch("os.path.isfile", return_value=False))
+        stack.enter_context(
+            patch(
+                "vectorcode.subcommands.vectorise.expand_globs",
+                return_value=configs.files,
+            )
+        )
+        mock_chunked_add = stack.enter_context(
+            patch("vectorcode.subcommands.vectorise.chunked_add", return_value=None)
+        )
+        stack.enter_context(
+            patch(
+                "vectorcode.common.get_embedding_function",
+                return_value=mock_embedding_function,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "vectorcode.subcommands.vectorise.get_collection",
+                return_value=mock_collection,
+            )
+        )
+
+        result = await vectorise(configs)
+        assert result == 0
+        # All 5 files should be processed
+        assert mock_chunked_add.call_count == 5
+
+
+@pytest.mark.asyncio
 async def test_vectorise_uses_global_exclude_when_local_missing():
     mock_client = AsyncMock()
     mock_collection = AsyncMock()

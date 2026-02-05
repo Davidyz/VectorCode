@@ -302,28 +302,32 @@ async def vectorise(configs: Config) -> int:
         max_batch_size = await client.get_max_batch_size()
         semaphore = asyncio.Semaphore(os.cpu_count() or 1)
 
+        batch_size = configs.batch_size if configs.batch_size > 0 else len(files)
+
         with tqdm.tqdm(
             total=len(files), desc="Vectorising files...", disable=configs.pipe
         ) as bar:
             try:
-                tasks = [
-                    asyncio.create_task(
-                        chunked_add(
-                            str(file),
-                            collection,
-                            collection_lock,
-                            stats,
-                            stats_lock,
-                            configs,
-                            max_batch_size,
-                            semaphore,
+                for i in range(0, len(files), batch_size):
+                    batch = files[i : i + batch_size]
+                    tasks = [
+                        asyncio.create_task(
+                            chunked_add(
+                                str(file),
+                                collection,
+                                collection_lock,
+                                stats,
+                                stats_lock,
+                                configs,
+                                max_batch_size,
+                                semaphore,
+                            )
                         )
-                    )
-                    for file in files
-                ]
-                for task in asyncio.as_completed(tasks):
-                    await task
-                    bar.update(1)
+                        for file in batch
+                    ]
+                    for task in asyncio.as_completed(tasks):
+                        await task
+                        bar.update(1)
             except asyncio.CancelledError:
                 print("Abort.", file=sys.stderr)
                 return 1
