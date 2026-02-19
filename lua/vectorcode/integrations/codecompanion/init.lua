@@ -2,7 +2,7 @@
 
 return {
   chat = {
-    ---@param subcommand sub_cmd
+    ---@param subcommand VectorCode.CodeCompanion.SubCommand
     ---@param opts VectorCode.CodeCompanion.ToolOpts
     ---@return CodeCompanion.Tools.Tool
     make_tool = function(subcommand, opts)
@@ -15,6 +15,7 @@ return {
         error("Unsupported version of codecompanion!")
       end
     end,
+
     prompts = require("vectorcode.integrations.codecompanion.prompts"),
   },
 }

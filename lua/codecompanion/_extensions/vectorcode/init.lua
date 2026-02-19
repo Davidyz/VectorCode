@@ -1,11 +1,11 @@
 ---@module "codecompanion"
 
----@alias sub_cmd "ls"|"query"|"vectorise"|"files_ls"|"files_rm"
+---@alias VectorCode.CodeCompanion.SubCommand "ls"|"query"|"vectorise"|"files_ls"|"files_rm"
 
 ---@class VectorCode.CodeCompanion.ExtensionOpts
 ---A table where the keys are the subcommand name (`ls`, `query`, `vectorise`, etc.)
 --- and the values are their config options.
----@field tool_opts? table<sub_cmd|"*", VectorCode.CodeCompanion.ToolOpts>
+---@field tool_opts? table<VectorCode.CodeCompanion.SubCommand|"*", VectorCode.CodeCompanion.ToolOpts>
 ---Options related to the `vectorcode_toolbox` tool group
 ---@field tool_group? VectorCode.CodeCompanion.ToolGroupOpts
 ---Prompt library that automatically creates VectorCode collections on local files
@@ -22,7 +22,7 @@ local utils = require("vectorcode.utils")
 
 ---@type VectorCode.CodeCompanion.ExtensionOpts|{}
 local default_extension_opts = {
-  ---@type table<sub_cmd, VectorCode.CodeCompanion.ToolOpts|{}>
+  ---@type table<VectorCode.CodeCompanion.SubCommand, VectorCode.CodeCompanion.ToolOpts|{}>
   tool_opts = {
     -- NOTE: the other default opts are defined in the source code files of the tools.
     -- `include_in_toolbox` is here so that the extension setup works as expected.
@@ -40,11 +40,11 @@ local default_extension_opts = {
   prompt_library = require("vectorcode.integrations.codecompanion.prompts.presets"),
 }
 
----@type sub_cmd[]
+---@type VectorCode.CodeCompanion.SubCommand[]
 local valid_tools = { "ls", "query", "vectorise", "files_ls", "files_rm" }
 
----@param tool_opts table<sub_cmd|"*", VectorCode.CodeCompanion.ToolOpts>
----@return table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
+---@param tool_opts table<VectorCode.CodeCompanion.SubCommand|"*", VectorCode.CodeCompanion.ToolOpts>
+---@return table<VectorCode.CodeCompanion.SubCommand, VectorCode.CodeCompanion.ToolOpts>
 local function merge_tool_opts(tool_opts)
   local wildcard_opts = tool_opts["*"]
   if wildcard_opts then
@@ -55,7 +55,7 @@ local function merge_tool_opts(tool_opts)
     end
     tool_opts["*"] = nil
   end
-  ---@cast tool_opts table<sub_cmd, VectorCode.CodeCompanion.ToolOpts>
+  ---@cast tool_opts table<VectorCode.CodeCompanion.SubCommand, VectorCode.CodeCompanion.ToolOpts>
   return tool_opts
 end
 
