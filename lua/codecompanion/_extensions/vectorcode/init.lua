@@ -104,17 +104,8 @@ local M = {
           )
         )
       else
-        local require_approval = opts.tool_opts[sub_cmd].requires_approval
-          or opts.tool_opts[sub_cmd].require_approval_before
-
-        interactions.chat.tools[tool_name] = {
-          description = string.format("Run VectorCode %s tool", sub_cmd),
-          callback = cc_chat_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd]),
-          opts = {
-            requires_approval = require_approval,
-            require_approval_before = require_approval,
-          },
-        }
+        interactions.chat.tools[tool_name] =
+          cc_chat_integration.make_tool(sub_cmd, opts.tool_opts[sub_cmd])
         logger.info(string.format("%s tool has been created.", tool_name))
       end
     end
