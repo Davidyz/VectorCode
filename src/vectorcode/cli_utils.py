@@ -492,7 +492,7 @@ async def load_config_file(path: Optional[Union[str, Path]] = None):
                 break
     if path and os.path.isfile(path):
         logger.debug(f"Loading config from {path}")
-        with open(path) as fin:
+        with open(path, encoding="utf-8") as fin:
             content = fin.read()
         if content:
             config = json5.loads(content)
@@ -681,7 +681,7 @@ class LockManager:
             lock_file = os.path.join(path, "vectorcode.lock")
             logger.info(f"Creating {lock_file} for locking.")
             if not os.path.isfile(lock_file):
-                with open(lock_file, mode="w") as fin:
+                with open(lock_file, mode="w", encoding="utf-8") as fin:
                     fin.write("")
             path = lock_file
         if self.__locks.get(path) is None:
@@ -719,7 +719,7 @@ class SpecResolver:
 
     def __init__(self, spec: str | GitIgnoreSpec, base_dir: str = "."):
         if isinstance(spec, str):
-            with open(spec) as fin:
+            with open(spec, encoding="utf-8") as fin:
                 self.spec = GitIgnoreSpec.from_lines(
                     (i.strip() for i in fin.readlines())
                 )

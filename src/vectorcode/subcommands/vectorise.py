@@ -219,13 +219,13 @@ def load_files_from_include(project_root: str) -> list[str]:
     specs: Optional[pathspec.GitIgnoreSpec] = None
     if os.path.isfile(include_file_path):
         logger.debug("Loading from local `vectorcode.include`.")
-        with open(include_file_path) as fin:
+        with open(include_file_path, encoding="utf-8") as fin:
             specs = pathspec.GitIgnoreSpec.from_lines(
                 lines=(os.path.expanduser(i) for i in fin.readlines()),
             )
     elif os.path.isfile(GLOBAL_INCLUDE_SPEC):
         logger.debug("Loading from global `vectorcode.include`.")
-        with open(GLOBAL_INCLUDE_SPEC) as fin:
+        with open(GLOBAL_INCLUDE_SPEC, encoding="utf-8") as fin:
             specs = pathspec.GitIgnoreSpec.from_lines(
                 lines=(os.path.expanduser(i) for i in fin.readlines()),
             )
