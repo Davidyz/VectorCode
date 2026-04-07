@@ -218,7 +218,7 @@ async def query_tool(
             for result in result_paths:
                 if isinstance(result, str):
                     if os.path.isfile(result):
-                        with open(result) as fin:
+                        with open(result, encoding="utf-8") as fin:
                             rel_path = os.path.relpath(result, config.project_root)
                             results.append(
                                 f"<path>{rel_path}</path>\n<content>{fin.read()}</content>",

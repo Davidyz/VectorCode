@@ -49,7 +49,7 @@ def load_hooks():
     global __HOOK_CONTENTS
     for file in glob.glob(str(__GLOBAL_HOOKS_PATH / "*")):
         hook_name = Path(file).stem
-        with open(file) as fin:
+        with open(file, encoding="utf-8") as fin:
             lines = fin.readlines()
             if not __lines_are_empty(lines):
                 __HOOK_CONTENTS[hook_name] = lines
@@ -65,7 +65,7 @@ class HookFile:
         self.path = path
         self.lines: list[str] = []
         if os.path.isfile(self.path):
-            with open(self.path) as fin:
+            with open(self.path, encoding="utf-8") as fin:
                 self.lines.extend(fin.readlines())
 
     def has_vectorcode_hooks(self, force: bool = False) -> bool:
@@ -92,7 +92,7 @@ class HookFile:
             self.lines.append(self.prefix + "\n")
             self.lines.extend(i if i.endswith("\n") else i + "\n" for i in content)
             self.lines.append(self.suffix + "\n")
-        with open(self.path, "w") as fin:
+        with open(self.path, "w", encoding="utf-8") as fin:
             if os.path.islink(self.path):  # pragma: nocover
                 logger.warning(f"{self.path} is a symlink.")
             fin.writelines(self.lines)

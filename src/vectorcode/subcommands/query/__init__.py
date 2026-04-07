@@ -151,7 +151,7 @@ async def build_query_results(
             if not os.path.isfile(io_path):
                 logger.warning(f"{io_path} is no longer a valid file.")
                 continue
-            with open(io_path) as fin:
+            with open(io_path, encoding="utf-8") as fin:
                 structured_result.append({"path": output_path, "document": fin.read()})
         else:
             res = cast(Chunk, res)
