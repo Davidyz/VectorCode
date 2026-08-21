@@ -12,6 +12,7 @@ from pygments.lexers import get_lexer_for_filename
 from pygments.util import ClassNotFound
 from tree_sitter import Node, Point
 from tree_sitter_language_pack import SupportedLanguage, get_parser
+from tree_sitter_language_pack import Error as TreeSitterLanguagePackError
 
 from vectorcode.cli_utils import Config
 
@@ -370,11 +371,10 @@ class TreeSitterChunker(ChunkerBase):
                         f"\nInvalid regex pattern '{pattern}' for language '{language}' in filetype_map"
                     )
                     raise
-                except LookupError as e:
-                    e.add_note(
-                        f"\nTreeSitter Parser for language '{language}' not found. Please check your filetype_map config."
-                    )
-                    raise
+                except (LookupError, TreeSitterLanguagePackError) as e:
+                    raise LookupError(
+                        f"TreeSitter Parser for language '{language}' not found. Please check your filetype_map config."
+                    ) from e
 
         logger.debug(f"No matching filetype map entry found for {filename}.")
         return None
@@ -412,7 +412,7 @@ class TreeSitterChunker(ChunkerBase):
                                 language,
                             )
                             break
-                    except LookupError:  # pragma: nocover
+                    except (LookupError, TreeSitterLanguagePackError):  # pragma: nocover
                         pass
 
         if parser is None:
